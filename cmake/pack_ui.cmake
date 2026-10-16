@@ -8,12 +8,21 @@ if(NOT NPM OR NOT UI_DIR OR NOT ZIP)
     message(FATAL_ERROR "pack_ui.cmake needs -D NPM= -D UI_DIR= -D ZIP=")
 endif()
 
-execute_process(
-    COMMAND "${NPM}" run build
-    WORKING_DIRECTORY "${UI_DIR}"
-    RESULT_VARIABLE build_result)
+if(WIN32)
+    # On Windows npm is npm.cmd; run it via cmd so CreateProcess accepts it
+    # (a bare path to the extensionless `npm` script is "not a valid executable").
+    execute_process(
+        COMMAND cmd /c npm run build
+        WORKING_DIRECTORY "${UI_DIR}"
+        RESULT_VARIABLE build_result)
+else()
+    execute_process(
+        COMMAND "${NPM}" run build
+        WORKING_DIRECTORY "${UI_DIR}"
+        RESULT_VARIABLE build_result)
+endif()
 if(NOT build_result EQUAL 0)
-    message(FATAL_ERROR "npm run build failed (exit ${build_result})")
+    message(FATAL_ERROR "npm run build failed (${build_result})")
 endif()
 
 file(REMOVE "${ZIP}")

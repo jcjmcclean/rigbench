@@ -76,7 +76,7 @@ juce_add_gui_app(Tonebench
 # and it behaves identically on macOS/Linux/Windows.
 set(TONEBENCH_WEBUI_ZIP ${CMAKE_CURRENT_SOURCE_DIR}/assets/webui.zip)
 set(TONEBENCH_UI_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/ui)
-find_program(NPM_EXECUTABLE npm)
+find_program(NPM_EXECUTABLE NAMES npm.cmd npm)
 if(NPM_EXECUTABLE)
     file(GLOB_RECURSE TONEBENCH_UI_SOURCES CONFIGURE_DEPENDS
         ${TONEBENCH_UI_DIR}/src/*
