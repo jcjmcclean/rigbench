@@ -83,6 +83,7 @@ WebUIComponent::WebUIComponent()
             { if (! a.isEmpty()) loadSlotChooser (a[0].toString()); done (juce::var()); })
         .withNativeFunction ("clearSlot", [this] (const juce::Array<juce::var>& a, Completion done)
             { const int s = slotIndex (a.isEmpty() ? juce::String() : a[0].toString());
+              if (s == AudioEngine::vst3Slot) editorWindow = nullptr; // close editor before destroying plugin
               if (s >= 0) { engine.setNode (s, nullptr); markDirty(); } done (juce::var()); })
         .withNativeFunction ("setBypass", [this] (const juce::Array<juce::var>& a, Completion done)
             { const int s = slotIndex (a[0].toString());
@@ -356,6 +357,7 @@ void WebUIComponent::loadSlotChooser (const juce::String& type)
 
 void WebUIComponent::doLoadVst (const juce::File& file)
 {
+    editorWindow = nullptr; // close the editor of the plugin we're replacing
     auto node = std::make_unique<Vst3Node>();
     auto* raw = node.get();
     pendingVst = std::move (node);
@@ -428,6 +430,10 @@ void WebUIComponent::savePreset (const juce::String& name)
 
 void WebUIComponent::loadPreset (const juce::String& name)
 {
+    // Close any open plugin editor BEFORE the preset load clears slots (which
+    // destroys the current VST3 instance) — a live editor on a freed instance crashes.
+    editorWindow = nullptr;
+
     const auto file = Preset::presetsDir().getChildFile (name + Preset::fileExtension);
     Preset::RigInfo info;
     const bool ok = Preset::load (file, engine, engine.getSampleRate(), engine.getMaxBlockSize(), info,
