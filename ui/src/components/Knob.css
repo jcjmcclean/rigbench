@@ -28,17 +28,58 @@
   transition: stroke-dasharray 0.06s linear;
 }
 
+/* ---- Machined chrome cap: conic bevel rim, lit top-left, lifted off faceplate ---- */
 .knob__cap {
   position: absolute;
   inset: 16%;
   border-radius: 50%;
-  background:
-    radial-gradient(120% 120% at 50% 20%, #2f2a22, #17140f 70%);
+  isolation: isolate;
+  /* chrome bevel: brightest glint top-left (~315deg), horizon glint at bottom */
+  background: conic-gradient(from 0deg at 50% 50%,
+    #d9dfe5 0deg,
+    #5a636b 45deg,
+    #333a40 90deg,
+    #6e7881 135deg,
+    #c2cad1 180deg,
+    #5a636b 225deg,
+    #3b4248 270deg,
+    #eef3f7 315deg,
+    #d9dfe5 360deg);
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.6),
-    0 1px 0 rgba(255, 255, 255, 0.05) inset;
-  display: grid;
-  place-items: center;
+    0 6px 14px -4px rgba(0, 0, 0, 0.65),      /* cast shadow lifts cap off faceplate */
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.05),        /* faceplate contact edge */
+    inset 0 0 0 1px rgba(0, 0, 0, 0.45),      /* crisp rim line */
+    inset 2px 3px 4px rgba(255, 255, 255, 0.35),  /* top-left lit bevel */
+    inset -2px -3px 5px rgba(0, 0, 0, 0.5);       /* bottom-right shaded bevel */
+}
+
+/* ---- Brushed / spun machined top face (reveals the chrome bevel ring) ---- */
+.knob__face {
+  position: absolute;
+  inset: 13%;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    /* top-left sheen */
+    radial-gradient(120% 120% at 32% 26%,
+      rgba(255, 255, 255, 0.6) 0%,
+      rgba(255, 255, 255, 0.1) 20%,
+      rgba(255, 255, 255, 0) 44%),
+    /* edge vignette for doming */
+    radial-gradient(circle at 50% 50%,
+      rgba(0, 0, 0, 0) 52%,
+      rgba(0, 0, 0, 0.42) 100%),
+    /* spun-metal machining: fine radial stripes, low contrast */
+    repeating-conic-gradient(from 0deg at 50% 50%,
+      #bdc4ca 0deg 3deg,
+      #a6adb4 3deg 6deg),
+    /* steel base */
+    radial-gradient(circle at 50% 50%, #b4bcc3, #828b93);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),  /* lit top lip */
+    inset 0 -3px 6px rgba(0, 0, 0, 0.4),        /* recess toward rim */
+    inset 0 0 0 1px rgba(0, 0, 0, 0.3);         /* step between face and bevel */
 }
 
 .knob__pointer {
@@ -46,12 +87,17 @@
   top: 8%;
   left: 50%;
   width: 3px;
-  height: 36%;
+  height: 34%;
   margin-left: -1.5px;
   transform-origin: 50% 118%;
+  z-index: 2;
   background: linear-gradient(var(--ember-bright), var(--ember));
   border-radius: 3px;
-  box-shadow: 0 0 6px rgba(255, 122, 45, 0.7);
+  box-shadow:
+    0 0 3px rgba(255, 122, 45, 0.85),
+    0 0 7px rgba(255, 122, 45, 0.5),            /* jewel bloom */
+    inset 0 0 1px rgba(255, 255, 255, 0.7),     /* lit engraving edge */
+    0 1px 0 rgba(0, 0, 0, 0.45);                /* engraved depth */
 }
 
 .knob__meta {
@@ -72,3 +118,5 @@
 .knob--disabled { opacity: 0.4; pointer-events: none; }
 .knob--disabled .knob__value { stroke: var(--ink-faint); filter: none; }
 .knob--disabled .knob__pointer { background: var(--ink-faint); box-shadow: none; }
+.knob--disabled .knob__cap,
+.knob--disabled .knob__face { filter: saturate(0.2) brightness(0.85); }

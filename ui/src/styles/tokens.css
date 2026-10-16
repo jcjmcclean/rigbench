@@ -20,6 +20,8 @@
   --ember: #ff7a2d;         /* primary accent */
   --ember-bright: #ff9850;
   --ember-dim: #b85520;
+  --ember-hot: #ffb373;     /* inner jewel body */
+  --ember-core: #ffe7ce;    /* white-hot jewel centre */
   --gold: #d6a456;          /* secondary accent */
   --gold-dim: #8f6f3a;
 
@@ -62,4 +64,19 @@
   --glow-signal: 0 0 14px rgba(79,210,194,0.5);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ---- Premium metal surfaces ----
+     Cool-steel ramp: deliberately near-neutral & faintly warm so it reads as
+     "steel" against the warm tolex without ever going literally blue/grey.
+     The surrounding warmth does the perceptual "cool" work. */
+  --steel-lo:  #302d29;     /* machined shade / bottom of cylinder */
+  --steel-mid: #45413b;     /* body */
+  --steel-hi:  #605b52;     /* top catch-light */
+  --steel-sheen: rgba(220, 226, 234, 0.12);  /* the one cool highlight */
+  --steel-grain-hi: rgba(255, 255, 255, 0.035);
+  --steel-grain-lo: rgba(0, 0, 0, 0.05);
+
+  /* Low-contrast diamond / tread-plate tile (36px, 2 embossed bumps) */
+  --diamond-tile:
+    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='36'%20height='36'%20viewBox='0%200%2036%2036'%3E%3Cg%20fill='none'%20stroke-linecap='round'%20stroke-width='2'%3E%3Cg%20stroke='rgba(0,0,0,0.33)'%20transform='translate(0.9,0.9)'%3E%3Cpath%20d='M9%203l6%206-6%206-6-6z'/%3E%3Cpath%20d='M27%2021l6%206-6%206-6-6z'/%3E%3C/g%3E%3Cg%20stroke='rgba(226,231,238,0.06)'%3E%3Cpath%20d='M9%203l6%206-6%206-6-6z'/%3E%3Cpath%20d='M27%2021l6%206-6%206-6-6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }

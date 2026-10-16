@@ -3,31 +3,58 @@
 .meter--h { flex-direction: row-reverse; }
 
 .meter__track {
+  position: relative;
   display: flex;
   gap: 2px;
   padding: 3px;
-  background: var(--bg-1);
+  /* deep inset well the segments sit in */
+  background: linear-gradient(#0a0908, #141210);
   border-radius: var(--r-sm);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.6);
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,0.9),
+    inset 0 0 0 1px rgba(0,0,0,0.7),
+    inset 0 -1px 0 rgba(255,255,255,0.03);
+}
+/* faint glass sheen across the well */
+.meter__track::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(rgba(255,255,255,0.05), rgba(255,255,255,0) 40%);
 }
 .meter--v .meter__track { flex-direction: column; width: 10px; }
 .meter--h .meter__track { flex-direction: row; height: 10px; }
 
 .meter__seg {
+  position: relative;
   flex: 1;
   border-radius: 1px;
-  background: var(--led-off);
+  /* unlit: near-black recessed cell */
+  background: linear-gradient(#131115, #070609);
+  box-shadow: inset 0 0 2px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.04);
   min-width: 4px;
   min-height: 4px;
-  transition: opacity 0.05s linear, box-shadow 0.05s linear;
-  opacity: 0.5;
+  transition: opacity 0.05s linear, box-shadow 0.05s linear, background 0.05s linear;
+  opacity: 0.6;
 }
 .meter--v .meter__seg { height: 6px; }
 .meter--h .meter__seg { width: 6px; }
 
+/* lit: coloured bar with a bright gloss top + its own coloured bloom */
 .meter__seg.is-on { opacity: 1; }
-.meter__seg--ok.is-on   { background: var(--signal);    box-shadow: 0 0 5px rgba(79,210,194,0.7); }
-.meter__seg--warn.is-on { background: var(--gold);      box-shadow: 0 0 5px rgba(214,164,86,0.7); }
-.meter__seg--clip.is-on { background: var(--signal-hot); box-shadow: 0 0 6px rgba(255,90,77,0.85); }
+.meter__seg--ok.is-on {
+  background: linear-gradient(#bff7ef 0%, var(--signal) 55%);
+  box-shadow: 0 0 5px rgba(79,210,194,0.75), inset 0 0 2px rgba(255,255,255,0.5);
+}
+.meter__seg--warn.is-on {
+  background: linear-gradient(#f3dca3 0%, var(--gold) 55%);
+  box-shadow: 0 0 5px rgba(214,164,86,0.75), inset 0 0 2px rgba(255,255,255,0.5);
+}
+.meter__seg--clip.is-on {
+  background: linear-gradient(#ff9e92 0%, var(--signal-hot) 55%);
+  box-shadow: 0 0 6px rgba(255,90,77,0.85), inset 0 0 2px rgba(255,255,255,0.5);
+}
 
 .meter__label { font-size: 9px; }
