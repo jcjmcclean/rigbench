@@ -16,3 +16,6 @@ ui/dist/
 .vscode/
 .idea/
 *.user
+
+# Build-generated: assets/webui.zip is produced from ui/dist by CMake (tonestack_ui)
+assets/webui.zip
