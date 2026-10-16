@@ -71,8 +71,9 @@ juce_add_gui_app(Tonebench
 
 # Build the React UI and pack it into assets/webui.zip, driven by the build so
 # the embedded UI can never go stale (it used to be hand-built + git-committed,
-# which is why the WebView needed a per-launch cache-bust hack). cmake -E tar
-# keeps the zip step cross-platform (no `zip` CLI needed on Windows runners).
+# which is why the WebView needed a per-launch cache-bust hack). The work lives in
+# cmake/pack_ui.cmake, run as a single `cmake -P` step so exit codes are checked
+# and it behaves identically on macOS/Linux/Windows.
 set(TONEBENCH_WEBUI_ZIP ${CMAKE_CURRENT_SOURCE_DIR}/assets/webui.zip)
 set(TONEBENCH_UI_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 find_program(NPM_EXECUTABLE npm)
@@ -83,11 +84,11 @@ if(NPM_EXECUTABLE)
         ${TONEBENCH_UI_DIR}/package.json)
     add_custom_command(
         OUTPUT  ${TONEBENCH_WEBUI_ZIP}
-        COMMAND ${NPM_EXECUTABLE} run build
-        COMMAND ${CMAKE_COMMAND} -E rm -f ${TONEBENCH_WEBUI_ZIP}
-        COMMAND ${CMAKE_COMMAND} -E chdir ${TONEBENCH_UI_DIR}/dist
-                ${CMAKE_COMMAND} -E tar cf ${TONEBENCH_WEBUI_ZIP} --format=zip .
-        WORKING_DIRECTORY ${TONEBENCH_UI_DIR}
+        COMMAND ${CMAKE_COMMAND}
+                -D NPM=${NPM_EXECUTABLE}
+                -D UI_DIR=${TONEBENCH_UI_DIR}
+                -D ZIP=${TONEBENCH_WEBUI_ZIP}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/pack_ui.cmake
         DEPENDS ${TONEBENCH_UI_SOURCES}
         COMMENT "Building React UI -> assets/webui.zip"
         VERBATIM)
