@@ -54,9 +54,10 @@ public:
 } // namespace
 
 //==============================================================================
-WebUIComponent::WebUIComponent()
+WebUIComponent::WebUIComponent (Options componentOptions)
+    : onUiReady (std::move (componentOptions.onUiReady))
 {
-    using Options = juce::WebBrowserComponent::Options;
+    using BrowserOptions = juce::WebBrowserComponent::Options;
 
     // Each native function forwards to the rig (or a GUI action), marks the
     // state dirty so the next timer tick pushes it, and completes immediately.
@@ -71,11 +72,27 @@ WebUIComponent::WebUIComponent()
     };
     auto arg = [] (const juce::Array<juce::var>& a, int i) { return i < a.size() ? a[i] : juce::var(); };
 
-    Options options = Options{}
+    // JUCE's default backend on Windows is Internet Explorer, which has neither the
+    // resource provider nor the native bridge, so ask for WebView2 explicitly. Its
+    // default user-data folder sits next to the exe (unwritable under Program
+    // Files), so keep it in the app's data folder. Both are ignored elsewhere.
+    const auto webViewData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                                 .getChildFile ("Tonebench").getChildFile ("WebView2");
+
+    BrowserOptions options = BrowserOptions{}
+        .withBackend (BrowserOptions::Backend::webview2)
+        .withWinWebView2Options (BrowserOptions::WinWebView2{}
+                                     .withUserDataFolder (webViewData)
+                                     .withBackgroundColour (juce::Colour (0xff0a0b0d))
+                                     .withStatusBarDisabled())
         .withNativeIntegrationEnabled()
         .withResourceProvider ([this] (const auto& p) { return provideResource (p); })
         .withNativeFunction ("getState", [this] (const juce::Array<juce::var>&, Completion done)
-            { done (buildStateVar()); })
+            {
+                done (buildStateVar());
+                if (auto ready = std::exchange (onUiReady, nullptr))
+                    ready();   // the page loaded and reached the engine
+            })
         .withNativeFunction ("loadSlot",  op ([this, arg] (auto& a) { loadSlotChooser (arg (a, 0).toString()); }))
         .withNativeFunction ("clearSlot", op ([this, arg] (auto& a)
             {
@@ -104,8 +121,11 @@ WebUIComponent::WebUIComponent()
     setSize (1180, 760);
 
     // Restore the audio device from last session (device, rate, buffer).
-    std::unique_ptr<juce::XmlElement> savedAudio (juce::XmlDocument::parse (audioSettingsFile()));
-    setAudioChannels (2, 2, savedAudio.get());
+    if (componentOptions.openAudioDevice)
+    {
+        std::unique_ptr<juce::XmlElement> savedAudio (juce::XmlDocument::parse (audioSettingsFile()));
+        setAudioChannels (2, 2, savedAudio.get());
+    }
     deviceManager.addChangeListener (this);
 
     startTimerHz (30);

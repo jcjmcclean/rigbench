@@ -7,6 +7,12 @@
 #include <optional>
 #include <vector>
 
+struct WebUIOptions
+{
+    bool openAudioDevice = true;            // false for --smoke (no device, no mic prompt)
+    std::function<void()> onUiReady;        // first time the page reaches the engine
+};
+
 //==============================================================================
 // Hosts the React UI in a WebView and bridges it to the rig.
 //  - JS -> C++ : native functions (loadSlot, setMix, savePreset, ...), most of
@@ -19,7 +25,8 @@ class WebUIComponent : public juce::AudioAppComponent,
                        private juce::ChangeListener
 {
 public:
-    WebUIComponent();
+    using Options = WebUIOptions;
+    explicit WebUIComponent (Options options = {});
     ~WebUIComponent() override;
 
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override;
@@ -61,6 +68,7 @@ private:
 
     std::unique_ptr<juce::WebBrowserComponent> web;
     bool stateDirty = true;
+    std::function<void()> onUiReady;
 
    #if JUCE_DEBUG
     void devAutoLoad();   // DEBUG-ONLY: loads an app-private sentinel file if present (SEC-1)
