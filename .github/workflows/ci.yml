@@ -1,6 +1,6 @@
-# Tonebench test CI. This workflow is the TEST gate only — it builds the offline
-# bench and runs the C++ self-test under --strict, and lints/builds/tests the
-# React UI. The cross-platform RELEASE build matrix lives in a separate
+# Tonebench test CI. This workflow is the TEST gate only — it builds the C++
+# unit tests + offline bench on all three OSes and runs them, and lints/builds/
+# tests the React UI. The cross-platform RELEASE build matrix lives in a separate
 # build.yml (owned elsewhere); do not duplicate packaging here.
 name: ci
 
@@ -15,27 +15,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  cpp-selftest:
-    name: C++ self-test (macOS)
-    runs-on: macos-14
+  cpp-tests:
+    name: C++ tests (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14,       name: macOS }
+          - { os: ubuntu-latest,  name: Linux }
+          - { os: windows-latest, name: Windows }
     steps:
       - uses: actions/checkout@v4
 
-      # Configure + build ONLY the offline bench. It shares the real engine
-      # sources with the app but needs no Node/WebUI, so the test gate stays fast.
-      # (FetchContent pulls JUCE + NeuralAmpModelerCore on first configure.)
+      # Configure needs the GUI app's platform deps even though only the CLI and
+      # unit tests are built (JUCE resolves the WebView at configure time).
+      - name: Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libasound2-dev \
+            libjack-jackd2-dev libx11-dev libxext-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev
+
+      - name: Install WebView2 SDK (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dest = "$env:USERPROFILE\AppData\Local\PackageManagement\NuGet\Packages"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory $dest -ExcludeVersion
+
+      # FetchContent pulls JUCE, NeuralAmpModelerCore and Catch2 on first configure.
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-      - name: Build tonebench_cli
-        run: cmake --build build --target tonebench_cli
+      # Only the offline bench and the unit tests: they share the real engine and
+      # app-logic sources with the app but need no Node/WebUI, so the gate stays fast.
+      - name: Build tests
+        run: cmake --build build --config RelWithDebInfo --target tonebench_cli tonebench_tests
 
-      # --strict (via the selftest_strict CTest registration) turns a skipped
-      # CORE suite (preset round-trip, resampler) into a failure, so a
-      # green-but-skipped run can never pass the gate. The committed .nam fixture
-      # keeps the NAM + preset suites running on the clean CI box.
-      - name: Run self-test (ctest, strict)
-        run: ctest --test-dir build --output-on-failure
+      # Runs every Catch2 test case plus the self-test. selftest_strict turns a
+      # skipped CORE suite into a failure, so green-but-skipped can't pass.
+      - name: Run tests
+        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
 
   ui-tests:
     name: UI lint + build + test

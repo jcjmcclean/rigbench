@@ -131,6 +131,15 @@ function createMockBridge(): Bridge {
 }
 
 // ---- Real JUCE engine -----------------------------------------------------
+// The "error" event payload is { message: string }; tolerate a bare string too.
+export function errorMessage(e: unknown): string {
+  if (typeof e === "string") return e;
+  if (e && typeof e === "object" && typeof (e as { message?: unknown }).message === "string")
+    return (e as { message: string }).message;
+  return "Something went wrong in the audio engine.";
+}
+
+
 function createJuceBridge(): Bridge {
   const fn = (name: string) => Juce.getNativeFunction(name) as (...args: unknown[]) => Promise<unknown>;
   const f = {
@@ -163,8 +172,9 @@ function createJuceBridge(): Bridge {
   backend.addEventListener("meters", (m: unknown) => {
     if (current) { current = { ...current, ...(m as Partial<EngineState>) }; notify(); }
   });
-  // Phase 1 emits load failures as an "error" event carrying a string message.
-  backend.addEventListener("error", (e: unknown) => emitError(String(e)));
+  // The engine emits failures (a model or plugin that wouldn't load, a bad preset
+  // name) as an "error" event carrying { message }.
+  backend.addEventListener("error", (e: unknown) => emitError(errorMessage(e)));
 
   return {
     getState: async () => { current = (await f.getState()) as EngineState; return current; },

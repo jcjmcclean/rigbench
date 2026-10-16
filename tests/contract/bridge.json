@@ -1,0 +1,43 @@
+{
+  "_comment": "The JS <-> C++ bridge contract. ui/src/bridge.test.ts and tests/ContractTests.cpp both check their side against this file, so the two can't drift apart silently. Change it deliberately, together with both sides.",
+  "nativeFunctions": [
+    "getState",
+    "loadSlot",
+    "clearSlot",
+    "setBypass",
+    "setMix",
+    "setGain",
+    "setInput",
+    "setMaster",
+    "setMonitor",
+    "openEditor",
+    "openAudioSettings",
+    "savePreset",
+    "loadPreset"
+  ],
+  "events": ["state", "meters", "scope", "error"],
+  "stateKeys": [
+    "device",
+    "sampleRate",
+    "bufferSize",
+    "roundTripMs",
+    "monitoring",
+    "inputGain",
+    "masterGain",
+    "playing",
+    "inputLevel",
+    "outputLevel",
+    "slots",
+    "presets",
+    "activePreset"
+  ],
+  "slotIds": ["vst3", "nam", "ir"],
+  "slotKeys": {
+    "common": ["type", "loaded", "name", "bypassed"],
+    "vst3": ["hasEditor"],
+    "nam": ["gain"],
+    "ir": ["mix"]
+  },
+  "meterKeys": ["inputLevel", "outputLevel", "playing"],
+  "errorKeys": ["message"]
+}

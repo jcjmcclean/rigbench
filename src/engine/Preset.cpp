@@ -3,6 +3,7 @@
 #include "NamNode.h"
 #include "Vst3Node.h"
 #include "SlotTypes.h"
+#include <cmath>
 
 namespace Preset
 {
@@ -36,17 +37,17 @@ juce::File presetsDir()
     return d;
 }
 
-bool save (const juce::File& file, const AudioEngine& engine,
-           float masterGain, double sampleRate, const juce::String& name)
+bool save (const juce::File& file, const AudioEngine& engine, const RigInfo& info)
 {
     auto root = std::make_unique<juce::DynamicObject>();
     root->setProperty ("format", "tonebench-preset");
     root->setProperty ("schemaVersion", 1);
-    root->setProperty ("name", name.isNotEmpty() ? name : file.getFileNameWithoutExtension());
+    root->setProperty ("name", info.name.isNotEmpty() ? info.name : file.getFileNameWithoutExtension());
 
     auto io = std::make_unique<juce::DynamicObject>();
-    io->setProperty ("masterGain", masterGain);
-    io->setProperty ("sampleRateAtSave", sampleRate);
+    io->setProperty ("inputGain", info.inputGain);
+    io->setProperty ("masterGain", info.masterGain);
+    io->setProperty ("sampleRateAtSave", info.sampleRateAtSave);
     root->setProperty ("io", juce::var (io.release()));
 
     juce::Array<juce::var> chain;
@@ -69,6 +70,7 @@ bool save (const juce::File& file, const AudioEngine& engine,
         else if (auto* nam = dynamic_cast<NamNode*> (node))
         {
             s->setProperty ("path", nam->getSourceFile().getFullPathName());
+            s->setProperty ("level", (double) nam->getUiGain());
         }
         else if (auto* vst = dynamic_cast<Vst3Node*> (node))
         {
@@ -101,8 +103,17 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
     if (schemaVersion != 1)
         return false;
 
+    // Gains come from a shared file: clamp to the 0..1 the UI works in, and fall
+    // back to the default for anything non-finite.
+    auto unit = [] (const juce::var& v, double fallback)
+    {
+        const double d = v.isVoid() ? fallback : (double) v;
+        return (float) (std::isfinite (d) ? juce::jlimit (0.0, 1.0, d) : fallback);
+    };
+
     const auto ioVar = root.getProperty ("io", juce::var());
-    info.masterGain      = (float) (double) ioVar.getProperty ("masterGain", 0.8);
+    info.inputGain       = unit (ioVar.getProperty ("inputGain", {}), 0.8);
+    info.masterGain      = unit (ioVar.getProperty ("masterGain", {}), 0.8);
     info.sampleRateAtSave = (double) ioVar.getProperty ("sampleRateAtSave", sampleRate);
     info.name            = root.getProperty ("name", {}).toString();
 
@@ -137,7 +148,7 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
             auto ir = std::make_unique<IRNode>();
             if (ir->loadFile (path))
             {
-                ir->setMix ((float) (double) s.getProperty ("mix", 1.0));
+                ir->setMix (unit (s.getProperty ("mix", {}), 1.0));
                 ir->setBypassed (! enabled);
                 engine.setNode (slot, std::move (ir));
             }
@@ -150,6 +161,7 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
             juce::String err;
             if (nam->loadFile (path, err))
             {
+                nam->setUiGain (unit (s.getProperty ("level", {}), 0.5));
                 nam->setBypassed (! enabled);
                 engine.setNode (slot, std::move (nam));
             }

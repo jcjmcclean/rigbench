@@ -46,10 +46,37 @@ namespace SlotTypes
         return d != nullptr ? d->index : -1;
     }
 
+    // The standard per-platform VST3 folders, system-wide first. See
+    // https://steinbergmedia.github.io/vst3_dev_portal/pages/Technical+Documentation/Locations+Format/Plugin+Locations.html
+    inline juce::Array<juce::File> vst3Folders()
+    {
+        const auto home = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+       #if JUCE_MAC
+        return { juce::File ("/Library/Audio/Plug-Ins/VST3"),
+                 home.getChildFile ("Library/Audio/Plug-Ins/VST3") };
+       #elif JUCE_WINDOWS
+        return { juce::File::getSpecialLocation (juce::File::globalApplicationsDirectory)
+                     .getChildFile ("Common Files").getChildFile ("VST3"),
+                 juce::File::getSpecialLocation (juce::File::windowsLocalAppData)
+                     .getChildFile ("Programs").getChildFile ("Common").getChildFile ("VST3") };
+       #else
+        return { home.getChildFile (".vst3"),
+                 juce::File ("/usr/lib/vst3"),
+                 juce::File ("/usr/local/lib/vst3") };
+       #endif
+    }
+
     // Chooser start directory — computed (depends on user dirs), not a literal.
+    // For VST3, the first standard folder that exists on this machine.
     inline juce::File startDirFor (const juce::String& id)
     {
-        if (id == "vst3") return juce::File ("/Library/Audio/Plug-Ins/VST3");
+        if (id == "vst3")
+        {
+            for (auto& dir : vst3Folders())
+                if (dir.isDirectory())
+                    return dir;
+            return {};
+        }
         if (id == "nam")  return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
         return juce::File();
     }

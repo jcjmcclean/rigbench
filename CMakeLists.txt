@@ -113,10 +113,19 @@ set(TONEBENCH_ENGINE_SOURCES
     src/engine/Preset.cpp
 )
 
+# App logic that doesn't need the GUI (bridge operations, audio path, presets).
+# Shared by the app and the tests.
+set(TONEBENCH_APP_SOURCES
+    src/app/AudioPath.cpp
+    src/app/PresetNames.cpp
+    src/app/RigController.cpp
+)
+
 target_sources(Tonebench PRIVATE
     src/Main.cpp
     src/ui/WebUIComponent.cpp
     ${TONEBENCH_ENGINE_SOURCES}
+    ${TONEBENCH_APP_SOURCES}
 )
 
 target_include_directories(Tonebench PRIVATE src)
@@ -215,3 +224,57 @@ target_link_libraries(tonebench_cli PRIVATE
 enable_testing()
 add_test(NAME selftest        COMMAND tonebench_cli selftest)
 add_test(NAME selftest_strict COMMAND tonebench_cli selftest --strict)
+
+#==============================================================================
+# Unit tests (Catch2): the engine, nodes, presets, and the GUI-free app logic
+# (RigController, AudioPath, PresetNames). Each TEST_CASE is registered with
+# CTest by catch_discover_tests, so `ctest` runs them alongside the self-test.
+option(TONEBENCH_BUILD_TESTS "Build the Catch2 unit tests" ON)
+if(TONEBENCH_BUILD_TESTS)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v3.8.1
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(Catch2)
+    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+    include(Catch)
+
+    juce_add_console_app(tonebench_tests PRODUCT_NAME "tonebench_tests")
+
+    file(GLOB TONEBENCH_TEST_SOURCES CONFIGURE_DEPENDS tests/*.cpp)
+    target_sources(tonebench_tests PRIVATE
+        ${TONEBENCH_TEST_SOURCES}
+        ${TONEBENCH_ENGINE_SOURCES}
+        ${TONEBENCH_APP_SOURCES}
+    )
+    target_include_directories(tonebench_tests PRIVATE src tests)
+    target_compile_definitions(tonebench_tests PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_PLUGINHOST_VST3=1
+        JUCE_STANDALONE_APPLICATION=1
+        TONEBENCH_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/test-fixtures"
+        TONEBENCH_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    target_link_libraries(tonebench_tests PRIVATE
+        "$<LINK_LIBRARY:WHOLE_ARCHIVE,namcore>"
+        Catch2::Catch2WithMain
+        juce::juce_audio_processors
+        juce::juce_audio_formats
+        juce::juce_dsp
+        juce::juce_audio_basics
+        PRIVATE
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags
+    )
+    # Tests compare exact sample values on purpose (bit-exact passthrough etc).
+    # Linked after JUCE's warning flags so this comes later on the command line.
+    add_library(tonebench_test_warnings INTERFACE)
+    if(NOT MSVC)
+        target_compile_options(tonebench_test_warnings INTERFACE -Wno-float-equal)
+    endif()
+    target_link_libraries(tonebench_tests PRIVATE tonebench_test_warnings)
+    catch_discover_tests(tonebench_tests DISCOVERY_MODE PRE_TEST)
+endif()

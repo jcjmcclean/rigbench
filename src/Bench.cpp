@@ -540,7 +540,8 @@ int runSelfTest (bool strict)
 
         const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
                                           .getChildFile ("tonebench_test_ir_preset.tonebench");
-        const bool saved = Preset::save (presetFile, original, 0.65f, sr, "IR Only");
+        Preset::RigInfo saveInfo; saveInfo.masterGain = 0.65f; saveInfo.sampleRateAtSave = sr; saveInfo.name = "IR Only";
+        const bool saved = Preset::save (presetFile, original, saveInfo);
 
         AudioEngine restored; restored.prepare (sr, block);
         Preset::RigInfo info;
@@ -689,7 +690,8 @@ int runSelfTest (bool strict)
 
             const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
                                               .getChildFile ("tonebench_test_preset.tonebench");
-            const bool saved = Preset::save (presetFile, original, 0.7f, sr, "Test Rig");
+            Preset::RigInfo saveInfo; saveInfo.masterGain = 0.7f; saveInfo.sampleRateAtSave = sr; saveInfo.name = "Test Rig";
+            const bool saved = Preset::save (presetFile, original, saveInfo);
 
             AudioEngine restored;
             restored.prepare (sr, block);
