@@ -77,3 +77,28 @@ jobs:
             ToneStack-linux.tar.gz
             ToneStack-windows.zip
           if-no-files-found: ignore
+
+  # On a v* tag, publish a GitHub Release with the macOS/Linux/Windows binaries
+  # attached, so "release" produces real downloads for everyone. Manual
+  # (workflow_dispatch) runs just leave the artifacts on the run.
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=$(find artifacts -type f \( -name '*.dmg' -o -name '*.tar.gz' -o -name '*.zip' \))
+          gh release create "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --title "ToneStack ${{ github.ref_name }}" \
+            --generate-notes \
+            $files
