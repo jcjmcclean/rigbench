@@ -43,6 +43,9 @@ function createMockBridge(): Bridge {
   const subs = new Set<(s: EngineState) => void>();
   const emit = () => subs.forEach((cb) => cb({ ...state, slots: { ...state.slots } }));
 
+  const scopeSubs = new Set<(s: number[]) => void>();
+  let scopePhase = 0;
+
   // Animate meters so the UI feels alive. A slow "playing" cycle with a
   // strummed envelope; levels only reach the output meter through un-bypassed slots.
   let t = 0;
@@ -57,6 +60,17 @@ function createMockBridge(): Bridge {
     const chainGain = anyLoaded ? 1.15 : 1;
     state.outputLevel = Math.min(1, state.inputLevel * chainGain * state.masterGain);
     emit();
+
+    if (scopeSubs.size) {
+      const amp = state.inputLevel > 0.02 ? state.outputLevel : 0; // gate on input
+      const pts: number[] = [];
+      for (let i = 0; i < 48; i++) {
+        scopePhase += 0.42;
+        const w = Math.sin(scopePhase) * 0.7 + Math.sin(scopePhase * 2.01) * 0.3;
+        pts.push(w * amp);
+      }
+      scopeSubs.forEach((cb) => cb(pts));
+    }
   }, 50);
 
   return {
@@ -65,6 +79,10 @@ function createMockBridge(): Bridge {
       subs.add(cb);
       cb({ ...state });
       return () => subs.delete(cb);
+    },
+    subscribeScope(cb) {
+      scopeSubs.add(cb);
+      return () => scopeSubs.delete(cb);
     },
     loadSlot(type) {
       const s = state.slots[type];
@@ -121,7 +139,12 @@ function createJuceBridge(): Bridge {
   const notify = () => { if (current) subs.forEach((cb) => cb(current as EngineState)); };
 
   const backend = (window as unknown as {
-    __JUCE__: { backend: { addEventListener: (id: string, cb: (v: unknown) => void) => number } };
+    __JUCE__: {
+      backend: {
+        addEventListener: (id: string, cb: (v: unknown) => void) => number;
+        removeEventListener?: (token: number) => void;
+      };
+    };
   }).__JUCE__.backend;
 
   backend.addEventListener("state", (s: unknown) => { current = s as EngineState; notify(); });
@@ -136,6 +159,10 @@ function createJuceBridge(): Bridge {
       if (current) cb(current);
       else void f.getState().then((s) => { current = s as EngineState; cb(current); });
       return () => { subs.delete(cb); };
+    },
+    subscribeScope(cb) {
+      const tok = backend.addEventListener("scope", (v: unknown) => cb(v as number[]));
+      return () => backend.removeEventListener?.(tok);
     },
     loadSlot: (t) => void f.loadSlot(t),
     clearSlot: (t) => void f.clearSlot(t),

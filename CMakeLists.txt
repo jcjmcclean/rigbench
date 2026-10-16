@@ -113,9 +113,11 @@ set_target_properties(ToneStack PROPERTIES
 # TCC remembers the microphone grant across rebuilds (ad-hoc signing changes the
 # identity every build and re-prompts). Best-effort: skipped if the cert isn't set up.
 add_custom_command(TARGET ToneStack POST_BUILD
-    COMMAND /bin/sh -c "if security find-identity -v -p codesigning 2>/dev/null | grep -q 'ToneStack Dev'; then \
-        codesign --force --sign 'ToneStack Dev' '$<TARGET_BUNDLE_DIR:ToneStack>' && echo '[sign] ToneStack Dev'; \
-    else echo '[sign] ToneStack Dev cert not found - ad-hoc (mic will re-prompt). See README.'; fi"
+    COMMAND /bin/sh -c "ID='ToneStack Dev'; APP='$<TARGET_BUNDLE_DIR:ToneStack>'; \
+        if security find-identity -v -p codesigning 2>/dev/null | grep -q \"$ID\"; then \
+            codesign --force --sign \"$ID\" \"$APP\" 2>/dev/null && echo \"[sign] signed with $ID\" || echo '[sign] sign attempt failed - staying ad-hoc'; \
+        else echo '[sign] no stable identity - ad-hoc (mic re-prompts each build). See README.'; fi; \
+        true"
     VERBATIM)
 
 #==============================================================================

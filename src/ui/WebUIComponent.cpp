@@ -74,12 +74,6 @@ WebUIComponent::WebUIComponent()
 {
     using Options = juce::WebBrowserComponent::Options;
 
-    auto fileCmd = [this] (void (WebUIComponent::*)(const juce::File&)) {};
-    juce::ignoreUnused (fileCmd);
-
-    auto cmd0 = [] (Completion done) { done (juce::var()); };
-    juce::ignoreUnused (cmd0);
-
     Options options = Options{}
         .withNativeIntegrationEnabled()
         .withResourceProvider ([this] (const auto& p) { return provideResource (p); })
@@ -116,7 +110,9 @@ WebUIComponent::WebUIComponent()
 
     web = std::make_unique<juce::WebBrowserComponent> (options);
     addAndMakeVisible (*web);
-    web->goToURL (juce::WebBrowserComponent::getResourceProviderRoot());
+    // Cache-bust per launch so WKWebView never serves a stale embedded UI.
+    web->goToURL (juce::WebBrowserComponent::getResourceProviderRoot()
+                  + "?v=" + juce::String ((juce::int64) juce::Time::getMillisecondCounterHiRes()));
 
     setSize (1180, 760);
 
@@ -191,6 +187,29 @@ void WebUIComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buff
         buffer->applyGain (ch, start, num, g);
     }
     outPeak.store (work.getMagnitude (0, 0, num) * g, std::memory_order_relaxed);
+
+    // Push decimated signed peaks of the output to the scope, gated by input
+    // presence (no input -> flat, so nothing appears to flow downstream).
+    {
+        const bool gateOpen = inPeak.load (std::memory_order_relaxed) > 0.008f;
+        int start1, size1, start2, size2;
+        const int buckets = juce::jmax (1, num / 42);        // ~3 per 128-sample block
+        scopeFifo.prepareToWrite (buckets, start1, size1, start2, size2);
+        const int toWrite = juce::jmin (buckets, size1 + size2);
+        const int stride = juce::jmax (1, num / juce::jmax (1, buckets));
+        const auto* od = work.getReadPointer (0);
+        for (int b = 0; b < toWrite; ++b)
+        {
+            float peak = 0.0f;
+            const int s = b * stride, e = juce::jmin (num, s + stride);
+            for (int i = s; i < e; ++i)
+                if (std::abs (od[i]) > std::abs (peak)) peak = od[i];
+            const float v = gateOpen ? peak * g : 0.0f;
+            if (b < size1) scopeRing[(size_t) (start1 + b)] = v;
+            else           scopeRing[(size_t) (start2 + (b - size1))] = v;
+        }
+        scopeFifo.finishedWrite (toWrite);
+    }
 }
 
 void WebUIComponent::releaseResources()
@@ -229,6 +248,19 @@ void WebUIComponent::timerCallback()
     mo->setProperty ("outputLevel", smoothedOut);
     mo->setProperty ("playing", monitorOn.load());
     web->emitEventIfBrowserIsVisible ("meters", juce::var (mo));
+
+    // Drain the scope ring and push the live waveform to the UI.
+    if (const int ready = scopeFifo.getNumReady(); ready > 0)
+    {
+        int start1, size1, start2, size2;
+        scopeFifo.prepareToRead (ready, start1, size1, start2, size2);
+        juce::Array<juce::var> pts;
+        pts.ensureStorageAllocated (ready);
+        for (int i = 0; i < size1; ++i) pts.add (scopeRing[(size_t) (start1 + i)]);
+        for (int i = 0; i < size2; ++i) pts.add (scopeRing[(size_t) (start2 + i)]);
+        scopeFifo.finishedRead (ready);
+        web->emitEventIfBrowserIsVisible ("scope", juce::var (pts));
+    }
 
     if (stateDirty)
     {
@@ -446,8 +478,9 @@ void WebUIComponent::devAutoLoad()
 
 std::optional<Resource> WebUIComponent::provideResource (const juce::String& path)
 {
-    const auto entryName = (path == "/") ? juce::String ("index.html")
-                                         : path.fromFirstOccurrenceOf ("/", false, false);
+    const auto clean = path.upToFirstOccurrenceOf ("?", false, false); // drop cache-bust query
+    const auto entryName = (clean == "/" || clean.isEmpty()) ? juce::String ("index.html")
+                                         : clean.fromFirstOccurrenceOf ("/", false, false);
 
     if (auto* zip = getWebZip())
     {

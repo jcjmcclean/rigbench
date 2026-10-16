@@ -29,6 +29,9 @@ export interface EngineState {
 export interface Bridge {
   getState(): Promise<EngineState>;
   subscribe(cb: (s: EngineState) => void): () => void;
+  // Live signal scope: batches of decimated, signed samples (~-1..1) from the
+  // audio thread, newest last. Flat/near-zero when there's no input.
+  subscribeScope(cb: (samples: number[]) => void): () => void;
   loadSlot(type: SlotType): void;
   clearSlot(type: SlotType): void;
   setBypass(type: SlotType, bypassed: boolean): void;
