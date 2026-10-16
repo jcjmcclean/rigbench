@@ -37,8 +37,9 @@ describe("SignalChain layout", () => {
     expect(screen.getByRole("slider", { name: "Master" })).toHaveAttribute("aria-valuetext", "35");
   });
 
-  it("drives the IN/OUT meters from inputLevel/outputLevel", () => {
-    const { container } = render(<SignalChain state={makeState({ inputLevel: 0.5, outputLevel: 1 })} />);
+  it("drives the IN/OUT meters from inputLevel/outputLevel (on a dB scale)", () => {
+    // -30 dBFS is half way up a -60..0 dB meter; full scale lights everything.
+    const { container } = render(<SignalChain state={makeState({ inputLevel: 10 ** (-30 / 20), outputLevel: 1 })} />);
     const lit = (sel: string) => container.querySelectorAll(`${sel} .meter__seg.is-on`).length;
     expect(lit(".terminal--in")).toBe(7);
     expect(lit(".terminal--out")).toBe(14);
