@@ -80,8 +80,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $app = Get-ChildItem -Recurse -Filter Tonebench.exe build | Select-Object -First 1
-          Compress-Archive -Path $app.DirectoryName/* -DestinationPath Tonebench-windows.zip -Force
+          $dir = "build\Tonebench_artefacts\RelWithDebInfo"
+          Compress-Archive -Path "$dir\*" -DestinationPath "Tonebench-windows.zip" -Force
+          Get-ChildItem Tonebench-windows.zip
 
       - uses: actions/upload-artifact@v4
         with:
