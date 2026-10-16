@@ -12,6 +12,9 @@ namespace PresetNames
     // The preset file for `name` inside `dir`, or an invalid File() if rejected.
     juce::File presetFileFor (const juce::File& dir, const juce::String& name);
 
+    // Device names Windows reserves (CON, NUL, COM1...), which can't be file names.
+    bool isReservedName (const juce::String& leaf);
+
     // Preset names (file names without extension) in `dir`, sorted case-insensitively.
     juce::StringArray list (const juce::File& dir);
 }

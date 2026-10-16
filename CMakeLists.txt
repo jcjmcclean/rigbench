@@ -80,8 +80,13 @@ find_program(NPM_EXECUTABLE NAMES npm.cmd npm)
 if(NPM_EXECUTABLE)
     file(GLOB_RECURSE TONEBENCH_UI_SOURCES CONFIGURE_DEPENDS
         ${TONEBENCH_UI_DIR}/src/*
+        ${TONEBENCH_UI_DIR}/public/*
+        ${TONEBENCH_UI_DIR}/vendor/*
         ${TONEBENCH_UI_DIR}/index.html
-        ${TONEBENCH_UI_DIR}/package.json)
+        ${TONEBENCH_UI_DIR}/package.json
+        ${TONEBENCH_UI_DIR}/package-lock.json
+        ${TONEBENCH_UI_DIR}/vite.config.ts
+        ${TONEBENCH_UI_DIR}/tsconfig*.json)
     add_custom_command(
         OUTPUT  ${TONEBENCH_WEBUI_ZIP}
         COMMAND ${CMAKE_COMMAND}

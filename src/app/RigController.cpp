@@ -121,7 +121,8 @@ juce::String RigController::savePreset (const juce::String& name)
     if (! Preset::save (file, engine, info))
         return "Could not save preset \"" + name + "\".";
 
-    activePreset = name;
+    // The name the preset list will show (characters a file name can't hold are dropped).
+    activePreset = file.getFileNameWithoutExtension();
     return {};
 }
 
@@ -140,7 +141,7 @@ juce::String RigController::loadPreset (const juce::String& name,
     audio.setInputGain (info.inputGain);
     audio.setMasterGain (info.masterGain);
     audio.setGate (info.gate);
-    activePreset = name;
+    activePreset = file.getFileNameWithoutExtension();
 
     if (info.problems.isEmpty())
         return {};

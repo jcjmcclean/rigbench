@@ -186,3 +186,15 @@ TEST_CASE ("ExternalLinks: only plain https links open in the browser", "[links]
         REQUIRE_FALSE (ExternalLinks::isOpenable (bad));
     }
 }
+
+TEST_CASE ("PresetNames: Windows device names are refused on every OS", "[presetnames]")
+{
+    TempDir tmp;
+    for (auto bad : { "CON", "con", "Nul", "COM1", "lpt9", "aux.backup" })
+    {
+        CAPTURE (bad);
+        REQUIRE (PresetNames::presetFileFor (tmp.dir, bad) == juce::File());
+    }
+    REQUIRE (PresetNames::presetFileFor (tmp.dir, "Console") != juce::File());
+    REQUIRE (PresetNames::presetFileFor (tmp.dir, "COM10") != juce::File());
+}

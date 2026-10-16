@@ -186,6 +186,16 @@ TEST_CASE ("Controller: presets are listed sorted, and the list updates after a 
     REQUIRE (arr->size() == 3);
 }
 
+TEST_CASE ("Controller: the active preset is the name the list shows", "[controller][preset]")
+{
+    Rig r;
+    REQUIRE (r.rig.savePreset ("  Gilmour? \"Clean\"  ").isEmpty());
+    const auto list = r.rig.listPresets();
+    REQUIRE (list.size() == 1);
+    REQUIRE (r.rig.getActivePreset() == list[0]);
+    REQUIRE (r.state()["activePreset"] == juce::var (list[0]));
+}
+
 TEST_CASE ("Controller: saving over an existing preset replaces it", "[controller][preset]")
 {
     Rig r;
