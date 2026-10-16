@@ -44,7 +44,8 @@ export function Knob({
     wheelRef.current = (e: WheelEvent) => {
       if (disabled) return;
       e.preventDefault();
-      commit(frac - Math.sign(e.deltaY) * 0.03);
+      const step = e.shiftKey ? 0.01 : 0.03; // Shift for fine (as the footer hint advertises)
+      commit(frac - Math.sign(e.deltaY) * step);
     };
   });
   useEffect(() => {

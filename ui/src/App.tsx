@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TopBar } from "./components/TopBar";
 import { SignalChain } from "./components/SignalChain";
 import { Toasts, type ToastItem } from "./components/Toast";
@@ -23,22 +23,30 @@ export default function App() {
 
   useEffect(() => bridge.subscribe(setState), []);
 
+  // Track presence of engine state in a ref so the error handler can branch on it
+  // without reading state through a setState updater (an updater must stay pure —
+  // doing side effects there double-fires them under StrictMode → duplicate toasts).
+  const hasStateRef = useRef(false);
+  useEffect(() => { hasStateRef.current = state !== null; }, [state]);
+
+  const MAX_TOASTS = 4;
   useEffect(() => {
     return bridge.subscribeError((message) => {
-      // No engine state yet → this is a fatal "couldn't connect" error; otherwise
-      // it's a recoverable notice (e.g. a model failed to load) shown as a toast.
-      setState((cur) => {
-        if (cur === null) setFatal(message);
-        else {
-          const id = ++toastId.current;
-          setToasts((t) => [...t, { id, message }]);
-        }
-        return cur;
-      });
+      // No engine state yet → fatal "couldn't connect"; otherwise a recoverable
+      // notice (e.g. a model failed to load) shown as a toast (newest kept, capped).
+      if (!hasStateRef.current) {
+        setFatal(message);
+      } else {
+        const id = ++toastId.current;
+        setToasts((t) => [...t, { id, message }].slice(-MAX_TOASTS));
+      }
     });
   }, []);
 
-  const dismissToast = (id: number) => setToasts((t) => t.filter((x) => x.id !== id));
+  const dismissToast = useCallback(
+    (id: number) => setToasts((t) => t.filter((x) => x.id !== id)),
+    [],
+  );
 
   // Dirty tracking: snapshot the rig whenever the active preset changes (load or
   // save), then compare the live signature against it.

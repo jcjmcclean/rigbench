@@ -51,9 +51,9 @@
   background: var(--bg-1);
   font-size: var(--t-xs);
 }
-.statusbar__hint { color: var(--ink-faint); }
+.statusbar__hint { color: var(--ink-muted); }  /* >=4.5:1 at this size (was --ink-faint) */
 .statusbar__right { display: flex; align-items: center; gap: var(--sp-3); }
-.statusbar__ver { color: var(--ink-faint); }
+.statusbar__ver { color: var(--ink-muted); }
 
 .badge {
   font-family: var(--font-display);
