@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Tuner.h"
 #include "engine/AudioEngine.h"
 #include <array>
 #include <atomic>
@@ -51,6 +52,10 @@ public:
     static constexpr int maxChannelMeters = 16;
     float takeChannelPeak (int channel) noexcept;
 
+    //== tuner =================================================================
+    // While the tuner is on it hears the guitar's input and the output is muted.
+    Tuner& getTuner() noexcept { return tuner; }
+
     //== test sound ============================================================
     // A short, quiet tone on every output, played even with monitoring off (it's
     // how setup checks you can hear the output). Safe from any thread.
@@ -76,6 +81,7 @@ private:
     std::atomic<float> inPeak  { 0.0f };
     std::atomic<float> outPeak { 0.0f };
     std::array<std::atomic<float>, maxChannelMeters> channelPeaks {};
+    Tuner tuner;
 
     // The gains last applied, so a knob move ramps across the next block instead
     // of jumping (which crackles). Audio thread only; snapped after prepare().

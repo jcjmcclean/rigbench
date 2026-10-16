@@ -7,6 +7,7 @@ void AudioPath::prepare (int samplesPerBlockExpected, double newSampleRate)
     sampleRate = newSampleRate > 0 ? newSampleRate : 48000.0;
     testToneLength = (int) (sampleRate * 0.8);
     snapGains = true;
+    tuner.prepare (sampleRate);
     engine.prepare (sampleRate, alloc);
 }
 
@@ -36,7 +37,10 @@ void AudioPath::process (juce::AudioBuffer<float>& io, int start, int num) noexc
     for (int ch = 0; ch < juce::jmin (numChans, maxChannelMeters); ++ch)
         holdMax (channelPeaks[(size_t) ch], io.getMagnitude (ch, start, num));
 
-    if (! isMonitoring() || num > monoBuffer.getNumSamples() || numChans == 0)
+    if (numChans > 0)
+        tuner.push (io.getReadPointer (0, start), num);
+
+    if (! isMonitoring() || tuner.isActive() || num > monoBuffer.getNumSamples() || numChans == 0)
     {
         for (int ch = 0; ch < numChans; ++ch)
             io.clear (ch, start, num);

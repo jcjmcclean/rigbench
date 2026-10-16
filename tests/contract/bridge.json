@@ -17,7 +17,8 @@
     "setAudioSetup",
     "playTestSound",
     "finishSetup",
-    "openUrl"
+    "openUrl",
+    "setTuner"
   ],
   "events": [
     "state",
@@ -68,7 +69,8 @@
     "inputLevel",
     "outputLevel",
     "playing",
-    "inputPeaks"
+    "inputPeaks",
+    "tuner"
   ],
   "errorKeys": [
     "message"
@@ -99,5 +101,11 @@
     "listenToAllInputs",
     "sampleRate",
     "bufferSize"
+  ],
+  "tunerKeys": [
+    "note",
+    "octave",
+    "cents",
+    "hz"
   ]
 }

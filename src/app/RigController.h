@@ -44,6 +44,11 @@ public:
     void finishSetup();          // remembers it, and turns monitoring on
     void playTestSound()         { audio.playTestSound(); }
 
+    //== tuner =================================================================
+    void setTuner (bool on)      { audio.getTuner().setActive (on); }
+    // { note, octave, cents, hz } while the tuner hears a clear pitch, else void.
+    juce::var readTuner();
+
     //== loading content (synchronous for NAM/IR) ==============================
     // Each returns an empty string on success, or a message for the user.
     juce::String loadNam (const juce::File& file);

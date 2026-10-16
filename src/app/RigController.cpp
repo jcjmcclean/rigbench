@@ -14,6 +14,19 @@ RigController::RigController (juce::File presetsDirectory, juce::File settingsFi
     audio.setMonitoring (settings.isSetupComplete());
 }
 
+juce::var RigController::readTuner()
+{
+    const auto r = audio.getTuner().read();
+    if (! r.has_value())
+        return {};
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("note", r->noteName);
+    o->setProperty ("octave", r->octave);
+    o->setProperty ("cents", r->cents);
+    o->setProperty ("hz", r->hz);
+    return juce::var (o);
+}
+
 void RigController::finishSetup()
 {
     settings.setSetupComplete (true);

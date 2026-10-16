@@ -121,6 +121,7 @@ set(TONEBENCH_APP_SOURCES
     src/app/AudioSetup.cpp
     src/app/PresetNames.cpp
     src/app/RigController.cpp
+    src/app/Tuner.cpp
 )
 
 target_sources(Tonebench PRIVATE

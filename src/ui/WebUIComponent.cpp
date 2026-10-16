@@ -128,6 +128,7 @@ WebUIComponent::WebUIComponent (Options componentOptions)
         .withNativeFunction ("openUrl", op ([this, arg] (auto& a) { openExternalUrl (arg (a, 0).toString()); }))
         .withNativeFunction ("playTestSound", op ([this] (auto&) { rig.playTestSound(); }))
         .withNativeFunction ("finishSetup", op ([this] (auto&) { rig.finishSetup(); }))
+        .withNativeFunction ("setTuner", op ([this, arg] (auto& a) { rig.setTuner ((bool) arg (a, 0)); }))
         .withNativeFunction ("savePreset", op ([this, arg] (auto& a) { reportError (rig.savePreset (arg (a, 0).toString())); }))
         .withNativeFunction ("loadPreset", op ([this, arg] (auto& a) { loadPreset (arg (a, 0).toString()); }));
 
@@ -227,6 +228,7 @@ void WebUIComponent::timerCallback()
         for (int ch = 0; ch < juce::jmin (dev->getActiveInputChannels().countNumberOfSetBits(), AudioPath::maxChannelMeters); ++ch)
             inputPeaks.add (audio.takeChannelPeak (ch));
     mo->setProperty ("inputPeaks", inputPeaks);
+    mo->setProperty ("tuner", audio.getTuner().isActive() ? rig.readTuner() : juce::var());
     web->emitEventIfBrowserIsVisible ("meters", juce::var (mo));
 
     // Drain the scope feed and push the live waveform to the UI.
