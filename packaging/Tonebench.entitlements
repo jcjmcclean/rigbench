@@ -11,7 +11,7 @@
          signed by someone else (or ad-hoc). The hardened runtime's library
          validation would refuse to load them, so a plugin host must disable it.
          This is expected for plugin hosts (Reaper, AudioPluginHost, etc. do the
-         same) and is documented in docs/SECURITY.md. -->
+         same). -->
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
 

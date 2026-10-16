@@ -49,7 +49,7 @@ For a clean double-click open with no `xattr` dance:
 The hardened runtime is required for notarization and needs real entitlements —
 `packaging/Tonebench.entitlements` supplies microphone access plus the
 library-validation/JIT exemptions a VST3 host needs to load third-party plugins
-(see [SECURITY.md](../SECURITY.md)).
+.
 
 ## Linux
 
