@@ -63,7 +63,7 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
       - name: Build tests
-        run: cmake --build build --config RelWithDebInfo --target tonebench_cli tonebench_tests
+        run: cmake --build build --config RelWithDebInfo --parallel --target tonebench_cli tonebench_tests
 
       # Runs every Catch2 test case plus the self-test. selftest_strict turns a
       # skipped CORE suite into a failure, so green-but-skipped can't pass.
@@ -75,7 +75,7 @@ jobs:
       # exits 0 (or 1 after 30 s). The only check that the WebView actually works
       # on each OS (WKWebView / WebView2 / WebKitGTK).
       - name: Build app
-        run: cmake --build build --config RelWithDebInfo --target Tonebench
+        run: cmake --build build --config RelWithDebInfo --parallel --target Tonebench
 
       - name: Smoke test (macOS)
         if: runner.os == 'macOS'
