@@ -2,19 +2,16 @@ import { Fragment } from "react";
 import { ChainModule } from "./ChainModule";
 import { Meter } from "./Meter";
 import { Knob } from "./Knob";
+import { ScopeWaveform } from "./ScopeWaveform";
 import { bridge } from "../bridge";
 import type { EngineState, SlotType } from "../types";
 import "./SignalChain.css";
 
 const ORDER: SlotType[] = ["vst3", "nam", "ir"];
 
-function Connector({ active }: { active: boolean }) {
-  return (
-    <div className={`connector ${active ? "is-live" : ""}`} aria-hidden>
-      <span className="connector__line" />
-      <span className="connector__pulse" />
-    </div>
-  );
+// Spacer between units; the live ScopeWaveform shows through here.
+function Connector() {
+  return <div className="connector" aria-hidden />;
 }
 
 function Terminal({
@@ -57,13 +54,15 @@ function Terminal({
 }
 
 export function SignalChain({ state }: { state: EngineState }) {
-  const flow = state.playing ? Math.max(0.14, state.outputLevel) : 0;
-  const anyActive = ORDER.some((t) => state.slots[t].loaded && !state.slots[t].bypassed);
+  // No idle floor: when there's no signal, nothing flows.
+  const flow = state.playing ? state.outputLevel : 0;
 
   return (
     <div className="chain" style={{ ["--flow" as string]: flow }}>
+      <ScopeWaveform />
+
       <Terminal kind="in" level={state.inputLevel} state={state} />
-      <Connector active={state.playing && state.inputLevel > 0.02} />
+      <Connector />
 
       {ORDER.map((type, i) => (
         <Fragment key={type}>
@@ -77,7 +76,7 @@ export function SignalChain({ state }: { state: EngineState }) {
             onGain={(v) => bridge.setGain(type, v)}
             onEditor={() => bridge.openEditor()}
           />
-          <Connector active={state.playing && anyActive && state.outputLevel > 0.02} />
+          <Connector />
         </Fragment>
       ))}
 

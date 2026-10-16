@@ -5,6 +5,7 @@
 #include "engine/AudioEngine.h"
 #include "engine/Vst3Node.h"
 #include <optional>
+#include <array>
 
 //==============================================================================
 // Hosts the React UI in a WebView and bridges it to the audio engine.
@@ -55,6 +56,11 @@ private:
     std::atomic<float> inPeak { 0.0f };
     std::atomic<float> outPeak { 0.0f };
     float smoothedIn = 0.0f, smoothedOut = 0.0f;
+
+    // Live signal scope (lock-free SPSC: audio writes, timer drains + emits).
+    static constexpr int scopeCapacity = 8192;
+    juce::AbstractFifo scopeFifo { scopeCapacity };
+    std::array<float, scopeCapacity> scopeRing {};
 
     juce::String activePreset;
     std::unique_ptr<Vst3Node> pendingVst;

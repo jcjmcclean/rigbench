@@ -1,4 +1,5 @@
 .chain {
+  position: relative;
   display: flex;
   align-items: stretch;
   justify-content: center;
@@ -7,6 +8,10 @@
   max-width: 1180px;
   margin: 0 auto;
 }
+
+/* modules + terminals ride above the scope waveform (they mask it) */
+.chain .module,
+.chain .terminal { position: relative; z-index: 1; }
 
 /* ---- connectors (the signal path) ---- */
 .connector {
