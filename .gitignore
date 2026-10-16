@@ -24,3 +24,4 @@ assets/webui.zip
 build-rel/
 dist/
 build-rel-*.log
+*.log
