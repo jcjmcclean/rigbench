@@ -2,17 +2,17 @@
 #include "ui/WebUIComponent.h"
 
 //==============================================================================
-class ToneStackApplication : public juce::JUCEApplication,
+class TonebenchApplication : public juce::JUCEApplication,
                              public juce::MenuBarModel
 {
 public:
-    const juce::String getApplicationName() override    { return "ToneStack"; }
+    const juce::String getApplicationName() override    { return "Tonebench"; }
     const juce::String getApplicationVersion() override { return "0.1.0"; }
     bool moreThanOneInstanceAllowed() override          { return false; }
 
     void initialise (const juce::String&) override
     {
-        mainWindow.reset (new MainWindow ("ToneStack", *this));
+        mainWindow.reset (new MainWindow ("Tonebench", *this));
 
        #if JUCE_MAC
         juce::PopupMenu appleExtras;
@@ -43,7 +43,7 @@ public:
         {
             menu.addItem (menuSettings, "Audio Settings...");
             menu.addSeparator();
-            menu.addItem (menuQuit, "Quit ToneStack");
+            menu.addItem (menuQuit, "Quit Tonebench");
         }
         return menu;
     }
@@ -97,4 +97,4 @@ private:
 };
 
 //==============================================================================
-START_JUCE_APPLICATION (ToneStackApplication)
+START_JUCE_APPLICATION (TonebenchApplication)

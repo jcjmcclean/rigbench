@@ -1,12 +1,12 @@
 # Testing
 
-ToneStack has two automated test suites: a C++ offline self-test that drives the
+Tonebench has two automated test suites: a C++ offline self-test that drives the
 real audio engine, and a React/Vitest suite for the WebView UI. Both run in CI
 (`.github/workflows/ci.yml`) on every push and pull request.
 
 ## C++ self-test (offline bench + CTest)
 
-The self-test lives in `src/Bench.cpp` (the `tonestack_bench` console target). It
+The self-test lives in `src/Bench.cpp` (the `tonebench_cli` console target). It
 feeds known signals through the **real** `AudioEngine`, block-by-block, exactly
 like the live audio callback — no audio device or GUI required.
 
@@ -14,11 +14,11 @@ like the live audio callback — no audio device or GUI required.
 
 ```sh
 # Build the bench (shares the engine sources with the app; needs no Node/WebUI).
-cmake --build build --target tonestack_bench
+cmake --build build --target tonebench_cli
 
 # Run directly:
-./build/tonestack_bench_artefacts/RelWithDebInfo/tonestack_bench selftest
-./build/tonestack_bench_artefacts/RelWithDebInfo/tonestack_bench selftest --strict
+./build/tonebench_cli_artefacts/RelWithDebInfo/tonebench_cli selftest
+./build/tonebench_cli_artefacts/RelWithDebInfo/tonebench_cli selftest --strict
 
 # ...or via CTest (registered in CMakeLists.txt):
 ctest --test-dir build --output-on-failure
@@ -28,8 +28,8 @@ CTest registers two cases:
 
 | Test              | Command                      | Purpose                                   |
 | ----------------- | ---------------------------- | ----------------------------------------- |
-| `selftest`        | `tonestack_bench selftest`          | Human-facing run; skips are allowed.      |
-| `selftest_strict` | `tonestack_bench selftest --strict` | CI gate: a skipped **core** suite fails.  |
+| `selftest`        | `tonebench_cli selftest`          | Human-facing run; skips are allowed.      |
+| `selftest_strict` | `tonebench_cli selftest --strict` | CI gate: a skipped **core** suite fails.  |
 
 The summary line reports suite counts, e.g. `=== ALL PASS (12 run, 0 skipped) ===`.
 A nonzero exit code (any `FAIL`) fails the gate.
@@ -71,12 +71,12 @@ CI uses `--strict`.
 bias-free 2-tap `Linear` architecture at 48 kHz). It is NOT a real amp capture —
 it exists purely so the NAM and preset suites are deterministic and never
 silently skip on a clean checkout or CI box. The bench finds it via the
-`TONESTACK_FIXTURES_DIR` compile definition and falls back to the user's
+`TONEBENCH_FIXTURES_DIR` compile definition and falls back to the user's
 `~/Documents/NAMs` library if the fixture is ever absent.
 
 ### Still skipped / not covered
 
-- **VST3 hosting** — opt-in only (`TONESTACK_TEST_VST=1` plus `TONESTACK_VST_PATH`
+- **VST3 hosting** — opt-in only (`TONEBENCH_TEST_VST=1` plus `TONEBENCH_VST_PATH`
   pointing at a `.vst3` bundle). Hosting a code-signed plugin reliably needs a
   GUI/login session — `dlopen` blocks under AMFI in a headless CLI process — and
   there is no hermetic `.vst3` fixture to commit, so this is a non-core suite

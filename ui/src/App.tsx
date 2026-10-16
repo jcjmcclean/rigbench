@@ -78,7 +78,7 @@ export default function App() {
     return (
       <div className="splash" role="status" aria-live="polite">
         <span className="splash__mark splash__mark--pulse" aria-hidden />
-        <span className="splash__word">Tone<em>Stack</em></span>
+        <span className="splash__word">Tone<em>bench</em></span>
         <span className="splash__hint mono">Connecting to engine…</span>
       </div>
     );

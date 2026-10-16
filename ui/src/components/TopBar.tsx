@@ -21,7 +21,7 @@ export function TopBar({ state, dirty }: { state: EngineState; dirty: boolean })
     <header className="topbar">
       <div className="topbar__brand">
         <span className="topbar__mark" aria-hidden />
-        <span className="topbar__word">Tone<em>Stack</em></span>
+        <span className="topbar__word">Tone<em>bench</em></span>
       </div>
 
       <div className="topbar__telemetry">
