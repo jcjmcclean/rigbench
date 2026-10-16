@@ -78,6 +78,7 @@ function createMockBridge(): Bridge {
     },
     presets: ["Gilmour Clean", "Page Crunch", "Hiwatt Lead", "Bedroom Low-Volume"],
     activePreset: "Hiwatt Lead",
+    loadingPreset: false,
   };
 
   const subs = new Set<(s: EngineState) => void>();

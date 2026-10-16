@@ -351,3 +351,13 @@ TEST_CASE ("Controller: deleting a preset removes the file but leaves the rig pl
     REQUIRE (r.rig.deletePreset ("Gone") == "There's no preset called \"Gone\" any more. It may have been renamed or deleted outside Tonebench.");
     REQUIRE (r.rig.deletePreset ("..") == badName);
 }
+
+TEST_CASE ("Controller: the state says when a preset's plugin is still on its way", "[controller][state]")
+{
+    Rig r;
+    REQUIRE_FALSE ((bool) r.state()["loadingPreset"]);
+    r.rig.setPresetPluginPending (true);
+    REQUIRE ((bool) r.state()["loadingPreset"]);
+    r.rig.setPresetPluginPending (false);
+    REQUIRE_FALSE ((bool) r.state()["loadingPreset"]);
+}

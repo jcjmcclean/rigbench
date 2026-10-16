@@ -63,6 +63,7 @@ function makeState(over: Partial<EngineState> = {}): EngineState {
     },
     presets: [],
     activePreset: null,
+    loadingPreset: false,
     ...over,
   };
 }

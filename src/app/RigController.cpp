@@ -249,6 +249,7 @@ juce::var RigController::buildState (const DeviceInfo& device, float inputLevel,
         presets.add (p);
     o->setProperty ("presets", presets);
     o->setProperty ("activePreset", activePreset.isEmpty() ? juce::var() : juce::var (activePreset));
+    o->setProperty ("loadingPreset", presetPluginPending);
 
     return juce::var (o);
 }

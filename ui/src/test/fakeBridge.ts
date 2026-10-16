@@ -51,6 +51,7 @@ export function makeState(over: Partial<EngineState> = {}): EngineState {
     },
     presets: ["Clean", "Crunch", "Lead"],
     activePreset: "Crunch",
+    loadingPreset: false,
     ...over,
   };
 }

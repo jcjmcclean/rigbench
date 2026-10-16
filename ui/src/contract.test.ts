@@ -48,7 +48,7 @@ type Exact<List extends readonly PropertyKey[], Keys extends PropertyKey> =
 
 const ENGINE_STATE_KEYS = [
   "device", "sampleRate", "bufferSize", "roundTripMs", "setupComplete", "monitoring", "inputGain", "masterGain", "gate",
-  "playing", "inputLevel", "outputLevel", "slots", "presets", "activePreset",
+  "playing", "inputLevel", "outputLevel", "slots", "presets", "activePreset", "loadingPreset",
 ] as const;
 const engineStateExact: Exact<typeof ENGINE_STATE_KEYS, keyof EngineState> = true;
 

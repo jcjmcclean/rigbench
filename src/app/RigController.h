@@ -64,6 +64,10 @@ public:
     const juce::String& getActivePreset() const noexcept { return activePreset; }
 
     juce::String savePreset (const juce::String& name);   // "" on success
+
+    // While a loaded preset's plugin is still being asked about or loaded, the
+    // rig isn't finished yet (the UI shouldn't call it "edited" when it arrives).
+    void setPresetPluginPending (bool pending) noexcept { presetPluginPending = pending; }
     juce::String renamePreset (const juce::String& from, const juce::String& to);   // "" on success
     juce::String deletePreset (const juce::String& name);                          // "" on success
     // VST3 slots are handed to `installVst` (the GUI asks for consent first).
@@ -91,6 +95,7 @@ private:
     juce::File  presetsDir;
     AppSettings settings;
     juce::String activePreset;
+    bool presetPluginPending = false;
 
     juce::var slotState (int index, const char* id) const;
 

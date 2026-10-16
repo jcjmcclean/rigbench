@@ -557,3 +557,29 @@ describe("App: the gate counts as part of the rig", () => {
     expect(edited()).toBeInTheDocument();
   });
 });
+
+describe("App: a preset whose plugin arrives late", () => {
+  it("isn't 'edited' while the plugin is pending or when it lands", () => {
+    render(<App />);
+    emit(makeState({ activePreset: "Crunch" }));
+    // Load "Lead": the engine sets the IR/NAM, and asks about the plugin.
+    const empty = makeState().slots;
+    emit(makeState({ activePreset: "Lead", loadingPreset: true }));
+    expect(edited()).not.toBeInTheDocument();
+    // The plugin lands in the same push that clears loadingPreset.
+    emit(makeState({
+      activePreset: "Lead",
+      loadingPreset: false,
+      slots: { ...empty, vst3: { type: "vst3", loaded: true, name: "BYOD", bypassed: false, hasEditor: true } },
+    }));
+    expect(edited()).not.toBeInTheDocument();
+    // A real change afterwards still counts.
+    emit(makeState({
+      activePreset: "Lead",
+      loadingPreset: false,
+      masterGain: 0.3,
+      slots: { ...empty, vst3: { type: "vst3", loaded: true, name: "BYOD", bypassed: false, hasEditor: true } },
+    }));
+    expect(edited()).toBeInTheDocument();
+  });
+});

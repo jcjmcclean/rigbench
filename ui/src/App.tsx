@@ -111,9 +111,15 @@ export default function App({ wheel = true }: { wheel?: boolean } = {}) {
   const [dirty, setDirty] = useState(false);
   const snapRef = useRef<string>("");
   const prevPreset = useRef<string | null | undefined>(undefined);
+  const wasLoadingPreset = useRef(false);
   useEffect(() => {
     if (!state) return;
     const sig = rigSignature(state);
+    // A preset's plugin arrives after the rest of it (consent prompt, then an
+    // async load). Until it has, and in the state where it lands, the rig is
+    // still the preset loading, not an edit.
+    const loading = state.loadingPreset || wasLoadingPreset.current;
+    wasLoadingPreset.current = state.loadingPreset;
     const saved = pendingSave.current !== null && pendingSave.current === state.activePreset;
     if (state.activePreset !== prevPreset.current || saved) {
       const renamed = !saved && pendingRename.current !== null && pendingRename.current === state.activePreset;
@@ -122,6 +128,7 @@ export default function App({ wheel = true }: { wheel?: boolean } = {}) {
       pendingRename.current = null;
       if (!renamed) snapRef.current = sig;
     }
+    if (loading) snapRef.current = sig;
     setDirty(sig !== snapRef.current);
   }, [state]);
   const onPresetSaved = useCallback((name: string) => { pendingSave.current = name; }, []);

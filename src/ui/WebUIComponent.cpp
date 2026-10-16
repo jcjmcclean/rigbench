@@ -418,6 +418,7 @@ void WebUIComponent::finishVstLoad (Vst3Node* node, int gen, bool ok, const juce
         dropLater();   // superseded by a newer load
         return;
     }
+    rig.setPresetPluginPending (false);
 
     if (ok)
     {
@@ -441,6 +442,7 @@ void WebUIComponent::loadPreset (const juce::String& name)
     // destroys the current VST3 instance) — a live editor on a freed instance crashes.
     editorWindow = nullptr;
     ++vstGeneration;   // any plugin still loading belongs to the old rig
+    rig.setPresetPluginPending (false);
     reportError (rig.loadPreset (name, [this] (const Preset::VstSlot& v) { startVstFromPreset (v); }));
 }
 
@@ -452,12 +454,14 @@ void WebUIComponent::startVstFromPreset (const Preset::VstSlot& v)
     // dlopen/instantiate it. Decline => skip the slot.
     if (! v.path.exists())
     {
+        rig.setPresetPluginPending (false);
         reportError ("This preset uses a plugin that isn't on this computer, so the plugin slot is empty: "
                      + v.path.getFullPathName());
         return;
     }
 
     const int presetGen = vstGeneration;   // loadPreset bumped it just before this
+    rig.setPresetPluginPending (true);
 
     auto startLoad = [this, v, presetGen]
     {
@@ -485,9 +489,15 @@ void WebUIComponent::startVstFromPreset (const Preset::VstSlot& v)
     juce::AlertWindow::showOkCancelBox (
         juce::MessageBoxIconType::WarningIcon, "Load the plugin in this preset?", message,
         "Load plugin", "Skip plugin", nullptr,
-        juce::ModalCallbackFunction::create ([startLoad] (int result)
+        juce::ModalCallbackFunction::create ([startLoad, done = [this, presetGen]
+                                              {
+                                                  if (presetGen == vstGeneration)
+                                                      rig.setPresetPluginPending (false);
+                                                  markDirty();
+                                              }] (int result)
         {
             if (result == 1) startLoad();   // 1 == first button ("Load plugin")
+            else done();
         }));
 }
 

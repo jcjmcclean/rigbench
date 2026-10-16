@@ -26,6 +26,7 @@ export interface EngineState {
   slots: Record<SlotType, SlotState>;
   presets: string[];
   activePreset: string | null;
+  loadingPreset: boolean; // a loaded preset's plugin is still being asked about / loaded
 }
 
 // The audio device choices (C++ AudioSetup::describe). Settings and first-run

@@ -47,7 +47,8 @@
     "outputLevel",
     "slots",
     "presets",
-    "activePreset"
+    "activePreset",
+    "loadingPreset"
   ],
   "slotIds": [
     "vst3",
