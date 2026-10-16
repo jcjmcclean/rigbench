@@ -1,0 +1,79 @@
+name: build
+
+# Produce a per-OS ToneStack artifact. The Mac can only build Mac, so each
+# platform builds on its own native runner (WebKitGTK / WebView2 / WKWebView and
+# the VST3 + MSVC/clang toolchains are all native-only — no cross-compiling).
+# Triggered manually or on a version tag.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest,   name: macOS,   cmake_args: "-DTONESTACK_UNIVERSAL=ON" }
+          - { os: ubuntu-latest,  name: Linux,   cmake_args: "" }
+          - { os: windows-latest, name: Windows, cmake_args: "" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      # The CMake tonestack_ui target runs `npm run build`; install deps first.
+      - name: Install UI deps
+        working-directory: ui
+        run: npm ci
+
+      # Linux: JUCE needs the WebView (webkit2gtk), GTK, ALSA, X11 and font libs.
+      - name: Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libasound2-dev \
+            libjack-jackd2-dev libx11-dev libxext-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev \
+            ninja-build
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo ${{ matrix.cmake_args }}
+
+      - name: Build
+        run: cmake --build build --config RelWithDebInfo --target ToneStack
+
+      # Package: macOS -> DMG, Linux -> tarball, Windows -> zip.
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: ./packaging/make-dmg.sh build
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd build/ToneStack_artefacts/RelWithDebInfo
+          tar czf "$GITHUB_WORKSPACE/ToneStack-linux.tar.gz" ToneStack
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $app = Get-ChildItem -Recurse -Filter ToneStack.exe build | Select-Object -First 1
+          Compress-Archive -Path $app.DirectoryName/* -DestinationPath ToneStack-windows.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ToneStack-${{ matrix.name }}
+          path: |
+            dist/*.dmg
+            ToneStack-linux.tar.gz
+            ToneStack-windows.zip
+          if-no-files-found: ignore
