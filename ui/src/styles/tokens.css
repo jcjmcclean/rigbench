@@ -1,0 +1,65 @@
+/* ToneStack design tokens — warm analog amp-faceplate system.
+   Palette is deliberately warm (tolex/tube-glow), not the acid-green-on-black cliché. */
+:root {
+  /* Surfaces — warm near-black tolex rising to lifted graphite faceplates */
+  --bg-0: #100e0b;          /* deepest — app background */
+  --bg-1: #141210;          /* base panel */
+  --bg-2: #1c1813;          /* raised */
+  --bg-3: #26211b;          /* faceplate */
+  --bg-4: #322b22;          /* faceplate edge highlight */
+  --hairline: #3a3127;      /* warm divider */
+  --hairline-soft: #2a241d;
+
+  /* Ink — silkscreened amp lettering */
+  --ink-0: #f4eee2;         /* primary text */
+  --ink-1: #cabfae;         /* bright secondary */
+  --ink-muted: #9a9186;     /* secondary */
+  --ink-faint: #6b6459;     /* tertiary / disabled */
+
+  /* Tube-glow accents (warmth / gain / active signal) */
+  --ember: #ff7a2d;         /* primary accent */
+  --ember-bright: #ff9850;
+  --ember-dim: #b85520;
+  --gold: #d6a456;          /* secondary accent */
+  --gold-dim: #8f6f3a;
+
+  /* Reserved cool accent — ONLY for level metering, so "signal" != "warmth" */
+  --signal: #4fd2c2;
+  --signal-dim: #2b7d74;
+  --signal-hot: #ff5a4d;    /* meter clip */
+
+  /* Semantic */
+  --led-on: var(--ember);
+  --led-off: #2e2820;
+  --danger: #ff5a4d;
+
+  /* Type */
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Type scale */
+  --t-xs: 10px;
+  --t-sm: 12px;
+  --t-base: 14px;
+  --t-md: 16px;
+  --t-lg: 20px;
+  --t-xl: 28px;
+  --t-2xl: 40px;
+
+  /* Space */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+  /* Radius */
+  --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 18px;
+
+  /* Shadows & glow */
+  --shadow-panel: 0 1px 0 rgba(255,255,255,0.04) inset,
+                  0 -1px 0 rgba(0,0,0,0.5) inset,
+                  0 10px 30px rgba(0,0,0,0.45);
+  --glow-ember: 0 0 16px rgba(255,122,45,0.45), 0 0 2px rgba(255,122,45,0.8);
+  --glow-signal: 0 0 14px rgba(79,210,194,0.5);
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}

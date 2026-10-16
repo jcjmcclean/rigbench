@@ -1,0 +1,43 @@
+#pragma once
+
+#include "AudioEngine.h"
+#include <functional>
+
+//==============================================================================
+// Save / load the whole rig (chain + master) to a versioned JSON preset.
+//
+// IR and NAM slots are rebuilt synchronously on load. VST3 is asynchronous, so
+// load() hands each VST3 slot to the caller-supplied `installVst` callback (the
+// UI does the async load + state restore; headless callers can ignore it).
+namespace Preset
+{
+    struct RigInfo
+    {
+        float  masterGain = 0.8f;
+        double sampleRateAtSave = 48000.0;
+        juce::String name;
+    };
+
+    // Describes a VST3 slot found in a preset, to be installed asynchronously.
+    struct VstSlot
+    {
+        int slot = AudioEngine::vst3Slot;
+        bool enabled = true;
+        juce::File   path;
+        juce::String identifier;
+        juce::String stateBase64;
+    };
+
+    static constexpr const char* fileExtension = ".tonestack";
+
+    juce::File presetsDir();
+
+    // Serialize the engine's current chain + master gain.
+    bool save (const juce::File& file, const AudioEngine& engine,
+               float masterGain, double sampleRate, const juce::String& name = {});
+
+    // Rebuild IR + NAM slots into the engine; report master gain etc. in `info`.
+    // For each VST3 slot, `installVst` is invoked (if provided).
+    bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int maxBlock,
+               RigInfo& info, std::function<void (const VstSlot&)> installVst = {});
+}

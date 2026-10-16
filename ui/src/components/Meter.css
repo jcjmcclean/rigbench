@@ -1,0 +1,33 @@
+.meter { display: flex; align-items: center; gap: 6px; }
+.meter--v { flex-direction: column; }
+.meter--h { flex-direction: row-reverse; }
+
+.meter__track {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-1);
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.6);
+}
+.meter--v .meter__track { flex-direction: column; width: 10px; }
+.meter--h .meter__track { flex-direction: row; height: 10px; }
+
+.meter__seg {
+  flex: 1;
+  border-radius: 1px;
+  background: var(--led-off);
+  min-width: 4px;
+  min-height: 4px;
+  transition: opacity 0.05s linear, box-shadow 0.05s linear;
+  opacity: 0.5;
+}
+.meter--v .meter__seg { height: 6px; }
+.meter--h .meter__seg { width: 6px; }
+
+.meter__seg.is-on { opacity: 1; }
+.meter__seg--ok.is-on   { background: var(--signal);    box-shadow: 0 0 5px rgba(79,210,194,0.7); }
+.meter__seg--warn.is-on { background: var(--gold);      box-shadow: 0 0 5px rgba(214,164,86,0.7); }
+.meter__seg--clip.is-on { background: var(--signal-hot); box-shadow: 0 0 6px rgba(255,90,77,0.85); }
+
+.meter__label { font-size: 9px; }

@@ -1,0 +1,18 @@
+# Build output
+build/
+cmake-build-*/
+
+# JUCE fetched sources (re-pulled by CMake FetchContent)
+_deps/
+
+# macOS
+.DS_Store
+
+# Node / React UI (added in T7)
+node_modules/
+ui/dist/
+
+# Editor
+.vscode/
+.idea/
+*.user
