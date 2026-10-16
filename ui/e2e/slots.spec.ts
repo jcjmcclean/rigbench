@@ -2,16 +2,20 @@ import { expect, test } from "@playwright/test";
 import { editedMarker, openApp, slot } from "./helpers.ts";
 
 test.describe("signal chain slots", () => {
-  test("bypass toggles ON -> BYPASS -> ON", async ({ page }) => {
+  test("bypass toggles ON -> OFF -> ON", async ({ page }) => {
     await openApp(page);
     const nam = slot(page, "NAM");
-    await nam.getByRole("button", { name: "ON" }).click();
-    const bypass = nam.getByRole("button", { name: "BYPASS" });
-    await expect(bypass).toHaveAttribute("aria-pressed", "true");
+    // Named "Amp ON" / "Amp OFF": the slot (visually hidden) plus the visible state.
+    const bypass = nam.getByRole("button", { name: /^Amp (ON|OFF)$/ });
+    await expect(bypass).toHaveAccessibleName("Amp ON");
+    await expect(bypass).toHaveAttribute("title", "On: click to turn off");
+    await bypass.click();
+    await expect(bypass).toHaveAccessibleName("Amp OFF");
+    await expect(bypass).toHaveAttribute("title", "Off: click to turn on");
     await expect(nam).toHaveClass(/is-bypassed/);
     await expect(editedMarker(page)).toBeVisible();
     await bypass.click();
-    await expect(nam.getByRole("button", { name: "ON" })).toHaveAttribute("aria-pressed", "false");
+    await expect(bypass).toHaveAccessibleName("Amp ON");
     await expect(editedMarker(page)).toHaveCount(0);
   });
 
@@ -20,33 +24,32 @@ test.describe("signal chain slots", () => {
     const nam = slot(page, "NAM");
     const name = nam.locator(".module__name");
     await expect(name).toHaveText("Fig HW C50 MG 412");
-    await nam.getByRole("button", { name: "Change" }).click();
+    await nam.getByRole("button", { name: "Change amp model" }).click();
     await expect(name).toHaveText("Fig HW DR Hot 212");
-    await nam.getByRole("button", { name: "Change" }).click();
+    await nam.getByRole("button", { name: "Change amp model" }).click();
     await expect(name).toHaveText("Fig HW C50 MG DI");
-    await nam.getByRole("button", { name: "Change" }).click();
+    await nam.getByRole("button", { name: "Change amp model" }).click();
     await expect(name).toHaveText("Fig HW C50 MG 412");
   });
 
   test("Change cycles the cab IR name", async ({ page }) => {
     await openApp(page);
     const ir = slot(page, "IR");
-    await ir.getByRole("button", { name: "Change" }).click();
-    await expect(ir.locator(".module__name")).toHaveText("Hiwatt SE4123 — R121");
+    await ir.getByRole("button", { name: "Change cab IR" }).click();
+    await expect(ir.locator(".module__name")).toHaveText("Hiwatt SE4123 R121");
   });
 
   test("clearing a slot shows the empty load state; loading fills it again", async ({ page }) => {
     await openApp(page);
     const ir = slot(page, "IR");
-    await ir.getByTitle("Remove").click();
+    await ir.getByRole("button", { name: "Remove cab IR" }).click();
     const load = ir.getByRole("button", { name: /Load a cab IR/ });
     await expect(load).toBeVisible();
     await expect(ir).toHaveClass(/is-empty/);
     await expect(ir.getByRole("slider")).toHaveCount(0);
-    // Exact names: the empty slot's download links ("…on TONE3000") contain "ON".
-    await expect(ir.getByRole("button", { name: /^(ON|BYPASS)$/ })).toHaveCount(0);
+    await expect(ir.getByRole("button", { name: /^(Bypass|Change|Remove) / })).toHaveCount(0);
     await load.click();
-    await expect(ir.locator(".module__name")).toHaveText("Hiwatt SE4123 — R121");
+    await expect(ir.locator(".module__name")).toHaveText("Hiwatt SE4123 R121");
     await expect(ir.getByRole("slider", { name: "Mix" })).toHaveAttribute("aria-valuetext", "100%");
     await expect(ir).toHaveClass(/is-loaded/);
   });
@@ -65,10 +68,14 @@ test.describe("signal chain slots", () => {
     await openApp(page);
     await slot(page, "VST3").getByRole("button", { name: /Load a plugin/ }).click();
     await page.getByRole("dialog", { name: "Load a plugin" }).getByRole("button", { name: "BYOD" }).click();
-    for (const [kind, empty] of [["VST3", /Load a plugin/], ["NAM", /Load an amp model/], ["IR", /Load a cab IR/]] as const) {
+    for (const [kind, thing, empty] of [
+      ["VST3", "plugin", /Load a plugin/],
+      ["NAM", "amp model", /Load an amp model/],
+      ["IR", "cab IR", /Load a cab IR/],
+    ] as const) {
       const unit = slot(page, kind);
       await unit.hover();
-      const remove = unit.getByTitle("Remove");
+      const remove = unit.getByRole("button", { name: `Remove ${thing}` });
       await expect(remove).toBeVisible();
       // trial: Playwright's actionability check fails if another element would get the click
       await remove.click({ trial: true, timeout: 2000 });

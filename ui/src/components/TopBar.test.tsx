@@ -22,16 +22,16 @@ describe("TopBar telemetry", () => {
     expect(telem("Latency")).toHaveTextContent("5.3 ms · low");
   });
 
-  it("formats 48 kHz with one decimal", () => {
+  it("formats a whole-kHz rate the same way Settings does (48 kHz)", () => {
     render(<TopBar state={makeState({ sampleRate: 48000 })} dirty={false} />);
-    expect(telem("Rate")).toHaveTextContent("48.0 kHz");
+    expect(telem("Rate")).toHaveTextContent(/^48 kHz$/);
   });
 
   it.each([
     [0, "0.0 ms · low", "good"],
     [11.9, "11.9 ms · low", "good"],
-    [12, "12.0 ms · med", "warn"],
-    [19.9, "19.9 ms · med", "warn"],
+    [12, "12.0 ms · medium", "warn"],
+    [19.9, "19.9 ms · medium", "warn"],
     [20, "20.0 ms · high", "bad"],
     [85.04, "85.0 ms · high", "bad"],
   ])("latency %s ms reads %j with a %s tone (word + colour, not colour only)", (ms, text, tone) => {
@@ -47,21 +47,33 @@ describe("TopBar telemetry", () => {
 });
 
 describe("TopBar monitoring (LIVE) toggle", () => {
-  it("reads Live while monitoring and mutes on click", () => {
+  // A toggle with one fixed name; aria-pressed carries the state.
+  it("reads Live (pressed) while monitoring and mutes on click", () => {
     render(<TopBar state={makeState({ monitoring: true })} dirty={false} />);
-    const btn = screen.getByRole("button", { name: /Live/ });
-    expect(btn).toHaveAttribute("title", "Monitoring on — click to mute");
+    const btn = screen.getByRole("button", { name: "Hear your guitar" });
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+    expect(btn).toHaveTextContent(/^Live$/);
+    expect(btn).toHaveAttribute("title", "Live: click to mute");
     fireEvent.click(btn);
     expect(fake.bridge.setMonitor).toHaveBeenCalledExactlyOnceWith(false);
   });
 
-  it("reads Muted when not monitoring and un-mutes on click", () => {
+  it("reads Muted (not pressed) when not monitoring and un-mutes on click", () => {
     render(<TopBar state={makeState({ monitoring: false })} dirty={false} />);
-    const btn = screen.getByRole("button", { name: /Muted/ });
-    expect(screen.queryByRole("button", { name: /Live/ })).not.toBeInTheDocument();
-    expect(btn).toHaveAttribute("title", "Monitoring off");
+    const btn = screen.getByRole("button", { name: "Hear your guitar" });
+    expect(btn).toHaveAttribute("aria-pressed", "false");
+    expect(btn).toHaveTextContent(/^Muted$/);
+    expect(btn).toHaveAttribute("title", "Muted: click to hear your guitar");
     fireEvent.click(btn);
     expect(fake.bridge.setMonitor).toHaveBeenCalledExactlyOnceWith(true);
+  });
+
+  it("keeps the same name as it toggles", () => {
+    const { rerender } = render(<TopBar state={makeState({ monitoring: true })} dirty={false} />);
+    expect(screen.getByRole("button", { name: "Hear your guitar", pressed: true })).toBeInTheDocument();
+    rerender(<TopBar state={makeState({ monitoring: false })} dirty={false} />);
+    expect(screen.getByRole("button", { name: "Hear your guitar", pressed: false })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Live|Muted/ })).not.toBeInTheDocument();
   });
 });
 
@@ -132,7 +144,7 @@ describe("TopBar preset + edited marker", () => {
     const onPresetSaved = vi.fn();
     render(<TopBar state={makeState({ activePreset: "Crunch" })} dirty onPresetSaved={onPresetSaved} />);
     fireEvent.click(screen.getByRole("button", { name: /Preset/ }));
-    fireEvent.click(screen.getByRole("option", { name: "+ Save current rig…" }));
+    fireEvent.click(screen.getByRole("option", { name: "Save current rig…" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(fake.bridge.savePreset).toHaveBeenCalledExactlyOnceWith("Crunch copy");
     expect(onPresetSaved).toHaveBeenCalledExactlyOnceWith("Crunch copy");

@@ -46,7 +46,7 @@ describe("PluginPicker", () => {
     fake.bridge.listPlugins.mockResolvedValueOnce([]);
     const user = userEvent.setup();
     render(<PluginPicker onClose={() => {}} />);
-    expect(await screen.findByText(/No VST3 plugins in the usual folders/)).toBeInTheDocument();
+    expect(await screen.findByText(/No VST3 plugins in the standard folders. Use Browse… if yours is somewhere else/)).toBeInTheDocument();
     const first = soundLinks.vst3[0];
     await user.click(screen.getByRole("button", { name: first.label }));
     expect(fake.bridge.openUrl).toHaveBeenCalledExactlyOnceWith(first.url);

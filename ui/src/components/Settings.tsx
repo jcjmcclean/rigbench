@@ -37,17 +37,17 @@ export function Settings({ onClose, onRunSetup }: { onClose: () => void; onRunSe
         <div className="settings" aria-busy={busy}>
           <p className={`settings__status${setup.sampleRate > 0 ? " is-ok" : ""}`} role="status">
             {setup.sampleRate > 0
-              ? `Working · ${rateLabel(setup.sampleRate)} · about ${Math.round(setup.latencyMs)} ms delay`
+              ? `Running at ${rateLabel(setup.sampleRate)} · about ${Math.round(setup.latencyMs)} ms latency`
               : "No audio device is running. Pick one below."}
           </p>
 
-          <Row label="Guitar comes in from">
+          <Row label="Audio interface">
             {(id) => (
               <Select id={id} value={setup.inputDevice} options={setup.inputDevices} onChange={(v) => apply({ inputDevice: v })} />
             )}
           </Row>
 
-          <Row label="Guitar is plugged into">
+          <Row label="Guitar input">
             {(id) => (
               <div className="settings__with-meter">
                 <Select
@@ -65,19 +65,19 @@ export function Settings({ onClose, onRunSetup }: { onClose: () => void; onRunSe
             )}
           </Row>
           {setup.builtInInput && (
-            <p className="settings__warn">That’s your computer’s own microphone. Use headphones, or it will feed back through the speakers.</p>
+            <p className="settings__warn">That’s your computer’s built-in microphone. Use headphones with it, or it will feed back through the speakers.</p>
           )}
 
-          <Row label="You hear it through">
+          <Row label="Output">
             {(id) => (
               <div className="settings__with-button">
                 <Select id={id} value={setup.outputDevice} options={setup.outputDevices} onChange={(v) => apply({ outputDevice: v })} />
-                <button className="btn" onClick={() => bridge.playTestSound()}>Test sound</button>
+                <button className="btn" onClick={() => bridge.playTestSound()}>Play test sound</button>
               </div>
             )}
           </Row>
 
-          <Row label="Responsiveness" hint="Lower is snappier. If you hear crackles, pick a higher one.">
+          <Row label="Buffer size" hint="Smaller feels more immediate. If you hear crackles or dropouts, pick a bigger one.">
             {(id) => (
               <Select
                 id={id}

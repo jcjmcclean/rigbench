@@ -24,7 +24,18 @@ function rigSignature(s: EngineState): string {
 // leave "Connecting…" up for ever).
 export const CONNECT_TIMEOUT_MS = 8000;
 
-export default function App() {
+export const VERSION = "0.1.0";
+
+// What the status bar says about the knobs. The website demo turns the scroll
+// wheel off (it scrolls the page there), so it leaves the wheel out.
+function knobHint(wheel: boolean): string {
+  return wheel
+    ? "Drag a knob, or use the arrow keys or scroll wheel. Hold Shift for finer control."
+    : "Drag a knob, or use the arrow keys. Hold Shift for finer control.";
+}
+
+// wheel: whether the scroll wheel turns knobs (false in the website showcase).
+export default function App({ wheel = true }: { wheel?: boolean } = {}) {
   const [state, setState] = useState<EngineState | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -32,20 +43,29 @@ export default function App() {
 
   useEffect(() => bridge.subscribe(setState), []);
 
-  // Settings screen, and first-run setup (shown until the engine says it's done,
-  // or again when asked for from Settings).
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [tunerOpen, setTunerOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  // The dialog App owns (Settings, the tuner, the plugin picker), and first-run
+  // setup (shown until the engine says it's done, or again when asked for from
+  // Settings).
+  //
+  // One dialog at a time: a request to open one while any dialog is on screen
+  // is ignored. That covers the ones App doesn't own too (the preset menu's
+  // save/rename/delete, and setup), so the app menu's Settings… can't stack a
+  // second dialog over them.
+  const [dialog, setDialog] = useState<"settings" | "tuner" | "picker" | null>(null);
+  const openDialog = useCallback((d: "settings" | "tuner" | "picker") => {
+    if (document.querySelector('[role="dialog"]')) return;
+    setDialog(d);
+  }, []);
+  const closeDialog = useCallback(() => setDialog(null), []);
   const [setupAgain, setSetupAgain] = useState(false);
   const showSetup = !!state && (!state.setupComplete || setupAgain);
-  useEffect(() => bridge.subscribeShowSettings(() => setSettingsOpen(true)), []);
+  useEffect(() => bridge.subscribeShowSettings(() => openDialog("settings")), [openDialog]);
 
 
   useEffect(() => {
     if (state) return;
     const t = setTimeout(
-      () => setFatal("Tonebench’s window opened, but it couldn’t talk to the audio engine. Try restarting the app."),
+      () => setFatal("The window opened, but the audio engine didn’t answer. Click Retry. If that doesn’t help, quit Tonebench and open it again."),
       CONNECT_TIMEOUT_MS,
     );
     return () => clearTimeout(t);
@@ -57,16 +77,18 @@ export default function App() {
   const hasStateRef = useRef(false);
   useEffect(() => { hasStateRef.current = state !== null; }, [state]);
 
-  // Name of a preset save the user just requested (see dirty tracking below).
+  // Name of a preset save or rename the user just requested (see dirty tracking below).
   const pendingSave = useRef<string | null>(null);
+  const pendingRename = useRef<string | null>(null);
 
   const MAX_TOASTS = 4;
   useEffect(() => {
     return bridge.subscribeError((message) => {
       // No engine state yet → fatal "couldn't connect"; otherwise a recoverable
       // notice (e.g. a model failed to load) shown as a toast (newest kept, capped).
-      // A save that errors must not re-baseline the "edited" tracking below.
+      // A save or rename that errors must not re-baseline the "edited" tracking below.
       pendingSave.current = null;
+      pendingRename.current = null;
       if (!hasStateRef.current) {
         setFatal(message);
       } else {
@@ -84,7 +106,8 @@ export default function App() {
   // Dirty tracking: snapshot the rig whenever the active preset changes (load or
   // save), then compare the live signature against it. Saving over the active
   // preset keeps the same name, so a requested save is remembered and the
-  // snapshot retaken once the engine reports that preset as active.
+  // snapshot retaken once the engine reports that preset as active. A rename
+  // changes the name without saving, so it keeps the snapshot (and "edited").
   const [dirty, setDirty] = useState(false);
   const snapRef = useRef<string>("");
   const prevPreset = useRef<string | null | undefined>(undefined);
@@ -93,13 +116,16 @@ export default function App() {
     const sig = rigSignature(state);
     const saved = pendingSave.current !== null && pendingSave.current === state.activePreset;
     if (state.activePreset !== prevPreset.current || saved) {
+      const renamed = !saved && pendingRename.current !== null && pendingRename.current === state.activePreset;
       prevPreset.current = state.activePreset;
       pendingSave.current = null;
-      snapRef.current = sig;
+      pendingRename.current = null;
+      if (!renamed) snapRef.current = sig;
     }
     setDirty(sig !== snapRef.current);
   }, [state]);
   const onPresetSaved = useCallback((name: string) => { pendingSave.current = name; }, []);
+  const onPresetRenamed = useCallback((name: string) => { pendingRename.current = name; }, []);
 
   if (fatal && !state) {
     return (
@@ -117,40 +143,47 @@ export default function App() {
       <div className="splash" role="status" aria-live="polite">
         <span className="splash__mark splash__mark--pulse" aria-hidden />
         <span className="splash__word">Tone<em>bench</em></span>
-        <span className="splash__hint mono">Connecting to engine…</span>
+        <span className="splash__hint mono">Connecting to the audio engine…</span>
       </div>
     );
   }
 
   return (
     <div className="app">
-      <TopBar state={state} dirty={dirty} onPresetSaved={onPresetSaved} onOpenSettings={() => setSettingsOpen(true)} onOpenTuner={() => setTunerOpen(true)} />
+      <TopBar
+        state={state}
+        dirty={dirty}
+        onPresetSaved={onPresetSaved}
+        onPresetRenamed={onPresetRenamed}
+        onOpenSettings={() => openDialog("settings")}
+        onOpenTuner={() => openDialog("tuner")}
+      />
 
       <main className="stage">
-        <SignalChain state={state} onPickPlugin={() => setPickerOpen(true)} />
+        <SignalChain state={state} onPickPlugin={() => openDialog("picker")} />
       </main>
 
       <footer className="statusbar">
         <span className="statusbar__hint mono">
-          Drag knobs · ↑↓ ←→ or scroll to adjust · Shift for fine · click a slot to load
+          {knobHint(wheel)}
         </span>
         <span className="statusbar__right">
-          {isMock && <span className="badge badge--mock">Preview — mock engine</span>}
-          <span className="statusbar__ver mono">v0.1</span>
+          {isMock && <span className="badge badge--mock">Preview: no sound</span>}
+          <span className="statusbar__ver mono">v{VERSION}</span>
         </span>
       </footer>
 
       <Toasts items={toasts} onDismiss={dismissToast} />
 
-      {settingsOpen && !showSetup && (
+      {dialog === "settings" && !showSetup && (
         <Settings
-          onClose={() => setSettingsOpen(false)}
-          onRunSetup={() => { setSettingsOpen(false); setSetupAgain(true); }}
+          onClose={closeDialog}
+          onRunSetup={() => { setDialog(null); setSetupAgain(true); }}
         />
       )}
-      {tunerOpen && !showSetup && !settingsOpen && <Tuner onClose={() => setTunerOpen(false)} />}
-      {pickerOpen && !showSetup && <PluginPicker onClose={() => setPickerOpen(false)} />}
-      {showSetup && <Setup onDone={() => setSetupAgain(false)} />}
+      {dialog === "tuner" && !showSetup && <Tuner onClose={closeDialog} />}
+      {dialog === "picker" && !showSetup && <PluginPicker onClose={closeDialog} />}
+      {showSetup && <Setup monitoring={state.monitoring} onDone={() => setSetupAgain(false)} />}
     </div>
   );
 }

@@ -7,7 +7,7 @@ export async function openApp(page: Page) {
   await page.goto("/");
   await expect(page, "is this Tonebench's dev server? (see E2E_PORT in playwright.config.ts)").toHaveTitle("Tonebench");
   await expect(page.getByRole("main")).toBeVisible();
-  await expect(page.getByText("Connecting to engine…")).toHaveCount(0);
+  await expect(page.getByText("Connecting to the audio engine…")).toHaveCount(0);
 }
 
 /** A chain module (rack unit) by its type badge. */

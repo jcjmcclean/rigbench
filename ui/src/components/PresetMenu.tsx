@@ -8,6 +8,7 @@ export function PresetMenu({
   active,
   dirty = false,
   onSaved,
+  onRenamed,
 }: {
   presets: string[];
   active: string | null;
@@ -15,6 +16,9 @@ export function PresetMenu({
   // Told the name after a save is requested, so the owner can re-baseline its
   // "edited" tracking even when the name (activePreset) doesn't change.
   onSaved?: (name: string) => void;
+  // Told the new name after a rename is requested. A rename doesn't save, so
+  // the owner should keep its "edited" state across the name change.
+  onRenamed?: (name: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -40,7 +44,7 @@ export function PresetMenu({
 
   const doRename = () => {
     const n = name.trim();
-    if (active && n && !renameClash && n !== active) { bridge.renamePreset(active, n); onSaved?.(n); }
+    if (active && n && !renameClash && n !== active) { bridge.renamePreset(active, n); onRenamed?.(n); }
     if (!renameClash) { setRenameOpen(false); setName(""); }
   };
   const doDelete = () => { if (active) bridge.deletePreset(active); setDeleteOpen(false); };
@@ -97,7 +101,7 @@ export function PresetMenu({
       >
         <span className="presetmenu__eyebrow eyebrow">Preset</span>
         <span className="presetmenu__name">
-          {active ?? "Init"}
+          {active ?? "No preset"}
           {dirty && <span className="presetmenu__dirty" title="Unsaved changes"> • edited</span>}
         </span>
         <span className={`presetmenu__chev ${open ? "is-open" : ""}`} aria-hidden>▾</span>
@@ -130,7 +134,7 @@ export function PresetMenu({
             onClick={() => { setOpen(false); setName(active ? `${active} copy` : ""); setSaveOpen(true); }}
             onKeyDown={(e) => onListKeyDown(e, presets.length)}
           >
-            + Save current rig…
+            <span aria-hidden>+ </span>Save current rig…
           </button>
           {active && (
             <>
@@ -173,7 +177,7 @@ export function PresetMenu({
             onKeyDown={(e) => { if (e.key === "Enter") doRename(); }}
           />
           {renameClash && (
-            <p className="presetmenu__replace" role="status">There’s already a preset called “{renameClash}”.</p>
+            <p className="presetmenu__replace" role="status">There’s already a preset called “{renameClash}”. Pick another name.</p>
           )}
           <div className="modal__actions">
             <button className="btn" onClick={() => setRenameOpen(false)}>Cancel</button>
@@ -184,7 +188,7 @@ export function PresetMenu({
 
       {deleteOpen && active && (
         <Modal title={`Delete “${active}”?`} onClose={() => setDeleteOpen(false)}>
-          <p className="presetmenu__confirm">The preset file is deleted. What you’re playing now stays as it is.</p>
+          <p className="presetmenu__confirm">This deletes the preset file for good. What you’re playing now won’t change.</p>
           <div className="modal__actions">
             <button className="btn" onClick={() => setDeleteOpen(false)}>Cancel</button>
             <button className="btn btn--danger" onClick={doDelete}>Delete</button>
@@ -198,6 +202,7 @@ export function PresetMenu({
             className="field"
             autoFocus
             placeholder="Preset name"
+            aria-label="Preset name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") doSave(); }}

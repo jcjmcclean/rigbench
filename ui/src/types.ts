@@ -110,6 +110,8 @@ export interface Bridge {
   getAudioSetup(): Promise<AudioSetup>;
   setAudioSetup(changes: AudioSetupChanges): Promise<AudioSetup>;
   playTestSound(): void;
-  finishSetup(): void;
+  // Marks first-run setup done. startMonitoring (default true) also turns
+  // monitoring on; Skip passes false so a laptop mic can't feed back.
+  finishSetup(startMonitoring?: boolean): void;
   openUrl(url: string): void;   // in the system browser (https only)
 }

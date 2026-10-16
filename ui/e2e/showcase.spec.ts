@@ -14,3 +14,11 @@ test("website preview: full rig, and the wheel scrolls the page instead of turni
   await page.waitForTimeout(200);
   await expect(gain).toHaveAttribute("aria-valuetext", "80");
 });
+
+test("website preview: the status-bar hint doesn't mention the scroll wheel", async ({ page }) => {
+  await page.goto("/showcase.html");
+  const footer = page.getByRole("contentinfo");
+  await expect(footer).toContainText("Drag a knob, or use the arrow keys. Hold Shift for finer control.");
+  await expect(footer).not.toContainText("wheel");
+  await expect(footer).toContainText("Preview: no sound");
+});

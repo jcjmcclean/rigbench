@@ -9,7 +9,9 @@ test.describe("tuner and gate", () => {
     await expect(tuner).toBeVisible();
     // The mock engine plays a low E that settles into tune.
     await expect(tuner.locator(".tuner__note")).toHaveText("E2", { timeout: 5000 });
-    await expect(tuner.getByRole("status")).toHaveText(/In tune|cents (flat|sharp)/);
+    await expect(tuner.locator(".tuner__advice")).toHaveText(/In tune|cents (flat|sharp)/);
+    // One hidden status line speaks for the readout, coarsely.
+    await expect(tuner.getByRole("status")).toHaveText(/^(E 2|In tune|E 2, in tune)$/);
     await page.keyboard.press("Escape");
     await expect(tuner).toHaveCount(0);
   });

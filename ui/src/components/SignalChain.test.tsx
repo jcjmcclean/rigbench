@@ -79,7 +79,7 @@ describe("SignalChain -> bridge wiring", () => {
     fireEvent.click(slot("vst3").getByRole("button", { name: /Load a plugin/ }));
     expect(onPickPlugin).toHaveBeenCalledTimes(1);
     expect(fake.bridge.loadSlot).not.toHaveBeenCalled();
-    fireEvent.click(slot("nam").getByRole("button", { name: "Change" }));
+    fireEvent.click(slot("nam").getByRole("button", { name: "Change amp model" }));
     expect(fake.bridge.loadSlot).toHaveBeenCalledExactlyOnceWith("nam");
   });
 
@@ -96,9 +96,23 @@ describe("SignalChain -> bridge wiring", () => {
     expect(screen.getByRole("slider", { name: "Gate" })).toHaveAttribute("aria-valuetext", "-50 dB");
   });
 
+  // What each slot's buttons are called: "Amp ON", "Change amp model", "Remove amp model".
+  const short: Record<SlotType, string> = { vst3: "Plugin", nam: "Amp", ir: "Cab" };
+  const thing: Record<SlotType, string> = { vst3: "plugin", nam: "amp model", ir: "cab IR" };
+
+  it("a screen reader can tell the three slots' buttons apart", () => {
+    render(<SignalChain state={fullRig()} />);
+    const names = (re: RegExp) => screen.getAllByRole("button", { name: re }).map((b) => b.getAttribute("aria-label"));
+    const texts = screen.getAllByRole("button", { name: / (ON|OFF)$/ }).map((b) => b.textContent);
+    expect(texts).toEqual(["Plugin ON", "Amp ON", "Cab ON"]);
+    expect(names(/^Change /)).toEqual(["Change plugin", "Change amp model", "Change cab IR"]);
+    expect(names(/^Remove /)).toEqual(["Remove plugin", "Remove amp model", "Remove cab IR"]);
+  });
+
   it.each<SlotType>(["vst3", "nam", "ir"])("bypass on %s calls setBypass with that slot", (type) => {
     render(<SignalChain state={fullRig()} />);
-    fireEvent.click(slot(type).getByRole("button", { name: "ON" }));
+    const btn = slot(type).getByRole("button", { name: `${short[type]} ON` });
+    fireEvent.click(btn);
     expect(fake.bridge.setBypass).toHaveBeenCalledExactlyOnceWith(type, true);
   });
 
@@ -106,19 +120,20 @@ describe("SignalChain -> bridge wiring", () => {
     const s = fullRig();
     s.slots.ir = { ...s.slots.ir, bypassed: true };
     render(<SignalChain state={s} />);
-    fireEvent.click(slot("ir").getByRole("button", { name: "BYPASS" }));
+    const btn = slot("ir").getByRole("button", { name: "Cab OFF" });
+    fireEvent.click(btn);
     expect(fake.bridge.setBypass).toHaveBeenCalledExactlyOnceWith("ir", false);
   });
 
   it.each<SlotType>(["vst3", "nam", "ir"])("Change on %s calls loadSlot with that slot", (type) => {
     render(<SignalChain state={fullRig()} />);
-    fireEvent.click(slot(type).getByRole("button", { name: "Change" }));
+    fireEvent.click(slot(type).getByRole("button", { name: `Change ${thing[type]}` }));
     expect(fake.bridge.loadSlot).toHaveBeenCalledExactlyOnceWith(type);
   });
 
   it.each<SlotType>(["vst3", "nam", "ir"])("Remove on %s calls clearSlot with that slot", (type) => {
     render(<SignalChain state={fullRig()} />);
-    fireEvent.click(slot(type).getByTitle("Remove"));
+    fireEvent.click(slot(type).getByRole("button", { name: `Remove ${thing[type]}` }));
     expect(fake.bridge.clearSlot).toHaveBeenCalledExactlyOnceWith(type);
   });
 

@@ -33,7 +33,7 @@ describe("Settings: loading and status", () => {
     // The actions are there straight away.
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     await act(async () => answer(makeAudioSetup()));
-    expect(screen.getByRole("status")).toHaveTextContent("Working");
+    expect(screen.getByRole("status")).toHaveTextContent("Running at");
   });
 
   it("doesn't update after unmount if the setup arrives late", async () => {
@@ -46,11 +46,11 @@ describe("Settings: loading and status", () => {
     expect(err).not.toHaveBeenCalled();
   });
 
-  it("says it's working, with the rate and rounded delay", async () => {
+  it("says it's running, with the rate and rounded latency", async () => {
     fake.setAudio({ sampleRate: 44100, latencyMs: 6.6 });
     await renderSettings();
     const status = screen.getByRole("status");
-    expect(status).toHaveTextContent("Working · 44.1 kHz · about 7 ms delay");
+    expect(status).toHaveTextContent("Running at 44.1 kHz · about 7 ms latency");
     expect(status).toHaveClass("is-ok");
   });
 
@@ -77,7 +77,7 @@ describe("Settings: loading and status", () => {
 describe("Settings: the choices", () => {
   it("shows the input device, with every device listed", async () => {
     await renderSettings();
-    const el = select("Guitar comes in from");
+    const el = select("Audio interface");
     expect(el).toHaveValue("Test Interface");
     expect(optionTexts(el)).toEqual(["Built-in Microphone", "Test Interface"]);
   });
@@ -85,7 +85,7 @@ describe("Settings: the choices", () => {
   it("shows the input channel by name", async () => {
     fake.setAudio({ input: 1 });
     await renderSettings();
-    const el = select("Guitar is plugged into");
+    const el = select("Guitar input");
     expect(el).toHaveValue("1");
     expect(selectedText(el)).toBe("Input 2");
     expect(optionTexts(el)).toEqual(["Input 1", "Input 2"]);
@@ -94,7 +94,7 @@ describe("Settings: the choices", () => {
   it("asks for an input when none is chosen (-1)", async () => {
     fake.setAudio({ input: -1 });
     await renderSettings();
-    const el = select("Guitar is plugged into");
+    const el = select("Guitar input");
     expect(el).toHaveValue("");
     expect(selectedText(el)).toBe("Choose an input");
     expect(el.options[0]).toBeDisabled();
@@ -103,24 +103,24 @@ describe("Settings: the choices", () => {
   it("shows a 'None' placeholder for a device that isn't in the list", async () => {
     fake.setAudio({ outputDevice: "" });
     await renderSettings();
-    const el = select("You hear it through");
+    const el = select("Output");
     expect(el).toHaveValue("");
     expect(selectedText(el)).toBe("None");
   });
 
   it("shows the output device", async () => {
     await renderSettings();
-    const el = select("You hear it through");
+    const el = select("Output");
     expect(el).toHaveValue("Test Interface");
     expect(optionTexts(el)).toEqual(["Built-in Output", "Test Interface"]);
   });
 
   it("labels buffer sizes with their time at the current rate", async () => {
     await renderSettings();
-    const el = select("Responsiveness");
+    const el = select("Buffer size");
     expect(el).toHaveValue("128");
     expect(optionTexts(el)).toEqual(["64 samples · 1.3 ms", "128 samples · 2.7 ms", "256 samples · 5.3 ms"]);
-    expect(screen.getByText(/Lower is snappier/)).toBeInTheDocument();
+    expect(screen.getByText(/Smaller feels more immediate/)).toBeInTheDocument();
   });
 
   it("puts sample rate under Advanced, labelled in kHz", async () => {
@@ -146,21 +146,21 @@ describe("Settings: the choices", () => {
   it("warns about feedback when the input is the computer's own mic", async () => {
     fake.setAudio({ builtInInput: true });
     await renderSettings();
-    expect(screen.getByText(/computer’s own microphone/)).toHaveTextContent(/headphones/);
+    expect(screen.getByText(/computer’s built-in microphone/)).toHaveTextContent(/headphones/);
   });
 
   it("no mic warning for an interface", async () => {
     await renderSettings();
-    expect(screen.queryByText(/computer’s own microphone/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/computer’s built-in microphone/)).not.toBeInTheDocument();
   });
 });
 
 describe("Settings: changes go to the engine, one key at a time", () => {
   it.each([
-    ["Guitar comes in from", "Built-in Microphone", { inputDevice: "Built-in Microphone" }],
-    ["Guitar is plugged into", "1", { input: 1 }],
-    ["You hear it through", "Built-in Output", { outputDevice: "Built-in Output" }],
-    ["Responsiveness", "256", { bufferSize: 256 }],
+    ["Audio interface", "Built-in Microphone", { inputDevice: "Built-in Microphone" }],
+    ["Guitar input", "1", { input: 1 }],
+    ["Output", "Built-in Output", { outputDevice: "Built-in Output" }],
+    ["Buffer size", "256", { bufferSize: 256 }],
     ["Sample rate", "44100", { sampleRate: 44100 }],
   ] as const)("%s → %s", async (label, value, changes) => {
     const { user } = await renderSettings();
@@ -178,7 +178,7 @@ describe("Settings: changes go to the engine, one key at a time", () => {
 
   it("numbers are sent as numbers, not strings", async () => {
     await renderSettings();
-    fireEvent.change(select("Responsiveness"), { target: { value: "64" } });
+    fireEvent.change(select("Buffer size"), { target: { value: "64" } });
     const [changes] = fake.bridge.setAudioSetup.mock.calls[0];
     expect(changes.bufferSize).toBe(64);
     expect(typeof changes.bufferSize).toBe("number");
@@ -187,7 +187,7 @@ describe("Settings: changes go to the engine, one key at a time", () => {
   it("re-labels buffer sizes when the sample rate changes", async () => {
     const { user } = await renderSettings();
     await user.selectOptions(select("Sample rate"), "44100");
-    await waitFor(() => expect(optionTexts(select("Responsiveness"))[1]).toBe("128 samples · 2.9 ms"));
+    await waitFor(() => expect(optionTexts(select("Buffer size"))[1]).toBe("128 samples · 2.9 ms"));
   });
 
   it("is busy while a change is applied", async () => {
@@ -196,34 +196,34 @@ describe("Settings: changes go to the engine, one key at a time", () => {
     const { user, container } = await renderSettings();
     const body = container.ownerDocument.querySelector(".settings")!;
     expect(body).toHaveAttribute("aria-busy", "false");
-    await user.selectOptions(select("Responsiveness"), "256");
+    await user.selectOptions(select("Buffer size"), "256");
     expect(body).toHaveAttribute("aria-busy", "true");
     await act(async () => release(makeAudioSetup({ bufferSize: 256 })));
     expect(body).toHaveAttribute("aria-busy", "false");
-    expect(select("Responsiveness")).toHaveValue("256");
+    expect(select("Buffer size")).toHaveValue("256");
   });
 
   it("shows an error the change came back with, and clears it on the next good change", async () => {
     fake.bridge.setAudioSetup.mockResolvedValueOnce(makeAudioSetup({ error: "That buffer size isn't valid." }));
     const { user } = await renderSettings();
-    await user.selectOptions(select("Responsiveness"), "256");
+    await user.selectOptions(select("Buffer size"), "256");
     expect(await screen.findByRole("alert")).toHaveTextContent("That buffer size isn't valid.");
-    await user.selectOptions(select("Responsiveness"), "64");
+    await user.selectOptions(select("Buffer size"), "64");
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
   it("updates the status line from what the engine says after a change", async () => {
     fake.bridge.setAudioSetup.mockResolvedValueOnce(makeAudioSetup({ sampleRate: 0 }));
     const { user } = await renderSettings();
-    await user.selectOptions(select("Guitar comes in from"), "Built-in Microphone");
+    await user.selectOptions(select("Audio interface"), "Built-in Microphone");
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("No audio device is running"));
   });
 });
 
 describe("Settings: test sound and input meter", () => {
-  it("Test sound plays the test sound", async () => {
+  it("Play test sound plays the test sound", async () => {
     const { user } = await renderSettings();
-    await user.click(screen.getByRole("button", { name: "Test sound" }));
+    await user.click(screen.getByRole("button", { name: "Play test sound" }));
     expect(fake.bridge.playTestSound).toHaveBeenCalledTimes(1);
     expect(fake.bridge.setAudioSetup).not.toHaveBeenCalled();
   });

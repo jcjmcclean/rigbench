@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fake, makeState } from "./test/fakeBridge";
-import App, { CONNECT_TIMEOUT_MS } from "./App";
+import App, { CONNECT_TIMEOUT_MS, VERSION } from "./App";
 import type { EngineState } from "./types";
 
 // App against a controllable fake engine: lets us hold the app on the splash,
@@ -21,11 +21,11 @@ describe("App startup", () => {
   it("shows the connecting splash until the engine sends state", () => {
     render(<App />);
     const splash = screen.getByRole("status");
-    expect(splash).toHaveTextContent("Connecting to engine…");
+    expect(splash).toHaveTextContent("Connecting to the audio engine…");
     expect(screen.queryByRole("main")).not.toBeInTheDocument();
 
     emit(makeState({ device: "Apollo Twin" }));
-    expect(screen.queryByText("Connecting to engine…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connecting to the audio engine…")).not.toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
     expect(screen.getByText("Apollo Twin")).toBeInTheDocument();
   });
@@ -45,13 +45,26 @@ describe("App startup", () => {
     expect(fake.counts()).toEqual({ state: 0, error: 0, scope: 0 });
   });
 
-  it("shows the mock-engine badge and version in the status bar", () => {
+  it("shows the preview badge, version and knob hint in the status bar", () => {
     render(<App />);
     emit(makeState());
     const footer = screen.getByRole("contentinfo");
-    expect(footer).toHaveTextContent("Preview — mock engine");
-    expect(footer).toHaveTextContent("v0.1");
-    expect(footer).toHaveTextContent(/Drag knobs/);
+    expect(footer).toHaveTextContent("Preview: no sound");
+    expect(VERSION).toBe("0.1.0");
+    expect(footer).toHaveTextContent(/v0\.1\.0$/);
+    expect(within(footer).getByText(/^Drag a knob/)).toHaveTextContent(
+      /^Drag a knob, or use the arrow keys or scroll wheel\. Hold Shift for finer control\.$/,
+    );
+  });
+
+  it("leaves the scroll wheel out of the hint when the wheel is off (the website showcase)", () => {
+    render(<App wheel={false} />);
+    emit(makeState());
+    const footer = screen.getByRole("contentinfo");
+    expect(within(footer).getByText(/^Drag a knob/)).toHaveTextContent(
+      /^Drag a knob, or use the arrow keys\. Hold Shift for finer control\.$/,
+    );
+    expect(footer).not.toHaveTextContent(/wheel|scroll/);
   });
 });
 
@@ -61,7 +74,7 @@ describe("App fatal error screen", () => {
     emitError("Couldn't reach the audio engine: timeout");
     expect(screen.getByRole("heading", { name: "Can’t reach the audio engine" })).toBeInTheDocument();
     expect(screen.getByText("Couldn't reach the audio engine: timeout")).toBeInTheDocument();
-    expect(screen.queryByText("Connecting to engine…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connecting to the audio engine…")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument(); // not a toast
   });
 
@@ -110,14 +123,14 @@ describe("App error toasts", () => {
     expect(screen.getAllByRole("alert").map((a) => a.textContent)).toEqual([expect.stringContaining("second")]);
   });
 
-  it("toasts auto-dismiss after 6 s", () => {
+  it("toasts auto-dismiss after 6 s plus time to read them", () => {
     vi.useFakeTimers();
     render(<App />);
     emit(makeState());
-    emitError("transient");
-    act(() => { vi.advanceTimersByTime(5900); });
+    emitError("transient");   // 9 characters: 6540 ms
+    act(() => { vi.advanceTimersByTime(6500); });
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(200); });
+    act(() => { vi.advanceTimersByTime(100); });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -213,8 +226,8 @@ describe("App dirty tracking (the 'edited' marker)", () => {
     // activePreset is unchanged ("Crunch") but whose stored rig is now this one.
     fake.bridge.savePreset.mockImplementation(() => fake.emitState({ ...base(), inputGain: 0.9 }));
     fireEvent.click(presetTrigger());
-    fireEvent.click(screen.getByRole("option", { name: "+ Save current rig…" }));
-    const field = screen.getByPlaceholderText("Preset name");
+    fireEvent.click(screen.getByRole("option", { name: "Save current rig…" }));
+    const field = screen.getByRole("textbox", { name: "Preset name" });
     fireEvent.change(field, { target: { value: "Crunch" } });
     fireEvent.click(screen.getByRole("button", { name: "Replace" }));
     expect(fake.bridge.savePreset).toHaveBeenCalledWith("Crunch");
@@ -230,8 +243,8 @@ describe("App dirty tracking (the 'edited' marker)", () => {
     emit(base());
     emit({ ...base(), inputGain: 0.9 });
     fireEvent.click(presetTrigger());
-    fireEvent.click(screen.getByRole("option", { name: "+ Save current rig…" }));
-    fireEvent.change(screen.getByPlaceholderText("Preset name"), { target: { value: "Crunch" } });
+    fireEvent.click(screen.getByRole("option", { name: "Save current rig…" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Preset name" }), { target: { value: "Crunch" } });
     fireEvent.click(screen.getByRole("button", { name: "Replace" }));
     emitError("Couldn't write preset");
     expect(edited()).not.toBeNull();
@@ -248,10 +261,47 @@ describe("App dirty tracking (the 'edited' marker)", () => {
     expect(edited()).toBeNull();
   });
 
-  it("with no active preset (Init) changes are still tracked", () => {
+  it("renaming the active preset keeps it edited (a rename doesn't save)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    emit(base());
+    emit({ ...base(), inputGain: 0.9 });
+    expect(edited()).not.toBeNull();
+    // The engine follows the rename: the active preset takes the new name.
+    fake.bridge.renamePreset.mockImplementation((_from: string, to: string) =>
+      fake.emitState({ ...base(), inputGain: 0.9, activePreset: to }));
+    await user.click(presetTrigger());
+    await user.click(screen.getByRole("option", { name: /^Rename/ }));
+    const field = screen.getByRole("textbox", { name: "New name" });
+    await user.clear(field);
+    await user.type(field, "Crunch 2{Enter}");
+    expect(fake.bridge.renamePreset).toHaveBeenCalledExactlyOnceWith("Crunch", "Crunch 2");
+    expect(presetTrigger()).toHaveTextContent("Crunch 2");
+    expect(edited()).not.toBeNull();
+    // The baseline is still the rig as it was saved.
+    emit({ ...base(), activePreset: "Crunch 2" });
+    expect(edited()).toBeNull();
+  });
+
+  it("renaming a clean preset stays clean", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    emit(base());
+    fake.bridge.renamePreset.mockImplementation((_from: string, to: string) =>
+      fake.emitState({ ...base(), activePreset: to }));
+    await user.click(presetTrigger());
+    await user.click(screen.getByRole("option", { name: /^Rename/ }));
+    const field = screen.getByRole("textbox", { name: "New name" });
+    await user.clear(field);
+    await user.type(field, "Crunch 2{Enter}");
+    expect(presetTrigger()).toHaveTextContent("Crunch 2");
+    expect(edited()).toBeNull();
+  });
+
+  it("with no active preset (No preset) changes are still tracked", () => {
     render(<App />);
     emit(makeState({ activePreset: null }));
-    expect(presetTrigger()).toHaveTextContent("Init");
+    expect(presetTrigger()).toHaveTextContent("No preset");
     emit(makeState({ activePreset: null, masterGain: 0.2 }));
     expect(edited()).not.toBeNull();
   });
@@ -268,12 +318,14 @@ describe("App connect timeout", () => {
     vi.useFakeTimers();
     render(<App />);
     act(() => { vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 1); });
-    expect(screen.getByText("Connecting to engine…")).toBeInTheDocument();
+    expect(screen.getByText("Connecting to the audio engine…")).toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(1); });
     expect(screen.getByRole("heading", { name: "Can’t reach the audio engine" })).toBeInTheDocument();
-    expect(screen.getByText(/couldn’t talk to the audio engine/)).toBeInTheDocument();
+    expect(screen.getByText(
+      "The window opened, but the audio engine didn’t answer. Click Retry. If that doesn’t help, quit Tonebench and open it again.",
+    )).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.queryByText("Connecting to engine…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connecting to the audio engine…")).not.toBeInTheDocument();
   });
 
   it("doesn't fire once state has arrived", () => {
@@ -323,7 +375,7 @@ describe("App first-run setup", () => {
     emit(makeState({ setupComplete: false, monitoring: false }));
     expect(await setupHeading()).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Muted/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hear your guitar" })).toHaveTextContent("Muted");
   });
 
   it("doesn't show the wizard once setup is complete", () => {
@@ -340,10 +392,12 @@ describe("App first-run setup", () => {
     emit(makeState({ setupComplete: false, monitoring: false }));
     await setupHeading();
     await user.click(screen.getByRole("button", { name: "Skip setup" }));
-    expect(fake.bridge.finishSetup).toHaveBeenCalledTimes(1);
-    emit(makeState({ setupComplete: true, monitoring: true }));
+    expect(fake.bridge.finishSetup).toHaveBeenCalledExactlyOnceWith(false);
+    // Skip leaves monitoring off.
+    expect(fake.bridge.setMonitor).not.toHaveBeenCalled();
+    emit(makeState({ setupComplete: true, monitoring: false }));
     expect(screen.queryByText("What’s your guitar plugged into?")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Live/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hear your guitar" })).toHaveTextContent("Muted");
   });
 
   it("no Settings while the wizard is up, even if the engine's menu asks", async () => {
@@ -353,6 +407,9 @@ describe("App first-run setup", () => {
     act(() => fake.emitShowSettings());
     expect(settingsDialog()).not.toBeInTheDocument();
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    // ...and it isn't saved up to pop open once setup is done.
+    emit(makeState({ setupComplete: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("the full wizard drives the engine: listen to all, pick the input, finish", async () => {
@@ -368,7 +425,7 @@ describe("App first-run setup", () => {
     await screen.findByRole("heading", { name: "Where do you want to hear it?" });
     await user.click(screen.getByRole("button", { name: "Start playing" }));
     expect(fake.bridge.setAudioSetup.mock.calls.map(([c]) => c)).toEqual([{ listenToAllInputs: true }, { input: 1 }]);
-    expect(fake.bridge.finishSetup).toHaveBeenCalledTimes(1);
+    expect(fake.bridge.finishSetup).toHaveBeenCalledExactlyOnceWith(true);
   });
 });
 
@@ -382,7 +439,7 @@ describe("App Settings", () => {
     expect(settingsDialog()).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Settings" }));
     expect(settingsDialog()).toBeInTheDocument();
-    expect(await screen.findByRole("combobox", { name: "Guitar comes in from" })).toHaveValue("Test Interface");
+    expect(await screen.findByRole("combobox", { name: "Audio interface" })).toHaveValue("Test Interface");
     await user.click(screen.getByRole("button", { name: "Done" }));
     expect(settingsDialog()).not.toBeInTheDocument();
   });
@@ -392,7 +449,7 @@ describe("App Settings", () => {
     emit(makeState());
     act(() => fake.emitShowSettings());
     expect(settingsDialog()).toBeInTheDocument();
-    await screen.findByText(/Working/);
+    await screen.findByText(/Running at/);
   });
 
   it("showSettings while Settings is already open keeps a single dialog", async () => {
@@ -401,7 +458,7 @@ describe("App Settings", () => {
     act(() => fake.emitShowSettings());
     act(() => fake.emitShowSettings());
     expect(screen.getAllByRole("dialog", { name: "Settings" })).toHaveLength(1);
-    await screen.findByText(/Working/);
+    await screen.findByText(/Running at/);
   });
 
   it("Run setup again closes Settings and shows the wizard; finishing returns to the app", async () => {
@@ -409,15 +466,49 @@ describe("App Settings", () => {
     render(<App />);
     emit(makeState({ setupComplete: true }));
     await user.click(screen.getByRole("button", { name: "Settings" }));
-    await screen.findByText(/Working/);
+    await screen.findByText(/Running at/);
     await user.click(screen.getByRole("button", { name: "Run setup again" }));
     expect(settingsDialog()).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "What’s your guitar plugged into?" })).toBeInTheDocument();
+    // Monitoring was on, so setup mutes while it listens to every input.
+    expect(fake.bridge.setMonitor).toHaveBeenCalledWith(false);
     // The engine already counts setup as done, so finishing hides it straight away.
     await user.click(screen.getByRole("button", { name: "Skip setup" }));
-    expect(fake.bridge.finishSetup).toHaveBeenCalledTimes(1);
+    expect(fake.bridge.finishSetup).toHaveBeenCalledExactlyOnceWith(false);
+    // Skip puts monitoring back as it was.
+    expect(fake.bridge.setMonitor).toHaveBeenLastCalledWith(true);
     expect(screen.queryByText("What’s your guitar plugged into?")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["the tuner", "Tuner", async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole("button", { name: "Tuner" }));
+    }],
+    ["the plugin picker", "Load a plugin", async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole("button", { name: /Load a plugin/ }));
+    }],
+    ["a preset dialog", "Save current rig", async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(presetTrigger());
+      await user.click(screen.getByRole("option", { name: "Save current rig…" }));
+    }],
+  ])("showSettings while %s is open is ignored: one dialog at a time", async (_, title, open) => {
+    const user = userEvent.setup();
+    const s = makeState({ activePreset: "Crunch" });
+    s.slots.vst3 = { type: "vst3", loaded: false, name: "", bypassed: false };
+    render(<App />);
+    emit(s);
+    await open(user);
+    expect(screen.getByRole("dialog", { name: title })).toBeInTheDocument();
+    act(() => fake.emitShowSettings());
+    expect(settingsDialog()).not.toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    // Once it's closed, Settings opens as normal.
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    act(() => fake.emitShowSettings());
+    expect(settingsDialog()).toBeInTheDocument();
+    await screen.findByText(/Running at/);
   });
 
   it("subscribes to showSettings once, and unsubscribes on unmount", () => {

@@ -43,7 +43,7 @@ describe("findGuitar", () => {
 
 describe("levelAdvice", () => {
   const LOUD = /Too loud/;
-  const QUIET = /Quite quiet/;
+  const QUIET = /A bit quiet/;
   it.each([
     [0, QUIET],
     [0.0299, QUIET],
@@ -58,13 +58,13 @@ describe("levelAdvice", () => {
   });
 
   it("tells a quiet player what to do about it", () => {
-    expect(levelAdvice(0.01)).toMatch(/gain up/);
+    expect(levelAdvice(0.01)).toMatch(/Turn up the gain/);
     expect(levelAdvice(0.01)).toMatch(/Hi-Z/);
   });
 
   it("tells a clipping player to turn the gain down", () => {
     expect(levelAdvice(0.99)).toMatch(/clipping/);
-    expect(levelAdvice(0.99)).toMatch(/gain .* down/);
+    expect(levelAdvice(0.99)).toMatch(/Turn down the gain/);
   });
 });
 

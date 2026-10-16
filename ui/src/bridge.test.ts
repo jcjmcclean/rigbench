@@ -247,7 +247,7 @@ describe("real bridge: error events go through errorMessage", () => {
     const states: EngineState[] = [];
     bridge.subscribe((s) => states.push(s));
     await vi.waitFor(() => expect(errors).toHaveLength(1));
-    expect(errors[0]).toBe("Couldn't reach the audio engine: Error: timeout");
+    expect(errors[0]).toBe("The audio engine didn’t answer (Error: timeout). Click Retry. If that doesn’t help, quit Tonebench and open it again.");
     expect(states).toHaveLength(0);
   });
 });
@@ -316,12 +316,21 @@ describe("real bridge: initial state + native calls", () => {
     expect(native("setTuner")).toHaveBeenCalledExactlyOnceWith(true);
     expect(native("openEditor")).toHaveBeenCalledExactlyOnceWith();
     expect(native("playTestSound")).toHaveBeenCalledExactlyOnceWith();
-    expect(native("finishSetup")).toHaveBeenCalledExactlyOnceWith();
+    // No argument means "and start monitoring", sent explicitly.
+    expect(native("finishSetup")).toHaveBeenCalledExactlyOnceWith(true);
     expect(native("openUrl")).toHaveBeenCalledExactlyOnceWith("https://example.com/");
     expect(native("getAudioSetup")).toHaveBeenCalledExactlyOnceWith();
     expect(native("setAudioSetup")).toHaveBeenCalledExactlyOnceWith({ input: 1 });
     expect(native("savePreset")).toHaveBeenCalledExactlyOnceWith("My Rig");
     expect(native("loadPreset")).toHaveBeenCalledExactlyOnceWith("Other Rig");
+  });
+
+  it("finishSetup passes startMonitoring through", async () => {
+    installBackend();
+    const { bridge } = await importBridge();
+    bridge.finishSetup(false);
+    bridge.finishSetup(true);
+    expect(native("finishSetup").mock.calls).toEqual([[false], [true]]);
   });
 
   it("scope subscriptions receive sample batches and unsubscribe by token", async () => {
@@ -364,7 +373,7 @@ describe("mock engine behaviour", () => {
     expect(last().slots.nam).toMatchObject({ loaded: true, name: "Fig HW DR Hot 212", gain: 0.5 });
     bridge.setMix("ir", 0.3);
     bridge.loadSlot("ir");
-    expect(last().slots.ir).toMatchObject({ loaded: true, name: "Hiwatt SE4123 — R121", mix: 1 });
+    expect(last().slots.ir).toMatchObject({ loaded: true, name: "Hiwatt SE4123 R121", mix: 1 });
     bridge.loadSlot("vst3");
     expect(last().slots.vst3).toMatchObject({ loaded: true, name: "SICO High Gain" });
   });
@@ -673,6 +682,13 @@ describe("mock engine: pretend devices and first-run setup", () => {
     const { bridge, last } = await mockBridge("?setup");
     bridge.finishSetup();
     expect(last()).toMatchObject({ setupComplete: true, monitoring: true, playing: true });
+  });
+
+  it("finishSetup(false) completes setup but leaves monitoring off", async () => {
+    const { bridge, last } = await mockBridge("?setup");
+    expect(last()).toMatchObject({ setupComplete: false, monitoring: false });
+    bridge.finishSetup(false);
+    expect(last()).toMatchObject({ setupComplete: true, monitoring: false });
   });
 
   it("openUrl opens a new window without an opener", async () => {

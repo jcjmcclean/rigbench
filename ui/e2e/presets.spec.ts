@@ -70,10 +70,10 @@ test.describe("preset menu", () => {
     await openApp(page);
     await makeAnEdit(page);
     await presetTrigger(page).click();
-    await page.getByRole("option", { name: "+ Save current rig…" }).click();
+    await page.getByRole("option", { name: "Save current rig…" }).click();
     const dialog = page.getByRole("dialog", { name: "Save current rig" });
     await expect(dialog).toBeVisible();
-    const field = dialog.getByPlaceholder("Preset name");
+    const field = dialog.getByRole("textbox", { name: "Preset name" });
     await expect(field).toBeFocused();
     await expect(field).toHaveValue("Hiwatt Lead copy");
     await field.fill("Late Night Lead");
@@ -89,9 +89,9 @@ test.describe("preset menu", () => {
   test("save dialog: Enter saves; empty names are rejected", async ({ page }) => {
     await openApp(page);
     await presetTrigger(page).click();
-    await page.getByRole("option", { name: "+ Save current rig…" }).click();
+    await page.getByRole("option", { name: "Save current rig…" }).click();
     const dialog = page.getByRole("dialog");
-    const field = dialog.getByPlaceholder("Preset name");
+    const field = dialog.getByRole("textbox", { name: "Preset name" });
     const save = dialog.getByRole("button", { name: "Save" });
     await field.fill("   ");
     await expect(save).toBeDisabled();
@@ -107,7 +107,7 @@ test.describe("preset menu", () => {
     await openApp(page);
     const openSave = async () => {
       await presetTrigger(page).click();
-      await page.getByRole("option", { name: "+ Save current rig…" }).click();
+      await page.getByRole("option", { name: "Save current rig…" }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
     };
     await openSave();
@@ -125,8 +125,8 @@ test.describe("preset menu", () => {
     await openApp(page);
     await makeAnEdit(page);
     await presetTrigger(page).click();
-    await page.getByRole("option", { name: "+ Save current rig…" }).click();
-    const field = page.getByRole("dialog").getByPlaceholder("Preset name");
+    await page.getByRole("option", { name: "Save current rig…" }).click();
+    const field = page.getByRole("dialog").getByRole("textbox", { name: "Preset name" });
     await field.fill("Hiwatt Lead");
     await expect(page.getByRole("dialog").getByRole("button", { name: "Replace" })).toBeVisible();
     await field.press("Enter");
@@ -138,7 +138,7 @@ test.describe("preset menu", () => {
   test("save dialog keeps focus where the user tabs while the meters stream", async ({ page }) => {
     await openApp(page);
     await presetTrigger(page).click();
-    await page.getByRole("option", { name: "+ Save current rig…" }).click();
+    await page.getByRole("option", { name: "Save current rig…" }).click();
     const dialog = page.getByRole("dialog");
     await page.keyboard.press("Tab");
     const cancel = dialog.getByRole("button", { name: "Cancel" });
@@ -154,9 +154,9 @@ test.describe("preset menu", () => {
   test("save dialog traps Tab focus inside", async ({ page }) => {
     await openApp(page);
     await presetTrigger(page).click();
-    await page.getByRole("option", { name: "+ Save current rig…" }).click();
+    await page.getByRole("option", { name: "Save current rig…" }).click();
     const dialog = page.getByRole("dialog");
-    const field = dialog.getByPlaceholder("Preset name");
+    const field = dialog.getByRole("textbox", { name: "Preset name" });
     await expect(field).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(dialog.getByRole("button", { name: "Save" })).toBeFocused();
@@ -179,7 +179,7 @@ test.describe("rename and delete", () => {
     await expect(preset(page, "Hiwatt Lead")).toHaveCount(0);
     await page.getByRole("option", { name: "Delete “Big Lead”…" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
-    await expect(presetTrigger(page)).toContainText("Init");
+    await expect(presetTrigger(page)).toContainText("No preset");
     await presetTrigger(page).click();
     await expect(preset(page, "Big Lead")).toHaveCount(0);
   });

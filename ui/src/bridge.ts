@@ -15,7 +15,7 @@ function createMockBridge(): Bridge {
   const names: Record<SlotType, string[]> = {
     vst3: ["SICO High Gain"],
     nam: ["Fig HW C50 MG 412", "Fig HW DR Hot 212", "Fig HW C50 MG DI"],
-    ir: ["Mesa 4x12 — SM57", "Hiwatt SE4123 — R121", "Marshall 1960 — 414"],
+    ir: ["Mesa 4x12 SM57", "Hiwatt SE4123 R121", "Marshall 1960 414"],
   };
   // The NAM and IR slots start loaded with the first name, so "Change" moves on from it.
   let namIdx = 1;
@@ -74,7 +74,7 @@ function createMockBridge(): Bridge {
     slots: {
       vst3: { type: "vst3", loaded: false, name: "", bypassed: false, hasEditor: true },
       nam: { type: "nam", loaded: true, name: "Fig HW C50 MG 412", bypassed: false, gain: 0.5 },
-      ir: { type: "ir", loaded: true, name: "Mesa 4x12 — SM57", bypassed: false, mix: 1 },
+      ir: { type: "ir", loaded: true, name: "Mesa 4x12 SM57", bypassed: false, mix: 1 },
     },
     presets: ["Gilmour Clean", "Page Crunch", "Hiwatt Lead", "Bedroom Low-Volume"],
     activePreset: "Hiwatt Lead",
@@ -228,7 +228,11 @@ function createMockBridge(): Bridge {
       return { ...audio };
     },
     playTestSound() { /* no sound in the browser */ },
-    finishSetup() { state.setupComplete = true; state.monitoring = true; state.playing = true; emit(); },
+    finishSetup(startMonitoring) {
+      state.setupComplete = true;
+      if (startMonitoring !== false) { state.monitoring = true; state.playing = true; }
+      emit();
+    },
     openUrl(url) { window.open(url, "_blank", "noopener"); },
     savePreset(name) {
       if (!state.presets.includes(name)) state.presets.push(name);
@@ -322,7 +326,7 @@ function createJuceBridge(): Bridge {
       if (current) cb(current);
       else void f.getState().then(
         (s) => { current = s as EngineState; cb(current); },
-        (err) => emitError(`Couldn't reach the audio engine: ${String(err)}`),
+        (err) => emitError(`The audio engine didn’t answer (${String(err)}). Click Retry. If that doesn’t help, quit Tonebench and open it again.`),
       );
       return () => { subs.delete(cb); };
     },
@@ -366,7 +370,7 @@ function createJuceBridge(): Bridge {
     getAudioSetup: async () => (await f.getAudioSetup()) as AudioSetup,
     setAudioSetup: async (c) => (await f.setAudioSetup(c)) as AudioSetup,
     playTestSound: () => void f.playTestSound(),
-    finishSetup: () => void f.finishSetup(),
+    finishSetup: (startMonitoring) => void f.finishSetup(startMonitoring ?? true),
     openUrl: (u) => void f.openUrl(u),
   };
 }

@@ -42,19 +42,19 @@ const litIn = (c: HTMLElement) => c.querySelectorAll(".terminal--in .meter__seg.
 describe("App + mock engine: first paint", () => {
   it("skips the splash and shows the default rig", async () => {
     await renderApp();
-    expect(screen.queryByText("Connecting to engine…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connecting to the audio engine…")).not.toBeInTheDocument();
     expect(screen.getByText("Universal Audio Apollo")).toBeInTheDocument();
-    expect(screen.getByText("48.0 kHz")).toBeInTheDocument();
+    expect(screen.getByText("48 kHz")).toBeInTheDocument();
     expect(screen.getByText("7.4 ms · low")).toBeInTheDocument();
     expect(presetTrigger()).toHaveTextContent("Hiwatt Lead");
     expect(edited()).toBeNull();
     expect(slot("vst3").getByRole("button", { name: /Load a plugin/ })).toBeInTheDocument();
     expect(slot("nam").getByText("Fig HW C50 MG 412")).toBeInTheDocument();
-    expect(slot("ir").getByText("Mesa 4x12 — SM57")).toBeInTheDocument();
+    expect(slot("ir").getByText("Mesa 4x12 SM57")).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "Gain" })).toHaveAttribute("aria-valuetext", "80");
     expect(screen.getByRole("slider", { name: "Level" })).toHaveAttribute("aria-valuetext", "+0 dB");
     expect(screen.getByRole("slider", { name: "Mix" })).toHaveAttribute("aria-valuetext", "100%");
-    expect(screen.getByText("Preview — mock engine")).toBeInTheDocument();
+    expect(screen.getByText("Preview: no sound")).toBeInTheDocument();
   });
 
   it("animates the meters while monitoring", async () => {
@@ -100,19 +100,21 @@ describe("App + mock engine: knobs", () => {
 });
 
 describe("App + mock engine: slots", () => {
-  it("bypass toggles ON -> BYPASS -> ON", async () => {
+  it("bypass toggles ON -> OFF -> ON", async () => {
     await renderApp();
-    fireEvent.click(slot("nam").getByRole("button", { name: "ON" }));
-    expect(slot("nam").getByRole("button", { name: "BYPASS" })).toHaveAttribute("aria-pressed", "true");
+    const bypass = () => slot("nam").getByRole("button", { name: /^Amp (ON|OFF)$/ });
+    expect(bypass()).toHaveAccessibleName("Amp ON");
+    fireEvent.click(bypass());
+    expect(bypass()).toHaveAccessibleName("Amp OFF");
     expect(edited()).not.toBeNull();
-    fireEvent.click(slot("nam").getByRole("button", { name: "BYPASS" }));
-    expect(slot("nam").getByRole("button", { name: "ON" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(bypass());
+    expect(bypass()).toHaveAccessibleName("Amp ON");
     expect(edited()).toBeNull(); // back to the preset's rig
   });
 
   it("Change cycles through the amp models", async () => {
     await renderApp();
-    const change = () => fireEvent.click(slot("nam").getByRole("button", { name: "Change" }));
+    const change = () => fireEvent.click(slot("nam").getByRole("button", { name: "Change amp model" }));
     change();
     expect(slot("nam").getByText("Fig HW DR Hot 212")).toBeInTheDocument();
     change();
@@ -123,11 +125,11 @@ describe("App + mock engine: slots", () => {
 
   it("clearing a slot shows its load state; loading fills it again", async () => {
     await renderApp();
-    fireEvent.click(slot("ir").getByTitle("Remove"));
-    expect(slot("ir").queryByText("Mesa 4x12 — SM57")).not.toBeInTheDocument();
+    fireEvent.click(slot("ir").getByRole("button", { name: "Remove cab IR" }));
+    expect(slot("ir").queryByText("Mesa 4x12 SM57")).not.toBeInTheDocument();
     const load = slot("ir").getByRole("button", { name: /Load a cab IR/ });
     fireEvent.click(load);
-    expect(slot("ir").getByText("Hiwatt SE4123 — R121")).toBeInTheDocument();
+    expect(slot("ir").getByText("Hiwatt SE4123 R121")).toBeInTheDocument();
     expect(slot("ir").getByRole("slider", { name: "Mix" })).toHaveAttribute("aria-valuetext", "100%");
   });
 
@@ -145,12 +147,16 @@ describe("App + mock engine: slots", () => {
 describe("App + mock engine: monitoring", () => {
   it("LIVE toggles to Muted (meters fall silent) and back", async () => {
     const { container } = await renderApp();
-    fireEvent.click(screen.getByRole("button", { name: /Live/ }));
-    expect(screen.getByRole("button", { name: /Muted/ })).toBeInTheDocument();
+    const transport = () => screen.getByRole("button", { name: "Hear your guitar" });
+    expect(transport()).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(transport());
+    expect(transport()).toHaveTextContent("Muted");
+    expect(transport()).toHaveAttribute("aria-pressed", "false");
     tick(200);
     expect(litIn(container)).toBe(0);
-    fireEvent.click(screen.getByRole("button", { name: /Muted/ }));
-    expect(screen.getByRole("button", { name: /Live/ })).toBeInTheDocument();
+    fireEvent.click(transport());
+    expect(transport()).toHaveTextContent("Live");
+    expect(transport()).toHaveAttribute("aria-pressed", "true");
     tick(50);
     expect(litIn(container)).toBeGreaterThan(0);
   });
@@ -176,8 +182,8 @@ describe("App + mock engine: presets", () => {
     expect(edited()).not.toBeNull();
 
     await user.click(presetTrigger());
-    await user.click(screen.getByRole("option", { name: "+ Save current rig…" }));
-    const field = screen.getByPlaceholderText("Preset name");
+    await user.click(screen.getByRole("option", { name: "Save current rig…" }));
+    const field = screen.getByRole("textbox", { name: "Preset name" });
     await user.clear(field);
     await user.type(field, "Quiet Lead{Enter}");
 
@@ -196,8 +202,8 @@ describe("App + mock engine: presets", () => {
     await renderApp();
     fireEvent.keyDown(screen.getByRole("slider", { name: "Master" }), { key: "ArrowDown" });
     fireEvent.click(presetTrigger());
-    fireEvent.click(screen.getByRole("option", { name: "+ Save current rig…" }));
-    fireEvent.change(screen.getByPlaceholderText("Preset name"), { target: { value: "Hiwatt Lead" } });
+    fireEvent.click(screen.getByRole("option", { name: "Save current rig…" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Preset name" }), { target: { value: "Hiwatt Lead" } });
     fireEvent.click(screen.getByRole("button", { name: "Replace" }));
     expect(presetTrigger()).toHaveTextContent("Hiwatt Lead");
     expect(edited()).toBeNull();
@@ -208,7 +214,7 @@ describe("App + mock engine: presets", () => {
   it("the save dialog keeps keyboard focus where the user puts it while meters stream", async () => {
     await renderApp();
     fireEvent.click(presetTrigger());
-    fireEvent.click(screen.getByRole("option", { name: "+ Save current rig…" }));
+    fireEvent.click(screen.getByRole("option", { name: "Save current rig…" }));
     const cancel = screen.getByRole("button", { name: "Cancel" });
     cancel.focus();
     tick(300); // six meter ticks re-render the whole app
@@ -224,11 +230,11 @@ describe("App + mock engine: first-run setup (?setup)", () => {
     await renderApp();
     const user = userEvent.setup();
     expect(await screen.findByRole("heading", { name: "What’s your guitar plugged into?" })).toBeInTheDocument();
-    expect(screen.getByText(/computer’s own microphone/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Muted/ })).toBeInTheDocument();
+    expect(screen.getByText(/computer’s built-in microphone/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hear your guitar" })).toHaveTextContent("Muted");
 
     await user.click(screen.getByRole("radio", { name: "Scarlett 2i2 USB" }));
-    await waitFor(() => expect(screen.queryByText(/computer’s own microphone/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/computer’s built-in microphone/)).not.toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByRole("heading", { name: "Play a few notes" });
     tick(50);
@@ -240,8 +246,18 @@ describe("App + mock engine: first-run setup (?setup)", () => {
     await user.click(screen.getByRole("button", { name: "Start playing" }));
 
     expect(screen.queryByRole("heading", { name: /Where do you want/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Live/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hear your guitar" })).toHaveTextContent("Live");
     expect(screen.getByText("Scarlett 2i2 USB", { selector: ".telem__value" })).toBeInTheDocument();
+  });
+
+  it("Skip setup from the first step finishes it but leaves monitoring off", async () => {
+    window.history.replaceState(null, "", "/?setup");
+    await renderApp();
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "What’s your guitar plugged into?" });
+    await user.click(screen.getByRole("button", { name: "Skip setup" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Hear your guitar" })).toHaveTextContent("Muted");
   });
 
   it("without ?setup there's no wizard", async () => {

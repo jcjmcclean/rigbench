@@ -11,7 +11,8 @@ beforeEach(() => fake.reset());
 const PRESETS = ["Clean", "Crunch", "Lead"];
 const trigger = () => screen.getByRole("button", { name: /Preset/ });
 const options = () => screen.getAllByRole("option");
-const saveItem = () => screen.getByRole("option", { name: "+ Save current rig…" });
+// The "+" is decoration (aria-hidden), so it isn't read out as "plus".
+const saveItem = () => screen.getByRole("option", { name: "Save current rig…" });
 
 function renderMenu(props: Partial<{ presets: string[]; active: string | null; dirty: boolean }> = {}) {
   return render(<PresetMenu presets={PRESETS} active="Crunch" {...props} />);
@@ -26,9 +27,9 @@ describe("PresetMenu trigger", () => {
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
-  it("shows Init when no preset is active", () => {
+  it("shows No preset when no preset is active", () => {
     renderMenu({ active: null });
-    expect(trigger()).toHaveTextContent("Init");
+    expect(trigger()).toHaveTextContent("No preset");
   });
 
   it("shows the edited marker only when dirty", () => {
@@ -187,7 +188,7 @@ describe("PresetMenu save flow", () => {
     await user.click(saveItem());
     return user;
   }
-  const nameField = () => screen.getByPlaceholderText("Preset name");
+  const nameField = () => screen.getByRole("textbox", { name: "Preset name" });
   const saveBtn = () => screen.getByRole("button", { name: "Save" });
 
   it("closes the menu and opens a Save dialog prefilled with '<active> copy', focused", async () => {
@@ -305,10 +306,11 @@ describe("PresetMenu rename and delete", () => {
     return user;
   }
 
-  it("renames the active preset", async () => {
+  it("renames the active preset (a rename isn't a save)", async () => {
     const onSaved = vi.fn();
+    const onRenamed = vi.fn();
     const user = userEvent.setup();
-    render(<PresetMenu presets={PRESETS} active="Crunch" onSaved={onSaved} />);
+    render(<PresetMenu presets={PRESETS} active="Crunch" onSaved={onSaved} onRenamed={onRenamed} />);
     await user.click(trigger());
     await user.click(screen.getByRole("option", { name: /^Rename/ }));
     const field = screen.getByRole("textbox", { name: "New name" });
@@ -316,7 +318,8 @@ describe("PresetMenu rename and delete", () => {
     await user.clear(field);
     await user.type(field, " Big Crunch {Enter}");
     expect(fake.bridge.renamePreset).toHaveBeenCalledExactlyOnceWith("Crunch", "Big Crunch");
-    expect(onSaved).toHaveBeenCalledWith("Big Crunch");
+    expect(onRenamed).toHaveBeenCalledExactlyOnceWith("Big Crunch");
+    expect(onSaved).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -325,7 +328,7 @@ describe("PresetMenu rename and delete", () => {
     const field = screen.getByRole("textbox", { name: "New name" });
     await user.clear(field);
     await user.type(field, "lead");
-    expect(screen.getByRole("status")).toHaveTextContent("There’s already a preset called “Lead”.");
+    expect(screen.getByRole("status")).toHaveTextContent("There’s already a preset called “Lead”. Pick another name.");
     expect(screen.getByRole("button", { name: "Rename" })).toBeDisabled();
     await user.keyboard("{Enter}");
     expect(fake.bridge.renamePreset).not.toHaveBeenCalled();
@@ -347,7 +350,7 @@ describe("PresetMenu rename and delete", () => {
   it("deletes the active preset after asking", async () => {
     const user = await openAction(/^Delete/);
     const dialog = screen.getByRole("dialog", { name: "Delete “Crunch”?" });
-    expect(dialog).toHaveTextContent("What you’re playing now stays as it is.");
+    expect(dialog).toHaveTextContent("This deletes the preset file for good. What you’re playing now won’t change.");
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(fake.bridge.deletePreset).toHaveBeenCalledExactlyOnceWith("Crunch");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

@@ -21,7 +21,7 @@ function renderModule(slot: SlotState, extra: { onOpenUrl?: (url: string) => voi
 const nam = (over: Partial<SlotState> = {}): SlotState =>
   ({ type: "nam", loaded: true, name: "Fig HW C50", bypassed: false, gain: 0.5, ...over });
 const ir = (over: Partial<SlotState> = {}): SlotState =>
-  ({ type: "ir", loaded: true, name: "Mesa 4x12", bypassed: false, mix: 1, ...over });
+  ({ type: "ir", loaded: true, name: "Mesa 4x12 SM57", bypassed: false, mix: 1, ...over });
 const vst3 = (over: Partial<SlotState> = {}): SlotState =>
   ({ type: "vst3", loaded: true, name: "SICO High Gain", bypassed: false, hasEditor: true, ...over });
 
@@ -33,7 +33,7 @@ describe("ChainModule header", () => {
   ])("labels the %# slot type (%s / %s)", (slot, kind, role) => {
     renderModule(slot);
     expect(screen.getByText(kind)).toBeInTheDocument();
-    expect(screen.getByText(role)).toBeInTheDocument();
+    expect(screen.getByText(role, { selector: ".module__role" })).toBeInTheDocument();
   });
 });
 
@@ -45,27 +45,41 @@ describe("ChainModule loaded state", () => {
 
   it("offers Change and Remove, which load / clear", () => {
     const { onLoad, onClear } = renderModule(nam());
-    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change amp model" }));
     expect(onLoad).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByTitle("Remove"));
+    fireEvent.click(screen.getByRole("button", { name: "Remove amp model" }));
     expect(onClear).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/^Load an? /)).not.toBeInTheDocument();
   });
 
-  it("an engaged slot shows ON (not pressed) and bypasses on click", () => {
+  it.each([
+    [vst3(), "plugin", "plugin"],
+    [nam(), "amp", "amp model"],
+    [ir(), "cab", "cab IR"],
+  ])("names %#'s bypass, change and remove buttons after its slot (%s)", (slot, short, thing) => {
+    renderModule(slot);
+    // The slot's name (visually hidden) plus the visible ON/OFF: "Amp ON".
+    expect(screen.getByRole("button", { name: `${short[0].toUpperCase()}${short.slice(1)} ON` })).toBeInTheDocument();
+    // Change keeps its visible text; the name says which slot.
+    expect(screen.getByRole("button", { name: `Change ${thing}` })).toHaveTextContent("Change");
+    const remove = screen.getByRole("button", { name: `Remove ${thing}` });
+    expect(remove).toHaveAttribute("title", `Remove ${thing}`);
+    expect(remove).toHaveTextContent("✕");
+  });
+
+  it("an engaged slot shows ON (named \"Amp ON\") and bypasses on click", () => {
     const { onBypass } = renderModule(nam());
-    const btn = screen.getByRole("button", { name: "ON" });
-    expect(btn).toHaveAttribute("aria-pressed", "false");
-    expect(btn).toHaveAttribute("title", "Engaged — click to bypass");
+    const btn = screen.getByRole("button", { name: "Amp ON" });
+    expect(btn).not.toHaveAttribute("aria-pressed");
+    expect(btn).toHaveAttribute("title", "On: click to turn off");
     fireEvent.click(btn);
     expect(onBypass).toHaveBeenCalledExactlyOnceWith(true);
   });
 
-  it("a bypassed slot shows BYPASS (pressed) and engages on click", () => {
+  it("a bypassed slot shows OFF (named \"Amp OFF\") and turns on on click", () => {
     const { onBypass } = renderModule(nam({ bypassed: true }));
-    const btn = screen.getByRole("button", { name: "BYPASS" });
-    expect(btn).toHaveAttribute("aria-pressed", "true");
-    expect(btn).toHaveAttribute("title", "Bypassed — click to engage");
+    const btn = screen.getByRole("button", { name: "Amp OFF" });
+    expect(btn).toHaveAttribute("title", "Off: click to turn on");
     fireEvent.click(btn);
     expect(onBypass).toHaveBeenCalledExactlyOnceWith(false);
   });

@@ -30,7 +30,7 @@ export function PluginPicker({ onClose }: { onClose: () => void }) {
         <p className="picker__note">Looking for plugins…</p>
       ) : plugins.length === 0 ? (
         <div className="picker__empty">
-          <p className="picker__note">No VST3 plugins in the usual folders. Free ones to try:</p>
+          <p className="picker__note">No VST3 plugins in the standard folders. Use Browse… if yours is somewhere else, or try one of these free ones:</p>
           {soundLinks.vst3.map((l) => (
             <button key={l.url} className="picker__link" onClick={() => bridge.openUrl(l.url)}>{l.label}</button>
           ))}

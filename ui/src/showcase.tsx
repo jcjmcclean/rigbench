@@ -24,6 +24,7 @@ bridge.loadSlot("vst3");
 // On a webpage the wheel should scroll the page, not turn whatever knob happens
 // to be under the cursor. Stopping it at the window (capture phase) keeps it from
 // reaching the knob's listener, and the unhandled scroll chains to the parent page.
+// <App wheel={false}> below keeps the status-bar hint from mentioning the wheel.
 window.addEventListener("wheel", (e) => e.stopPropagation(), { capture: true });
 
 // ?view=chain: the site crops this embed to the three modules, so take the parts
@@ -40,6 +41,6 @@ if (new URLSearchParams(location.search).get("view") === "chain") {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <App wheel={false} />
   </StrictMode>,
 );

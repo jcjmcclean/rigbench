@@ -12,9 +12,9 @@ export function findGuitar(held: number[]): number | null {
 
 // What to tell the player about their input level, from a recent peak (0..1).
 export function levelAdvice(peak: number): string {
-  if (peak >= 0.98) return "Too loud: it’s clipping. Turn the gain on your interface down a little.";
+  if (peak >= 0.98) return "Too loud: it’s clipping. Turn down the gain on your interface a little.";
   if (peak < 0.03)
-    return "Quite quiet. Turn the gain up on your interface, or switch that input to Instrument (Hi-Z) if it has the option.";
+    return "A bit quiet. Turn up the gain on your interface, or switch that input to Instrument (Hi-Z) if it has a switch.";
   return "Good level.";
 }
 

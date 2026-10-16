@@ -8,8 +8,13 @@ type Step = "device" | "input" | "output";
 const steps: Step[] = ["device", "input", "output"];
 
 // First-run setup: pick the interface, find the input the guitar is on, pick
-// where to hear it. Monitoring stays off until it's finished (or skipped).
-export function Setup({ onDone }: { onDone: () => void }) {
+// where to hear it. Monitoring stays off until it's finished.
+//
+// monitoring: whether monitoring was on when setup opened (Settings → Run setup
+// again). It's turned off while setup listens to every input, so input 1 isn't
+// on the speakers. Start playing turns it on; Skip puts back what it was (so on
+// first run, Skip leaves it off: a laptop mic would feed back).
+export function Setup({ onDone, monitoring = false }: { onDone: () => void; monitoring?: boolean }) {
   const [step, setStep] = useState<Step>("device");
   const [setup, setSetup] = useState<AudioSetup | null>(null);
   const [error, setError] = useState("");
@@ -21,6 +26,11 @@ export function Setup({ onDone }: { onDone: () => void }) {
   const [held, setHeld] = useState<number[]>([]);
   const [handPick, setHandPick] = useState<number | null>(null);
   const chosen = handPick ?? findGuitar(held);
+
+  const wasMonitoring = useRef(monitoring);
+  useEffect(() => {
+    if (wasMonitoring.current) bridge.setMonitor(false);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -49,7 +59,15 @@ export function Setup({ onDone }: { onDone: () => void }) {
       setHeld((prev) => peaks.map((p, i) => Math.max(p, (prev[i] ?? 0) * 0.99))));
   }, [step]);
 
-  const finish = () => { bridge.finishSetup(); onDone(); };
+  const start = () => { bridge.finishSetup(true); onDone(); };
+
+  const skip = async () => {
+    // Don't leave every input open: settle on the input it found or was given.
+    if (step === "input" && setup && setup.inputs.length > 0) await apply({ input: chosen ?? 0 });
+    bridge.finishSetup(false);
+    if (wasMonitoring.current) bridge.setMonitor(true);
+    onDone();
+  };
 
   const goTo = async (next: Step) => {
     if (next === "input") {
@@ -63,7 +81,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
 
   if (!setup) {
     return (
-      <div className="setup" role="dialog" aria-modal="true" aria-label="Setup">
+      <div className="setup" role="dialog" aria-modal="true" aria-label="Audio setup">
         <div className="setup__card"><p className="setup__lead">Looking for audio devices…</p></div>
       </div>
     );
@@ -76,8 +94,10 @@ export function Setup({ onDone }: { onDone: () => void }) {
   return (
     <div className="setup" role="dialog" aria-modal="true" aria-labelledby="setup-title">
       <div className="setup__card">
-        <div className="setup__progress" aria-label={`Step ${index + 1} of ${steps.length}`}>
-          {steps.map((s, i) => <span key={s} className={`setup__dot${i <= index ? " is-on" : ""}`} />)}
+        {/* The dots are decoration; the words are for screen readers. */}
+        <div className="setup__progress">
+          <span className="visually-hidden">{`Step ${index + 1} of ${steps.length}`}</span>
+          {steps.map((s, i) => <span key={s} className={`setup__dot${i <= index ? " is-on" : ""}`} aria-hidden />)}
         </div>
 
         {step === "device" && (
@@ -95,16 +115,26 @@ export function Setup({ onDone }: { onDone: () => void }) {
             )}
             {setup.builtInInput && (
               <p className="setup__note setup__note--warn">
-                That’s your computer’s own microphone. Use headphones with it: through speakers it will feed back.
+                That’s your computer’s built-in microphone. Use headphones with it, or it will feed back through the speakers.
               </p>
             )}
             {setup.drivers.length > 1 && (
-              <label className="setup__driver">
-                Driver
-                <select className="field" value={setup.driver} onChange={(e) => apply({ driver: e.target.value })}>
-                  {setup.drivers.map((d) => <option key={d}>{d}</option>)}
-                </select>
-              </label>
+              <div className="setup__driver">
+                <label className="setup__driver-row">
+                  Driver
+                  <select
+                    className="field"
+                    value={setup.driver}
+                    aria-describedby="setup-driver-note"
+                    onChange={(e) => apply({ driver: e.target.value })}
+                  >
+                    {setup.drivers.map((d) => <option key={d}>{d}</option>)}
+                  </select>
+                </label>
+                <p id="setup-driver-note" className="setup__driver-note">
+                  Leave this as it is unless you know you need another one.
+                </p>
+              </div>
             )}
           </>
         )}
@@ -113,7 +143,9 @@ export function Setup({ onDone }: { onDone: () => void }) {
           <>
             <h1 id="setup-title" className="setup__title" tabIndex={-1} ref={headingRef}>Play a few notes</h1>
             <p className="setup__lead">
-              {chosen !== null
+              {handPick !== null
+                ? `Using ${inputs[handPick]}.`
+                : chosen !== null
                 ? `Found your guitar on ${inputs[chosen]}.`
                 : "Strum or pick a few notes and Tonebench will find which input your guitar is on."}
             </p>
@@ -141,7 +173,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
         {step === "output" && (
           <>
             <h1 id="setup-title" className="setup__title" tabIndex={-1} ref={headingRef}>Where do you want to hear it?</h1>
-            <p className="setup__lead">Pick headphones or speakers, then play the test sound.</p>
+            <p className="setup__lead">Pick headphones or speakers, then click Play test sound.</p>
             <Choices
               label="Output"
               options={setup.outputDevices}
@@ -150,7 +182,8 @@ export function Setup({ onDone }: { onDone: () => void }) {
             />
             <button className="btn setup__test" onClick={() => bridge.playTestSound()}>Play test sound</button>
             <p className="setup__note">
-              If you hear your clean guitar as well as Tonebench, turn off direct monitoring on your interface.
+              If you can hear your plain, dry guitar, that’s direct monitoring on your interface. Turn it off, or
+              you’ll hear it under Tonebench.
             </p>
           </>
         )}
@@ -158,7 +191,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
         {error && <p className="setup__note setup__note--warn" role="alert">{error}</p>}
 
         <div className="setup__actions">
-          <button className="setup__skip" onClick={finish}>Skip setup</button>
+          <button className="setup__skip" onClick={skip}>Skip setup</button>
           <span className="setup__spacer" />
           {index > 0 && <button className="btn" onClick={() => goTo(steps[index - 1])} disabled={busy}>Back</button>}
           {step === "device" && setup.inputDevices.length === 0 && (
@@ -173,7 +206,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
               Next
             </button>
           ) : (
-            <button className="btn btn--primary" onClick={finish} disabled={busy}>Start playing</button>
+            <button className="btn btn--primary" onClick={start} disabled={busy}>Start playing</button>
           )}
         </div>
       </div>

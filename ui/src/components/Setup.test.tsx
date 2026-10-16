@@ -10,10 +10,10 @@ vi.mock("../bridge", () => import("../test/bridgeModuleMock"));
 beforeEach(() => fake.reset());
 
 // Renders the wizard and waits for it to get past "Looking for audio devices…".
-async function renderSetup() {
+async function renderSetup({ monitoring = false } = {}) {
   const onDone = vi.fn();
   const user = userEvent.setup();
-  const utils = render(<Setup onDone={onDone} />);
+  const utils = render(<Setup onDone={onDone} monitoring={monitoring} />);
   await screen.findByRole("heading", { name: "What’s your guitar plugged into?" });
   return { ...utils, onDone, user };
 }
@@ -21,6 +21,18 @@ async function renderSetup() {
 const next = () => screen.getByRole("button", { name: "Next" });
 const back = () => screen.getByRole("button", { name: "Back" });
 const peaks = (p: number[]) => act(() => fake.emitInputPeaks(p));
+// The step counter is visually hidden text beside decorative dots, so a screen
+// reader reads it as part of the dialog (an aria-label on a plain div isn't read).
+function expectStep(text: string) {
+  const counter = screen.getByText(text);
+  expect(counter).toHaveClass("visually-hidden");
+  expect(counter).not.toHaveAttribute("aria-hidden");
+  expect(screen.getByRole("dialog")).toContainElement(counter);
+  const dots = counter.parentElement!.querySelectorAll(".setup__dot");
+  expect(dots).toHaveLength(3);
+  dots.forEach((d) => expect(d).toHaveAttribute("aria-hidden", "true"));
+  expect(counter.parentElement).not.toHaveAttribute("aria-label");
+}
 const inputRow = (name: string) => within(screen.getByRole("radiogroup", { name: "Input" })).getByRole("radio", { name });
 
 async function toInputStep(user: ReturnType<typeof userEvent.setup>) {
@@ -49,7 +61,7 @@ describe("Setup: loading", () => {
     let answer!: (s: AudioSetup) => void;
     fake.bridge.getAudioSetup.mockImplementationOnce(() => new Promise<AudioSetup>((r) => { answer = r; }));
     render(<Setup onDone={() => {}} />);
-    expect(screen.getByRole("dialog", { name: "Setup" })).toHaveTextContent("Looking for audio devices…");
+    expect(screen.getByRole("dialog", { name: "Audio setup" })).toHaveTextContent("Looking for audio devices…");
     expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
     await act(async () => answer(makeAudioSetup()));
     expect(screen.getByRole("heading", { name: "What’s your guitar plugged into?" })).toBeInTheDocument();
@@ -71,7 +83,7 @@ describe("Setup step 1: the audio interface", () => {
     await renderSetup();
     const dialog = screen.getByRole("dialog", { name: "What’s your guitar plugged into?" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(screen.getByLabelText("Step 1 of 3")).toBeInTheDocument();
+    expectStep("Step 1 of 3");
     // Focus moves in an effect once the devices have loaded.
     await waitFor(() => expect(screen.getByRole("heading", { name: "What’s your guitar plugged into?" })).toHaveFocus());
     expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
@@ -104,12 +116,14 @@ describe("Setup step 1: the audio interface", () => {
   it("warns about feedback when the input is the computer's own mic", async () => {
     fake.setAudio({ builtInInput: true });
     await renderSetup();
-    expect(screen.getByText(/computer’s own microphone/)).toHaveTextContent(/headphones/);
+    expect(screen.getByText(/computer’s built-in microphone/)).toHaveTextContent(
+      "That’s your computer’s built-in microphone. Use headphones with it, or it will feed back through the speakers.",
+    );
   });
 
   it("shows no mic warning for an interface", async () => {
     await renderSetup();
-    expect(screen.queryByText(/computer’s own microphone/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/computer’s built-in microphone/)).not.toBeInTheDocument();
   });
 
   it("hides the driver choice when there is only one driver", async () => {
@@ -122,6 +136,7 @@ describe("Setup step 1: the audio interface", () => {
     const { user } = await renderSetup();
     const driver = screen.getByRole("combobox", { name: "Driver" });
     expect(driver).toHaveValue("Windows Audio");
+    expect(driver).toHaveAccessibleDescription("Leave this as it is unless you know you need another one.");
     await user.selectOptions(driver, "ASIO");
     expect(fake.bridge.setAudioSetup).toHaveBeenCalledExactlyOnceWith({ driver: "ASIO" });
     await waitFor(() => expect(driver).toHaveValue("ASIO"));
@@ -167,7 +182,7 @@ describe("Setup step 2: finding the guitar", () => {
     const { user } = await renderSetup();
     await toInputStep(user);
     expect(fake.bridge.setAudioSetup).toHaveBeenCalledExactlyOnceWith({ listenToAllInputs: true });
-    expect(screen.getByLabelText("Step 2 of 3")).toBeInTheDocument();
+    expectStep("Step 2 of 3");
     expect(screen.getByRole("heading", { name: "Play a few notes" })).toHaveFocus();
     expect(screen.getByText(/Strum or pick a few notes/)).toBeInTheDocument();
   });
@@ -257,14 +272,14 @@ describe("Setup step 2: finding the guitar", () => {
     peaks([0.004, 0.02]);
     expect(next()).toBeDisabled();
     await user.click(inputRow("Input 2"));
-    expect(screen.getByText(/Quite quiet/)).toHaveTextContent(/Hi-Z/);
+    expect(screen.getByText(/A bit quiet/)).toHaveTextContent(/Hi-Z/);
   });
 
   it("no level advice before anything is chosen", async () => {
     const { user } = await renderSetup();
     await toInputStep(user);
     peaks([0.004, 0.004]);
-    expect(screen.queryByText(/Good level|Quite quiet|Too loud/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Good level|A bit quiet|Too loud/)).not.toBeInTheDocument();
   });
 
   it("a hand-picked input wins over the auto-pick, and Next applies it", async () => {
@@ -274,12 +289,15 @@ describe("Setup step 2: finding the guitar", () => {
     await user.click(inputRow("Input 1"));
     expect(inputRow("Input 1")).toHaveAttribute("aria-checked", "true");
     expect(inputRow("Input 2")).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByText("Found your guitar on Input 1.")).toBeInTheDocument();
+    // Picked by hand, so it doesn't claim to have found the guitar there.
+    expect(screen.getByText("Using Input 1.")).toBeInTheDocument();
+    expect(screen.queryByText(/Found your guitar/)).not.toBeInTheDocument();
     // Louder playing elsewhere doesn't take it back.
     peaks([0.004, 0.9]);
     expect(inputRow("Input 1")).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("Using Input 1.")).toBeInTheDocument();
     // The advice is about the hand-picked input, which is only hissing.
-    expect(screen.getByText(/Quite quiet/)).toBeInTheDocument();
+    expect(screen.getByText(/A bit quiet/)).toBeInTheDocument();
     fake.bridge.setAudioSetup.mockClear();
     await user.click(next());
     expect(fake.bridge.setAudioSetup).toHaveBeenCalledExactlyOnceWith({ input: 0 });
@@ -289,10 +307,22 @@ describe("Setup step 2: finding the guitar", () => {
     const { user } = await renderSetup();
     await toInputStep(user);
     await user.click(inputRow("Input 2"));
+    expect(screen.getByText("Using Input 2.")).toBeInTheDocument();
     expect(next()).toBeEnabled();
     fake.bridge.setAudioSetup.mockClear();
     await user.click(next());
     expect(fake.bridge.setAudioSetup).toHaveBeenCalledExactlyOnceWith({ input: 1 });
+  });
+
+  it("says Found only when it detected the guitar, and Using once the player picks", async () => {
+    const { user } = await renderSetup();
+    await toInputStep(user);
+    peaks([0.004, 0.5]);
+    expect(screen.getByText("Found your guitar on Input 2.")).toBeInTheDocument();
+    // Clicking the same input it found still counts as the player's choice.
+    await user.click(inputRow("Input 2"));
+    expect(screen.getByText("Using Input 2.")).toBeInTheDocument();
+    expect(screen.queryByText(/Found your guitar/)).not.toBeInTheDocument();
   });
 
   it("Next applies the auto-picked input", async () => {
@@ -351,7 +381,7 @@ describe("Setup step 3: the output", () => {
   it("lists the outputs with the current one checked; choosing one applies it", async () => {
     const { user } = await renderSetup();
     await toOutputStep(user);
-    expect(screen.getByLabelText("Step 3 of 3")).toBeInTheDocument();
+    expectStep("Step 3 of 3");
     expect(screen.getByRole("heading", { name: "Where do you want to hear it?" })).toHaveFocus();
     const group = screen.getByRole("radiogroup", { name: "Output" });
     expect(within(group).getByRole("radio", { name: "Test Interface" })).toHaveAttribute("aria-checked", "true");
@@ -368,12 +398,22 @@ describe("Setup step 3: the output", () => {
     expect(fake.bridge.playTestSound).toHaveBeenCalledTimes(1);
   });
 
+  it("explains direct monitoring in plain words", async () => {
+    const { user } = await renderSetup();
+    await toOutputStep(user);
+    expect(screen.getByText("Pick headphones or speakers, then click Play test sound.")).toBeInTheDocument();
+    expect(screen.getByText(/that’s direct monitoring on your interface/)).toHaveTextContent(
+      "If you can hear your plain, dry guitar, that’s direct monitoring on your interface. Turn it off, or you’ll hear it under Tonebench.",
+    );
+  });
+
   it("replaces Next with Start playing, which finishes setup", async () => {
     const { user, onDone } = await renderSetup();
     await toOutputStep(user);
     expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Start playing" }));
-    expect(fake.bridge.finishSetup).toHaveBeenCalledTimes(1);
+    // Finishing properly is the one way setup turns monitoring on.
+    expect(fake.bridge.finishSetup).toHaveBeenCalledExactlyOnceWith(true);
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
@@ -401,7 +441,67 @@ describe("Setup: Skip", () => {
       await screen.findByRole("heading", { name: "Where do you want to hear it?" });
     }
     await user.click(screen.getByRole("button", { name: "Skip setup" }));
-    expect(fake.bridge.finishSetup).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    // Skipping leaves monitoring off: on a laptop the mic would feed back.
+    expect(fake.bridge.finishSetup).toHaveBeenCalledExactlyOnceWith(false);
+    expect(fake.bridge.setMonitor).not.toHaveBeenCalled();
+  });
+
+  it("skipping while finding the guitar settles on the input it found, not every input", async () => {
+    const { user, onDone } = await renderSetup();
+    await toInputStep(user);
+    peaks([0.004, 0.5]);
+    fake.bridge.setAudioSetup.mockClear();
+    await user.click(screen.getByRole("button", { name: "Skip setup" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(fake.bridge.setAudioSetup).toHaveBeenCalledExactlyOnceWith({ input: 1 });
+    // The input is set before setup is marked done.
+    expect(fake.bridge.setAudioSetup.mock.invocationCallOrder[0])
+      .toBeLessThan(fake.bridge.finishSetup.mock.invocationCallOrder[0]);
+    expect(fake.bridge.finishSetup).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  it("skipping while finding the guitar with nothing heard settles on the first input", async () => {
+    const { user, onDone } = await renderSetup();
+    await toInputStep(user);
+    fake.bridge.setAudioSetup.mockClear();
+    await user.click(screen.getByRole("button", { name: "Skip setup" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(fake.bridge.setAudioSetup).toHaveBeenCalledExactlyOnceWith({ input: 0 });
+  });
+
+  it("skipping on the other steps doesn't touch the input", async () => {
+    const { user } = await renderSetup();
+    await user.click(screen.getByRole("button", { name: "Skip setup" }));
+    expect(fake.bridge.setAudioSetup).not.toHaveBeenCalled();
+  });
+});
+
+describe("Setup: run again with monitoring on", () => {
+  it("mutes while it's open, if monitoring was on", async () => {
+    await renderSetup({ monitoring: true });
+    expect(fake.bridge.setMonitor).toHaveBeenCalledWith(false);
+    expect(fake.bridge.setMonitor).not.toHaveBeenCalledWith(true);
+  });
+
+  it("leaves monitoring alone on first run (it's already off)", async () => {
+    await renderSetup();
+    expect(fake.bridge.setMonitor).not.toHaveBeenCalled();
+  });
+
+  it("Start playing turns it back on through finishSetup", async () => {
+    const { user } = await renderSetup({ monitoring: true });
+    await toOutputStep(user);
+    await user.click(screen.getByRole("button", { name: "Start playing" }));
+    expect(fake.bridge.finishSetup).toHaveBeenCalledExactlyOnceWith(true);
+    expect(fake.bridge.setMonitor).not.toHaveBeenCalledWith(true);
+  });
+
+  it("Skip puts monitoring back as it was", async () => {
+    const { user, onDone } = await renderSetup({ monitoring: true });
+    await user.click(screen.getByRole("button", { name: "Skip setup" }));
+    expect(fake.bridge.finishSetup).toHaveBeenCalledExactlyOnceWith(false);
+    expect(fake.bridge.setMonitor).toHaveBeenLastCalledWith(true);
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 });

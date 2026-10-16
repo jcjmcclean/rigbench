@@ -4,10 +4,13 @@ import { percent, dbFromUnit } from "../format";
 import { soundLinks } from "../links";
 import "./ChainModule.css";
 
-const META: Record<SlotType, { kind: string; role: string; empty: string }> = {
-  vst3: { kind: "VST3", role: "Plugin", empty: "Load a plugin" },
-  nam: { kind: "NAM", role: "Amp", empty: "Load an amp model" },
-  ir: { kind: "IR", role: "Cab", empty: "Load a cab IR" },
+// short: the slot's name in the bypass button's accessible name ("Amp ON"), so
+// it includes the visible ON/OFF (WCAG 2.5.3) and says which slot it is.
+// thing: what's loaded in it, for Change and Remove ("Remove amp model").
+const META: Record<SlotType, { kind: string; role: string; short: string; thing: string; empty: string }> = {
+  vst3: { kind: "VST3", role: "Plugin", short: "plugin", thing: "plugin", empty: "Load a plugin" },
+  nam: { kind: "NAM", role: "Amp", short: "amp", thing: "amp model", empty: "Load an amp model" },
+  ir: { kind: "IR", role: "Cab", short: "cab", thing: "cab IR", empty: "Load a cab IR" },
 };
 
 interface Props {
@@ -45,13 +48,15 @@ export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onG
         <div className="module__head-right">
           <span className={`module__led jewel${active ? " jewel--lit" : ""}`} aria-hidden />
           {slot.loaded && (
+            // Named "Amp ON" / "Amp OFF": which slot (visually hidden) and its state
+            // (visible), so voice control can use the word on screen.
             <button
               className="module__bypass"
-              aria-pressed={slot.bypassed}
               onClick={() => onBypass(!slot.bypassed)}
-              title={slot.bypassed ? "Bypassed — click to engage" : "Engaged — click to bypass"}
+              title={slot.bypassed ? "Off: click to turn on" : "On: click to turn off"}
             >
-              {slot.bypassed ? "BYPASS" : "ON"}
+              <span className="visually-hidden">{m.short[0].toUpperCase() + m.short.slice(1)} </span>
+              {slot.bypassed ? "OFF" : "ON"}
             </button>
           )}
         </div>
@@ -77,8 +82,15 @@ export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onG
               )}
             </div>
 
-            <button className="module__change" onClick={onLoad}>Change</button>
-            <button className="module__clear" onClick={onClear} title="Remove">✕</button>
+            <button className="module__change" onClick={onLoad} aria-label={`Change ${m.thing}`}>Change</button>
+            <button
+              className="module__clear"
+              onClick={onClear}
+              aria-label={`Remove ${m.thing}`}
+              title={`Remove ${m.thing}`}
+            >
+              ✕
+            </button>
           </>
         ) : (
           <>
