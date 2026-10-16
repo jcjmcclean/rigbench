@@ -216,7 +216,7 @@ describe("App dirty tracking (the 'edited' marker)", () => {
     fireEvent.click(screen.getByRole("option", { name: "+ Save current rig…" }));
     const field = screen.getByPlaceholderText("Preset name");
     fireEvent.change(field, { target: { value: "Crunch" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace" }));
     expect(fake.bridge.savePreset).toHaveBeenCalledWith("Crunch");
     expect(edited()).toBeNull();
 
@@ -232,7 +232,7 @@ describe("App dirty tracking (the 'edited' marker)", () => {
     fireEvent.click(presetTrigger());
     fireEvent.click(screen.getByRole("option", { name: "+ Save current rig…" }));
     fireEvent.change(screen.getByPlaceholderText("Preset name"), { target: { value: "Crunch" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace" }));
     emitError("Couldn't write preset");
     expect(edited()).not.toBeNull();
   });

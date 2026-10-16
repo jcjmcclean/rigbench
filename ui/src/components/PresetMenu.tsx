@@ -27,6 +27,10 @@ export function PresetMenu({
   // covers every item in the listbox.
   const optionCount = presets.length + 1;
 
+  // Saving under a name that's taken (file names ignore case on Mac and Windows)
+  // replaces that preset, so say so first.
+  const replacing = presets.find((p) => p.toLowerCase() === name.trim().toLowerCase()) ?? null;
+
   const doSave = () => {
     const n = name.trim();
     if (n) { bridge.savePreset(n); onSaved?.(n); setSaveOpen(false); setName(""); }
@@ -130,9 +134,16 @@ export function PresetMenu({
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") doSave(); }}
           />
+          {replacing && (
+            <p className="presetmenu__replace" role="status">
+              There’s already a preset called “{replacing}”. Saving will replace it.
+            </p>
+          )}
           <div className="modal__actions">
             <button className="btn" onClick={() => setSaveOpen(false)}>Cancel</button>
-            <button className="btn btn--primary" onClick={doSave} disabled={!name.trim()}>Save</button>
+            <button className="btn btn--primary" onClick={doSave} disabled={!name.trim()}>
+              {replacing ? "Replace" : "Save"}
+            </button>
           </div>
         </Modal>
       )}

@@ -80,3 +80,5 @@
   font-size: var(--t-sm);
   font-weight: 600;
 }
+
+.presetmenu__replace { margin: var(--sp-3) 0 0; color: var(--warn); font-size: var(--t-sm); }

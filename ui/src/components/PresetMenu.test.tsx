@@ -189,6 +189,16 @@ describe("PresetMenu save flow", () => {
     expect(saveBtn()).toBeEnabled();
   });
 
+  it("warns before replacing an existing preset (ignoring case) and says Replace", async () => {
+    const user = await openSave();
+    expect(screen.queryByText(/Saving will replace it/)).not.toBeInTheDocument();
+    await user.clear(nameField());
+    await user.type(nameField(), "  lead ");
+    expect(screen.getByRole("status")).toHaveTextContent("There’s already a preset called “Lead”. Saving will replace it.");
+    await user.click(screen.getByRole("button", { name: "Replace" }));
+    expect(fake.bridge.savePreset).toHaveBeenCalledExactlyOnceWith("lead");
+  });
+
   it("starts empty (Save disabled) when no preset is active", async () => {
     await openSave(null);
     expect(nameField()).toHaveValue("");

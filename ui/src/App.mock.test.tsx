@@ -194,7 +194,7 @@ describe("App + mock engine: presets", () => {
     fireEvent.click(presetTrigger());
     fireEvent.click(screen.getByRole("option", { name: "+ Save current rig…" }));
     fireEvent.change(screen.getByPlaceholderText("Preset name"), { target: { value: "Hiwatt Lead" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace" }));
     expect(presetTrigger()).toHaveTextContent("Hiwatt Lead");
     expect(edited()).toBeNull();
     fireEvent.click(presetTrigger());
