@@ -1,0 +1,17 @@
+{
+  "version": "0.5.2",
+  "metadata": {
+    "name": "ToneStack Test Minimal",
+    "description": "Hermetic test fixture: a tiny bias-free 2-tap Linear model at 48 kHz. NOT a real amp capture — exists only so the NAM + preset self-test suites are deterministic and never silently skip on a clean/CI machine.",
+    "modeled_by": "ToneStack test harness"
+  },
+  "architecture": "Linear",
+  "config": {
+    "receptive_field": 2,
+    "bias": false,
+    "in_channels": 1,
+    "out_channels": 1
+  },
+  "sample_rate": 48000.0,
+  "weights": [0.6, 0.4]
+}
