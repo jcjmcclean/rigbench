@@ -20,22 +20,23 @@
 
   /* Primary accent — SICO electric blue (engage LEDs / active signal). */
   --ember: #3f9bf0;         /* primary accent */
+  --ember-rgb: 63, 155, 240;   /* channels of --ember, for rgba(var(--ember-rgb), a) */
   --ember-bright: #6db8ff;
   --ember-dim: #255f9e;
   --ember-hot: #a7d3ff;     /* inner jewel body */
   --ember-core: #e9f3ff;    /* white-hot jewel centre */
   --gold: #cdd6df;          /* secondary = brushed silver */
+  --gold-rgb: 205, 214, 223;   /* channels of --gold */
   --gold-dim: #7f8995;
 
   /* Reserved metering accent (stays distinct from the blue accent) */
   --signal: #4fd2c2;
-  --signal-dim: #2b7d74;
+  --signal-rgb: 79, 210, 194;  /* channels of --signal */
   --signal-hot: #ff5a4d;    /* meter clip */
 
   /* Semantic */
-  --led-on: var(--ember);
-  --led-off: #1a1f27;
   --danger: #ff5a4d;
+  --danger-rgb: 255, 90, 77;   /* channels of --danger */
 
   /* Type */
   --font-display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
@@ -49,21 +50,19 @@
   --t-md: 16px;
   --t-lg: 20px;
   --t-xl: 28px;
-  --t-2xl: 40px;
 
   /* Space */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
-  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
 
   /* Radius */
-  --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 18px;
+  --r-sm: 4px; --r-md: 8px; --r-lg: 12px;
 
   /* Shadows & glow */
   --shadow-panel: 0 1px 0 rgba(255,255,255,0.04) inset,
                   0 -1px 0 rgba(0,0,0,0.5) inset,
                   0 10px 30px rgba(0,0,0,0.45);
-  --glow-ember: 0 0 16px rgba(63,155,240,0.5), 0 0 2px rgba(63,155,240,0.85);
-  --glow-signal: 0 0 14px rgba(79,210,194,0.5);
+  --glow-ember: 0 0 16px rgba(var(--ember-rgb),0.5), 0 0 2px rgba(var(--ember-rgb),0.85);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 

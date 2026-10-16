@@ -5,6 +5,7 @@ import { Knob } from "./Knob";
 import { ScopeWaveform } from "./ScopeWaveform";
 import { bridge } from "../bridge";
 import type { EngineState, SlotType } from "../types";
+import { pct01 } from "../format";
 import "./SignalChain.css";
 
 const ORDER: SlotType[] = ["vst3", "nam", "ir"];
@@ -36,7 +37,7 @@ function Terminal({
           onChange={(v) => bridge.setInput(v)}
           label="Gain"
           size={52}
-          format={(v) => `${Math.round(v * 100)}`}
+          format={pct01}
         />
       )}
       {kind === "out" && (
@@ -45,7 +46,7 @@ function Terminal({
           onChange={(v) => bridge.setMaster(v)}
           label="Master"
           size={52}
-          format={(v) => `${Math.round(v * 100)}`}
+          format={pct01}
         />
       )}
       <Meter value={level} orientation="v" label={kind === "in" ? "IN" : "OUT"} />
