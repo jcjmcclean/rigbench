@@ -9,11 +9,11 @@
   margin: 0 auto;
 }
 
-/* Terminals (input/output) ride above the waveform. Modules do NOT create a
-   stacking context, so their knobs can individually sit above the waveform
-   (z-index on .knob) while the faceplate stays below it. */
-.chain .terminal { position: relative; z-index: 5; }
-.chain .module { position: relative; }
+/* The waveform (.scope, z-index:1) is a signal cable threaded BEHIND the rack.
+   Modules and terminals sit above it as solid boxes, so the cable shows through
+   the connector gaps and at the in/out jacks — not scribbling over panel text. */
+.chain .terminal { position: relative; z-index: 2; }
+.chain .module { position: relative; z-index: 2; }
 
 /* ---- connectors (the signal path) ---- */
 .connector {
