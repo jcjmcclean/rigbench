@@ -3,12 +3,13 @@
    flowing through each unit. */
 .scope {
   position: absolute;
-  left: 92px;
-  right: 92px;
+  left: 88px;
+  /* canvas is a REPLACED element — left+right won't stretch it, so set width explicitly */
+  width: calc(100% - 176px);
   top: 50%;
   transform: translateY(-50%);
-  height: 56px;
-  z-index: 0;
+  height: 38px;
+  z-index: 4;           /* above the module panels — runs full-width across the chain */
   pointer-events: none;
 }
 

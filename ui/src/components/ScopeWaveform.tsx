@@ -54,29 +54,31 @@ export function ScopeWaveform() {
         const idx = (hd - 1 - Math.floor(frac * (RING - 1)) + RING * 2) % RING;
         const v = r[idx];
         // perceptual compression: keep quiet/decayed signal visible across the chain
-        const cv = Math.sign(v) * Math.pow(Math.abs(v), 0.6);
+        const cv = Math.sign(v) * Math.pow(Math.abs(v), 0.5);
         energy += Math.abs(cv);
         const y = mid - cv * amp;
         if (x === 0) path.moveTo(x, y);
         else path.lineTo(x, y);
       }
-      const lively = Math.min(1, (energy / w) * 6); // 0 (silent) .. 1 (loud)
+      const lively = Math.min(1, (energy / w) * 7); // 0 (silent) .. 1 (loud)
 
-      // soft baseline cable
-      ctx.strokeStyle = `rgba(37,95,158,${0.25 + 0.15 * lively})`;
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
-
-      // glow pass + crisp pass
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
-      ctx.shadowColor = "rgba(63,155,240,0.9)";
-      ctx.shadowBlur = 6 + 10 * lively;
-      ctx.strokeStyle = `rgba(109,184,255,${0.55 + 0.45 * lively})`;
+
+      // always-visible full-width cable so the chain reads as connected end-to-end
+      ctx.shadowColor = "rgba(63,155,240,0.55)";
+      ctx.shadowBlur = 3 + 6 * lively;
+      ctx.strokeStyle = `rgba(63,155,240,${0.38 + 0.32 * lively})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
+
+      // the live waveform riding on the cable: glow pass + crisp pass
+      ctx.shadowBlur = 7 + 12 * lively;
+      ctx.strokeStyle = `rgba(109,184,255,${0.6 + 0.4 * lively})`;
       ctx.lineWidth = 2;
       ctx.stroke(path);
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = `rgba(200,225,255,${0.3 + 0.6 * lively})`;
+      ctx.strokeStyle = `rgba(210,232,255,${0.35 + 0.6 * lively})`;
       ctx.lineWidth = 1;
       ctx.stroke(path);
     };
