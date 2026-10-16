@@ -66,8 +66,14 @@ function createMockBridge(): Bridge {
       const pts: number[] = [];
       for (let i = 0; i < 48; i++) {
         scopePhase += 0.42;
-        const w = Math.sin(scopePhase) * 0.7 + Math.sin(scopePhase * 2.01) * 0.3;
-        pts.push(w * amp);
+        // guitar-ish: fundamental + inharmonic harmonics + a little grit
+        const wv =
+          Math.sin(scopePhase) * 0.6 +
+          Math.sin(scopePhase * 2.02) * 0.26 +
+          Math.sin(scopePhase * 3.05) * 0.13 +
+          (Math.random() - 0.5) * 0.07;
+        const dyn = 0.7 + 0.3 * Math.sin(t * 3.1 + scopePhase * 0.04); // playing dynamics
+        pts.push(wv * amp * dyn);
       }
       scopeSubs.forEach((cb) => cb(pts));
     }

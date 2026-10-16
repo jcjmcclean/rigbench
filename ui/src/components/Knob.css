@@ -4,6 +4,8 @@
   align-items: center;
   gap: 6px;
   user-select: none;
+  position: relative;
+  z-index: 5;   /* ride above the signal waveform (cable passes behind the knob) */
 }
 
 .knob__dial {

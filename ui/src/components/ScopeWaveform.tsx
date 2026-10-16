@@ -25,7 +25,7 @@ export function ScopeWaveform() {
 
   useEffect(() => {
     let raf = 0;
-    const draw = () => {
+    const draw = (ts: number) => {
       raf = requestAnimationFrame(draw);
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -46,17 +46,18 @@ export function ScopeWaveform() {
       const r = ring.current;
       const hd = head.current;
 
-      // build the path: x=0 (left) = newest sample, increasing x = older
+      // sample the ring across the width (x=0 left = newest, increasing x = older)
+      const ys = new Float32Array(w + 1);
       const path = new Path2D();
       let energy = 0;
       for (let x = 0; x <= w; x++) {
         const frac = x / w;
         const idx = (hd - 1 - Math.floor(frac * (RING - 1)) + RING * 2) % RING;
         const v = r[idx];
-        // perceptual compression: keep quiet/decayed signal visible across the chain
-        const cv = Math.sign(v) * Math.pow(Math.abs(v), 0.5);
+        const cv = Math.sign(v) * Math.pow(Math.abs(v), 0.5); // perceptual compression
         energy += Math.abs(cv);
         const y = mid - cv * amp;
+        ys[x] = y;
         if (x === 0) path.moveTo(x, y);
         else path.lineTo(x, y);
       }
@@ -65,22 +66,43 @@ export function ScopeWaveform() {
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
 
-      // always-visible full-width cable so the chain reads as connected end-to-end
+      // 1) filled glow area between the curve and the mid-line
+      const fill = ctx.createLinearGradient(0, mid - amp, 0, mid + amp);
+      fill.addColorStop(0, "rgba(63,155,240,0)");
+      fill.addColorStop(0.5, `rgba(90,175,255,${0.08 + 0.2 * lively})`);
+      fill.addColorStop(1, "rgba(63,155,240,0)");
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.moveTo(0, mid);
+      for (let x = 0; x <= w; x++) ctx.lineTo(x, ys[x]);
+      ctx.lineTo(w, mid);
+      ctx.closePath();
+      ctx.fill();
+
+      // 2) always-visible full-width cable
       ctx.shadowColor = "rgba(63,155,240,0.55)";
-      ctx.shadowBlur = 3 + 6 * lively;
-      ctx.strokeStyle = `rgba(63,155,240,${0.38 + 0.32 * lively})`;
+      ctx.shadowBlur = 3 + 5 * lively;
+      ctx.strokeStyle = `rgba(63,155,240,${0.35 + 0.3 * lively})`;
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
 
-      // the live waveform riding on the cable: glow pass + crisp pass
+      // 3) the live waveform: glow pass + crisp pass
       ctx.shadowBlur = 7 + 12 * lively;
       ctx.strokeStyle = `rgba(109,184,255,${0.6 + 0.4 * lively})`;
       ctx.lineWidth = 2;
       ctx.stroke(path);
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = `rgba(210,232,255,${0.35 + 0.6 * lively})`;
+      ctx.strokeStyle = `rgba(214,234,255,${0.35 + 0.6 * lively})`;
       ctx.lineWidth = 1;
       ctx.stroke(path);
+
+      // 4) a highlight "packet" flowing left -> right along the cable (signal direction)
+      const flowX = ((ts / 1300) % 1) * w;
+      const fx = ctx.createRadialGradient(flowX, mid, 0, flowX, mid, 70);
+      fx.addColorStop(0, `rgba(200,228,255,${0.28 + 0.4 * lively})`);
+      fx.addColorStop(1, "rgba(200,228,255,0)");
+      ctx.fillStyle = fx;
+      ctx.fillRect(flowX - 70, 0, 140, h);
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);

@@ -4,9 +4,9 @@
   min-width: 210px;
   max-width: 320px;
   display: flex;
-  /* power-on entrance */
+  /* power-on entrance — opacity only (no transform) so the module doesn't create
+     a stacking context that would trap the knob below the signal waveform */
   opacity: 0;
-  transform: translateY(10px);
   animation: moduleOn 0.55s var(--ease) forwards;
   animation-delay: calc(var(--i) * 0.13s + 0.15s);
 }
@@ -81,8 +81,13 @@
 }
 
 @keyframes moduleOn {
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; }
 }
+
+/* center controls ride above the signal waveform (like the knobs) */
+.module__editor,
+.module__load,
+.module__name { position: relative; z-index: 5; }
 
 /* Brushed-stainless faceplate header: fine horizontal brush grain + cool
    vertical sheen over warm-neutral cylinder shading. Reads as metal, cool. */
