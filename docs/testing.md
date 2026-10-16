@@ -37,7 +37,8 @@ What the unit tests cover, by file:
   audio never tears a block.
 - **AudioPathTests**: first input in, every output out, through input and master gain; monitoring
   off is silence; only the requested region is touched; oversized blocks are muted, not overrun;
-  meters; scope points and its gate.
+  meters; scope points and its gate; gain changes ramp instead of jumping; the noise gate (off by
+  default, cuts hiss, passes playing).
 - **NodeTests**: an impulse through the IR reproduces the cab's shape; mix; no added latency;
   oversized or non-audio IR files refused. NAM: loads the fixture, bad files fail with a message,
   level knob maps 0..1 to ±24 dB, deterministic, resampled at 44.1/88.2/96 kHz. Resampler ratio,
@@ -48,7 +49,12 @@ What the unit tests cover, by file:
   to the caller for consent, never loaded directly.
 - **RigControllerTests**: each bridge operation hits the right slot and ignores unknown ones; gains
   from the UI are clamped and NaN-proof; save/load brings the whole rig back; preset names
-  validated (SEC-2); state carries device info and every slot.
+  validated (SEC-2); rename and delete; state carries device info and every slot.
+- **TunerTests**: every open string (and drop D, and high notes) within 2 cents at 44.1, 48 and
+  96 kHz; silence, hiss and faint input read as nothing; note names; the output is muted while
+  tuning; readings in the contract's shape.
+- **PluginScannerTests**: bundles and single-file plugins, vendor subfolders, no looking inside
+  bundles, one entry per plugin, depth limit.
 - **SetupTests**: settings file; monitoring stays off until setup is finished; per-input meters;
   peak hold; the test sound; `AudioSetup` describe/apply validation.
 - **MiscTests**: preset names, slot types, per-platform VST3 folders, which links may open in the
