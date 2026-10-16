@@ -3,6 +3,11 @@
 A small, fast macOS app for playing guitar through amp sims. Load a VST3 plugin, a Neural Amp
 Modeler model, and an impulse-response cab, chain them up, and play. That's the whole idea.
 
+<picture>
+  <source srcset="site/assets/hero.webp" type="image/webp">
+  <img src="site/assets/hero.png" alt="The Tonebench signal chain: a VST3 plugin, a NAM amp model, and an IR cab, with the live signal threading through them">
+</picture>
+
 Early days: this is v0.1.0. macOS builds now, and Linux and Windows build in CI (details below).
 
 ## Why I built this
