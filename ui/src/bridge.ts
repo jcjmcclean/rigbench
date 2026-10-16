@@ -17,8 +17,9 @@ function createMockBridge(): Bridge {
     nam: ["Fig HW C50 MG 412", "Fig HW DR Hot 212", "Fig HW C50 MG DI"],
     ir: ["Mesa 4x12 — SM57", "Hiwatt SE4123 — R121", "Marshall 1960 — 414"],
   };
-  let namIdx = 0;
-  let irIdx = 0;
+  // The NAM and IR slots start loaded with the first name, so "Change" moves on from it.
+  let namIdx = 1;
+  let irIdx = 1;
 
   const state: EngineState = {
     device: "Universal Audio Apollo",

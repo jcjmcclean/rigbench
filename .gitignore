@@ -25,3 +25,6 @@ build-rel/
 dist/
 build-rel-*.log
 *.log
+
+# Built website app previews (npm run build:showcase)
+site/app/
