@@ -4,14 +4,6 @@
   min-width: 210px;
   max-width: 320px;
   display: flex;
-  flex-direction: column;
-  border-radius: var(--r-lg);
-  background:
-    linear-gradient(180deg, var(--bg-3), var(--bg-2));
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-panel);
-  overflow: hidden;
-  isolation: isolate;
   /* power-on entrance */
   opacity: 0;
   transform: translateY(10px);
@@ -19,8 +11,28 @@
   animation-delay: calc(var(--i) * 0.13s + 0.15s);
 }
 
-/* faceplate brushed strip behind the header + corner screws */
-.module::before {
+.module__panel {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, var(--bg-4) 0%, var(--bg-3) 55%, var(--bg-2) 100%);
+  border: 1px solid var(--hairline);
+  /* faceplate bevel: lit top edge, shaded sides/bottom, lifted off the tolex */
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.09),
+    inset 1px 0 0 rgba(255,255,255,0.03),
+    inset -1px 0 0 rgba(0,0,0,0.30),
+    inset 0 -1px 0 rgba(0,0,0,0.55),
+    var(--shadow-panel);
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.4s var(--ease), opacity 0.4s var(--ease), filter 0.4s var(--ease);
+}
+
+/* faceplate sheen behind the header */
+.module__panel::before {
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
@@ -29,16 +41,76 @@
   pointer-events: none;
 }
 
+/* Bypass bridge: carries the signal over the dropped-out module, at rail height. */
+.module__bridge {
+  position: absolute;
+  top: 50%;
+  left: -10px; right: -10px;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, transparent, var(--ember-dim) 10%, var(--ember) 50%, var(--ember-dim) 90%, transparent);
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity 0.4s var(--ease);
+  box-shadow: 0 0 calc(3px + 7px * var(--flow, 0)) rgba(255, 122, 45, calc(0.2 + 0.5 * var(--flow, 0)));
+}
+.module__bridge::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 0;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ember-bright);
+  box-shadow: var(--glow-ember);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+
+/* when bypassed: drop + desaturate the panel, light up the bridge */
+.is-bypassed .module__panel {
+  transform: translateY(36px) scale(0.975);
+  opacity: 0.5;
+  filter: saturate(0.3) brightness(0.8);
+}
+.is-bypassed .module__bridge { opacity: calc(0.45 + 0.5 * var(--flow, 0)); }
+.is-bypassed .module__bridge::after {
+  opacity: calc(0.45 + 0.5 * var(--flow, 0));
+  animation: pulseMoveH 1.15s linear infinite;
+}
+
 @keyframes moduleOn {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Brushed-stainless faceplate header: fine horizontal brush grain + cool
+   vertical sheen over warm-neutral cylinder shading. Reads as metal, cool. */
 .module__head {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   padding: var(--sp-3) var(--sp-4) var(--sp-2);
-  border-bottom: 1px solid var(--hairline-soft);
+  background-color: var(--steel-mid);
+  background-image:
+    linear-gradient(90deg,
+      rgba(220,226,234,0.00)  0%,
+      var(--steel-sheen)     20%,
+      rgba(220,226,234,0.00) 33%,
+      rgba(220,226,234,0.06) 62%,
+      rgba(0,0,0,0.10)      100%),
+    repeating-linear-gradient(0deg,
+      var(--steel-grain-hi) 0px,
+      var(--steel-grain-hi) 1px,
+      var(--steel-grain-lo) 1px,
+      var(--steel-grain-lo) 2px),
+    linear-gradient(180deg, var(--steel-hi) 0%, var(--steel-mid) 42%, var(--steel-lo) 100%);
+  background-size: 100% 100%, 100% 2px, 100% 100%;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.14),      /* machined top edge */
+    inset 0 -1px 0 rgba(255,122,45,0.14);      /* faint ember seam */
+  border-bottom: 1px solid rgba(0,0,0,0.45);
 }
 
 .module__id { display: flex; flex-direction: column; gap: 1px; }
@@ -50,27 +122,91 @@
   letter-spacing: 0.04em;
   line-height: 1;
   color: var(--ink-0);
+  /* engraved: cut-in top shadow + bottom light so it reads on brushed steel */
+  text-shadow: 0 -1px 0 rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.08);
 }
-.module__role { font-size: 9px; color: var(--ink-faint); }
+.module__role {
+  font-size: 9px;
+  color: var(--ink-muted);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+}
 
 .module__head-right { display: flex; align-items: center; gap: var(--sp-2); }
 
+/* ---- Glass-dome jewel LED: cool-steel bezel + ember glass dome ---- */
 .module__led {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--led-off);
-  box-shadow: inset 0 0 2px rgba(0,0,0,0.8);
+  position: relative;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  isolation: isolate;
+  /* cool-steel bezel ring (bluish specular stops read as machined metal) */
+  background:
+    radial-gradient(circle at 50% 42%, #2a2621 0%, #141210 72%),
+    conic-gradient(from 128deg,
+      #17150f  0deg,
+      #828d95 42deg,
+      #272420 92deg,
+      #aeb9c0 140deg,
+      #201d19 196deg,
+      #6c767d 252deg,
+      #121009 300deg,
+      #9aa5ac 336deg,
+      #17150f 360deg);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.9),
+    inset 0 1px 1px rgba(216,228,235,0.30),
+    inset 0 -2px 3px rgba(0,0,0,0.85);
+  transition: filter 0.4s var(--ease);
+}
+/* dome (the lens) — unlit: dark ember-tinted glass, pressed in */
+.module__led::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  z-index: 1;
+  background: radial-gradient(circle at 38% 32%, #3a2318 0%, #1c0f08 58%, #0b0502 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.9),
+    inset 0 0 3px rgba(0,0,0,0.8);
   transition: background 0.4s var(--ease), box-shadow 0.4s var(--ease);
 }
-.is-active .module__led {
-  background: var(--ember);
-  box-shadow: 0 0 8px rgba(255,122,45,0.9), 0 0 2px rgba(255,180,120,1);
+/* specular glass highlight (top-left catch) */
+.module__led::after {
+  content: "";
+  position: absolute;
+  top: 20%; left: 24%;
+  width: 34%; height: 26%;
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.35) 45%, rgba(255,255,255,0) 72%);
+  opacity: 0.16;
+  transition: opacity 0.4s var(--ease);
+}
+/* lit: ember glass + layered bloom, keeps the breathing animation */
+.is-active .module__led::before {
+  background: radial-gradient(circle at 38% 30%,
+    var(--ember-core) 0%, var(--ember-hot) 17%, var(--ember) 44%, #c94f12 73%, #7a2c08 100%);
+  box-shadow:
+    0 0 5px 1px rgba(255,122,45,0.95),
+    0 0 12px 2px rgba(255,122,45,0.55),
+    0 0 22px 5px rgba(255,105,35,0.28),
+    inset 0 0 4px 1px rgba(255,228,196,0.65),
+    inset 0 -1px 2px rgba(130,45,8,0.6);
   animation: ledBreath 3.2s ease-in-out infinite;
 }
-.is-bypassed .module__led { background: var(--ember-dim); box-shadow: none; opacity: 0.5; }
+.is-active .module__led::after { opacity: 0.92; }
+.is-bypassed .module__led { filter: saturate(0.4) brightness(0.7); opacity: 0.6; }
+.is-bypassed .module__led::before {
+  background: radial-gradient(circle at 38% 30%, var(--ember-dim) 0%, #3a1c0a 70%, #1c0f08 100%);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.9);
+}
 
 @keyframes ledBreath {
-  0%,100% { opacity: 1; }
-  50% { opacity: 0.72; }
+  0%,100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.78; filter: brightness(0.9); }
 }
 
 .module__bypass {
@@ -204,7 +340,5 @@
   font-weight: 600;
 }
 
-.is-empty { border-style: solid; opacity: 0.92; }
-.is-empty::before { opacity: 0.4; }
-.is-bypassed .module__name { opacity: 0.5; }
-.is-bypassed .module__controls { opacity: 0.4; }
+.is-empty .module__panel { opacity: 0.92; }
+.is-empty .module__panel::before { opacity: 0.4; }

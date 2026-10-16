@@ -1,21 +1,14 @@
+// MUST precede the juce-framework-frontend import: that import installs a
+// placeholder window.__JUCE__ (with a stub backend), so juceDetect records the
+// real state first (it imports nothing).
+import { hasRealJuceBackend } from "./juceDetect";
 import * as Juce from "juce-framework-frontend";
 import type { Bridge, EngineState, SlotType } from "./types";
 
 // ---------------------------------------------------------------------------
 // The real engine exposes native functions + state/meter events through JUCE's
 // WebView bridge. In a plain browser a mock drives the UI for development.
-//
-// NB: importing juce-framework-frontend installs a placeholder window.__JUCE__
-// WITHOUT a `backend`, so we detect the real native integration via `.backend`.
 // ---------------------------------------------------------------------------
-
-type JuceWindow = Window & { __JUCE__?: { backend?: { addEventListener: (id: string, cb: (v: unknown) => void) => number } } };
-
-function hasRealJuce(): boolean {
-  if (typeof window === "undefined") return false;
-  const j = (window as JuceWindow).__JUCE__;
-  return !!j && !!j.backend;
-}
 
 // ---- Mock engine ----------------------------------------------------------
 function createMockBridge(): Bridge {
@@ -159,5 +152,5 @@ function createJuceBridge(): Bridge {
   };
 }
 
-export const isMock = !hasRealJuce();
-export const bridge: Bridge = hasRealJuce() ? createJuceBridge() : createMockBridge();
+export const isMock = !hasRealJuceBackend;
+export const bridge: Bridge = hasRealJuceBackend ? createJuceBridge() : createMockBridge();

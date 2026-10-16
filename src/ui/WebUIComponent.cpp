@@ -99,6 +99,8 @@ WebUIComponent::WebUIComponent()
         .withNativeFunction ("setGain", [this] (const juce::Array<juce::var>& a, Completion done)
             { if (auto* nam = dynamic_cast<NamNode*> (engine.getNode (slotIndex (a[0].toString()))))
                   nam->setUiGain ((float) (double) a[1]); markDirty(); done (juce::var()); })
+        .withNativeFunction ("setInput", [this] (const juce::Array<juce::var>& a, Completion done)
+            { inputGain.store ((float) (double) a[0]); markDirty(); done (juce::var()); })
         .withNativeFunction ("setMaster", [this] (const juce::Array<juce::var>& a, Completion done)
             { masterGain.store ((float) (double) a[0]); markDirty(); done (juce::var()); })
         .withNativeFunction ("setMonitor", [this] (const juce::Array<juce::var>& a, Completion done)
@@ -106,7 +108,7 @@ WebUIComponent::WebUIComponent()
         .withNativeFunction ("openEditor", [this] (const juce::Array<juce::var>&, Completion done)
             { openVstEditorWindow(); done (juce::var()); })
         .withNativeFunction ("openAudioSettings", [this] (const juce::Array<juce::var>&, Completion done)
-            { openAudioSettingsDialog(); done (juce::var()); })
+            { openAudioSettings(); done (juce::var()); })
         .withNativeFunction ("savePreset", [this] (const juce::Array<juce::var>& a, Completion done)
             { if (! a.isEmpty()) savePreset (a[0].toString()); done (juce::var()); })
         .withNativeFunction ("loadPreset", [this] (const juce::Array<juce::var>& a, Completion done)
@@ -117,14 +119,36 @@ WebUIComponent::WebUIComponent()
     web->goToURL (juce::WebBrowserComponent::getResourceProviderRoot());
 
     setSize (1180, 760);
-    setAudioChannels (2, 2);
+
+    // Restore the audio device from last session (device, rate, buffer).
+    std::unique_ptr<juce::XmlElement> savedAudio (juce::XmlDocument::parse (audioSettingsFile()));
+    setAudioChannels (2, 2, savedAudio.get());
+    deviceManager.addChangeListener (this);
+
     startTimerHz (30);
 }
 
 WebUIComponent::~WebUIComponent()
 {
+    deviceManager.removeChangeListener (this);
     editorWindow = nullptr;
     shutdownAudio();
+}
+
+juce::File WebUIComponent::audioSettingsFile() const
+{
+    auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                   .getChildFile ("ToneStack");
+    dir.createDirectory();
+    return dir.getChildFile ("audio-settings.xml");
+}
+
+void WebUIComponent::changeListenerCallback (juce::ChangeBroadcaster*)
+{
+    // Persist the device setup whenever it changes, and refresh the UI telemetry.
+    if (auto xml = deviceManager.createStateXml())
+        xml->writeTo (audioSettingsFile());
+    markDirty();
 }
 
 //==============================================================================
@@ -151,6 +175,9 @@ void WebUIComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buff
     }
 
     monoBuffer.copyFrom (0, 0, *buffer, 0, start, num);
+    const float ig = inputGain.load (std::memory_order_relaxed);
+    if (ig != 1.0f)
+        monoBuffer.applyGain (0, 0, num, ig);
     inPeak.store (monoBuffer.getMagnitude (0, 0, num), std::memory_order_relaxed);
 
     float* chans[1] = { monoBuffer.getWritePointer (0) };
@@ -247,6 +274,7 @@ juce::var WebUIComponent::buildStateVar()
     }
 
     o->setProperty ("monitoring", monitorOn.load());
+    o->setProperty ("inputGain", (double) inputGain.load());
     o->setProperty ("masterGain", (double) masterGain.load());
     o->setProperty ("playing", monitorOn.load());
     o->setProperty ("inputLevel", smoothedIn);
@@ -342,7 +370,7 @@ void WebUIComponent::openVstEditorWindow()
                                                          [this] { editorWindow = nullptr; });
 }
 
-void WebUIComponent::openAudioSettingsDialog()
+void WebUIComponent::openAudioSettings()
 {
     auto selector = std::make_unique<juce::AudioDeviceSelectorComponent> (
         deviceManager, 1, 2, 1, 2, false, false, true, false);

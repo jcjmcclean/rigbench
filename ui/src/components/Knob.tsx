@@ -90,6 +90,7 @@ export function Knob({
             strokeDasharray={`${frac * fullArc} ${C}`} transform="rotate(135 50 50)" />
         </svg>
         <div className="knob__cap">
+          <div className="knob__face" aria-hidden />
           <div className="knob__pointer" style={{ transform: `rotate(${indicatorDeg}deg)` }} />
         </div>
       </div>

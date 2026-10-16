@@ -11,7 +11,8 @@
 //  - JS -> C++ : native functions (loadSlot, setMix, savePreset, ...)
 //  - C++ -> JS : "state" (full rig) and "meters" (levels) events on a timer.
 class WebUIComponent : public juce::AudioAppComponent,
-                       private juce::Timer
+                       private juce::Timer,
+                       private juce::ChangeListener
 {
 public:
     WebUIComponent();
@@ -22,8 +23,12 @@ public:
     void releaseResources() override;
     void resized() override;
 
+    void openAudioSettings();   // also invoked from the native menu bar
+
 private:
     void timerCallback() override;
+    void changeListenerCallback (juce::ChangeBroadcaster*) override; // device changes -> persist
+    juce::File audioSettingsFile() const;
 
     // Commands
     void loadSlotChooser (const juce::String& type);
@@ -31,7 +36,6 @@ private:
     void doLoadNam (const juce::File&);
     void doLoadIR  (const juce::File&);
     void openVstEditorWindow();
-    void openAudioSettingsDialog();
     void savePreset (const juce::String& name);
     void loadPreset (const juce::String& name);
 
@@ -46,6 +50,7 @@ private:
     juce::AudioBuffer<float> monoBuffer;
 
     std::atomic<bool>  monitorOn { true };
+    std::atomic<float> inputGain { 0.8f };
     std::atomic<float> masterGain { 0.8f };
     std::atomic<float> inPeak { 0.0f };
     std::atomic<float> outPeak { 0.0f };

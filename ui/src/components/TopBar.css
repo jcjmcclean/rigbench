@@ -6,7 +6,13 @@
   justify-content: space-between;
   gap: var(--sp-4);
   padding: var(--sp-3) var(--sp-5);
-  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  /* faint diamond tread-plate over the warm base — low-contrast, tasteful */
+  background-color: var(--bg-2);
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0) 40%, rgba(0,0,0,0.18)),
+    var(--diamond-tile);
+  background-size: 100% 100%, 36px 36px;
+  background-repeat: no-repeat, repeat;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -73,17 +79,58 @@
   color: var(--ink-muted);
   transition: all 0.2s var(--ease);
 }
+/* ---- Glass-dome jewel transport dot (matches module LEDs) ---- */
 .transport__dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--ink-faint);
-  transition: all 0.2s var(--ease);
+  position: relative;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, #2a2621 0%, #141210 72%),
+    conic-gradient(from 128deg,
+      #17150f 0deg, #828d95 42deg, #272420 92deg, #aeb9c0 140deg,
+      #201d19 196deg, #6c767d 252deg, #121009 300deg, #9aa5ac 336deg, #17150f 360deg);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.9),
+    inset 0 1px 1px rgba(216,228,235,0.30),
+    inset 0 -2px 3px rgba(0,0,0,0.85);
+  transition: filter 0.2s var(--ease);
+}
+.transport__dot::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  z-index: 1;
+  background: radial-gradient(circle at 38% 32%, #3a2318 0%, #1c0f08 58%, #0b0502 100%);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.9), inset 0 0 3px rgba(0,0,0,0.8);
+  transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.transport__dot::after {
+  content: "";
+  position: absolute;
+  top: 20%; left: 24%;
+  width: 34%; height: 26%;
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.35) 45%, rgba(255,255,255,0) 72%);
+  opacity: 0.16;
+  transition: opacity 0.2s var(--ease);
 }
 .transport.is-live { color: var(--ink-0); border-color: var(--ember-dim); background: rgba(255, 122, 45, 0.07); }
-.transport.is-live .transport__dot {
-  background: var(--ember);
-  box-shadow: 0 0 8px rgba(255, 122, 45, 0.9);
+.transport.is-live .transport__dot::before {
+  background: radial-gradient(circle at 38% 30%,
+    var(--ember-core) 0%, var(--ember-hot) 17%, var(--ember) 44%, #c94f12 73%, #7a2c08 100%);
+  box-shadow:
+    0 0 5px 1px rgba(255,122,45,0.95),
+    0 0 12px 2px rgba(255,122,45,0.55),
+    inset 0 0 4px 1px rgba(255,228,196,0.65),
+    inset 0 -1px 2px rgba(130,45,8,0.6);
   animation: ledBreath 2.4s ease-in-out infinite;
 }
+.transport.is-live .transport__dot::after { opacity: 0.92; }
 
 .iconbtn {
   display: grid; place-items: center;
