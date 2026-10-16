@@ -19,3 +19,8 @@ ui/dist/
 
 # Build-generated: assets/webui.zip is produced from ui/dist by CMake (tonestack_ui)
 assets/webui.zip
+
+# Release build + packaged artifacts
+build-rel/
+dist/
+build-rel-*.log

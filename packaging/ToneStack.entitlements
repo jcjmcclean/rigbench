@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Microphone / audio input: required, and under the hardened runtime the
+         mic silently fails without this. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+
+    <!-- ToneStack is a VST3 HOST: it loads third-party plugin binaries that are
+         signed by someone else (or ad-hoc). The hardened runtime's library
+         validation would refuse to load them, so a plugin host must disable it.
+         This is expected for plugin hosts (Reaper, AudioPluginHost, etc. do the
+         same) and is documented in docs/SECURITY.md. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- Some plugins JIT / allocate executable memory for their DSP. Allowing
+         this keeps plugin compatibility broad under the hardened runtime. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>
