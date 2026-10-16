@@ -19,11 +19,46 @@
 #include <juce_gui_basics/juce_gui_basics.h>  // ScopedJuceInitialiser_GUI (VST3 hosting needs a MessageManager)
 
 #include <juce_audio_formats/juce_audio_formats.h>
+#include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <new>
+
+//==============================================================================
+// RT-safety instrumentation: a global allocation counter. Defining operator
+// new/delete in this TU replaces them PROGRAM-WIDE (they are the single
+// replaceable global symbols), so every allocation — in the engine, JUCE, and
+// NAM core — is counted while tracking is armed. We only arm it around a tight
+// processBlock loop in the self-test, so the overhead and the count are both
+// zero in normal operation. Aligned (over-aligned) new/delete are deliberately
+// left as the library defaults: C++ guarantees aligned-new pairs with
+// aligned-delete, so there is no cross-pairing hazard; those (rare) allocations
+// simply aren't counted.
+namespace alloc_probe
+{
+std::atomic<std::uint64_t> count { 0 };
+std::atomic<bool>          tracking { false };
+inline void note() noexcept
+{
+    if (tracking.load (std::memory_order_relaxed))
+        count.fetch_add (1, std::memory_order_relaxed);
+}
+} // namespace alloc_probe
+
+void* operator new (std::size_t s)                          { alloc_probe::note(); void* p = std::malloc (s ? s : 1); if (! p) throw std::bad_alloc(); return p; }
+void* operator new[] (std::size_t s)                        { alloc_probe::note(); void* p = std::malloc (s ? s : 1); if (! p) throw std::bad_alloc(); return p; }
+void* operator new (std::size_t s, const std::nothrow_t&) noexcept   { alloc_probe::note(); return std::malloc (s ? s : 1); }
+void* operator new[] (std::size_t s, const std::nothrow_t&) noexcept { alloc_probe::note(); return std::malloc (s ? s : 1); }
+void operator delete (void* p) noexcept                     { std::free (p); }
+void operator delete[] (void* p) noexcept                   { std::free (p); }
+void operator delete (void* p, std::size_t) noexcept        { std::free (p); }
+void operator delete[] (void* p, std::size_t) noexcept      { std::free (p); }
+void operator delete (void* p, const std::nothrow_t&) noexcept   { std::free (p); }
+void operator delete[] (void* p, const std::nothrow_t&) noexcept { std::free (p); }
 
 //==============================================================================
 namespace sig
@@ -233,7 +268,10 @@ std::map<juce::String, juce::String> parseArgs (int argc, char** argv, int from)
     return m;
 }
 
-juce::File makeSyntheticIR (double sr)
+// Deterministic synthetic cab IR (seeded), peak at sample 0 so there's no
+// leading silence to trim. Returned as a buffer so the IR-correctness oracle
+// can diff the rendered impulse response against these exact source samples.
+juce::AudioBuffer<float> synthIRBuffer()
 {
     const int len = 512;
     juce::AudioBuffer<float> ir (1, len);
@@ -246,9 +284,32 @@ juce::File makeSyntheticIR (double sr)
         d[i] = last * std::exp (-(float) i / 90.0f);
     }
     d[0] = 1.0f;
+    return ir;
+}
+
+juce::File makeSyntheticIR (double sr)
+{
+    auto ir = synthIRBuffer();
     auto f = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("tonestack_test_ir.wav");
     io::saveMono (f, ir, sr);
     return f;
+}
+
+// Hermetic NAM model: prefer the committed test fixture (deterministic, present
+// on any checkout incl. CI); fall back to the user's personal library so a
+// developer with ~/Documents/NAMs still exercises a real capture.
+juce::File findNamModel()
+{
+   #ifdef TONESTACK_FIXTURES_DIR
+    const juce::File fixture = juce::File (TONESTACK_FIXTURES_DIR).getChildFile ("minimal.nam");
+    if (fixture.existsAsFile())
+        return fixture;
+   #endif
+    juce::Array<juce::File> namFiles;
+    juce::File namDir (juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                           .getChildFile ("NAMs"));
+    namDir.findChildFiles (namFiles, juce::File::findFiles, true, "*.nam");
+    return namFiles.isEmpty() ? juce::File() : namFiles[0];
 }
 
 enum class VstLoad { loaded, failed, timeout };
@@ -281,14 +342,31 @@ int report (const juce::String& name, bool pass, const juce::String& detail)
     return pass ? 0 : 1;
 }
 
-int runSelfTest()
+int runSelfTest (bool strict)
 {
     const double sr = 48000.0; const int block = 128;
     int fails = 0;
-    std::cout << "=== ToneStack self-test ===\n";
+    int suitesRun = 0, suitesSkipped = 0;
+    std::cout << "=== ToneStack self-test" << (strict ? " (--strict)" : "") << " ===\n";
+
+    // Record a skipped suite. In --strict mode, skipping a CORE suite (the ones
+    // CI must always exercise: preset round-trip, resampler) is a HARD FAILURE
+    // so a green-but-skipped run can never pass a CI gate.
+    auto skipSuite = [&] (const juce::String& name, const juce::String& reason, bool core)
+    {
+        std::cout << "  SKIP  " << name.paddedRight (' ', 22) << reason << "\n";
+        ++suitesSkipped;
+        if (strict && core)
+        {
+            std::cout << "  FAIL  " << juce::String (name + " (strict)").paddedRight (' ', 22)
+                      << "core suite skipped under --strict\n";
+            ++fails;
+        }
+    };
 
     // IR node: sine in -> finite, non-trivial out.
     {
+        ++suitesRun;
         AudioEngine engine; engine.prepare (sr, block);
         auto ir = std::make_unique<IRNode>();
         const bool loaded = ir->loadFile (makeSyntheticIR (sr));
@@ -305,59 +383,301 @@ int runSelfTest()
                        + "  out RMS " + juce::String (metric::rms (out), 5));
     }
 
-    // NAM node: load a real .nam (from ~/Documents/NAMs) and verify it processes.
+    // IR correctness oracle: an impulse through the convolver reproduces the IR
+    // itself (that is the definition of an impulse response). The IR is loaded
+    // with Trim+Normalise, so recover the single global scale by least squares
+    // over the first N taps, then diff sample-for-sample. Catches channel swaps,
+    // gain/shape bugs, and a wrong-IR regression that "RMS > 1e-4" never would.
     {
-        juce::Array<juce::File> namFiles;
-        juce::File namDir (juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                               .getChildFile ("NAMs"));
-        namDir.findChildFiles (namFiles, juce::File::findFiles, true, "*.nam");
+        ++suitesRun;
+        const auto irBuf = synthIRBuffer();
+        AudioEngine engine; engine.prepare (sr, block);
+        auto ir = std::make_unique<IRNode>();
+        ir->loadFile (makeSyntheticIR (sr));
+        engine.setNode (AudioEngine::irSlot, std::move (ir));
+        juce::Thread::sleep (600);
 
-        if (namFiles.isEmpty())
+        auto in  = sig::impulse (sr, block * 8);
+        auto out = renderThroughEngine (engine, in, block);
+        const int lat = metric::peakIndex (out);
+
+        const int N = 256;
+        double num = 0.0, den = 0.0;
+        for (int i = 0; i < N; ++i)
         {
-            std::cout << "  SKIP  NAM                  no .nam files under ~/Documents/NAMs\n";
+            const double o = out.getSample (0, lat + i);
+            const double h = irBuf.getSample (0, i);
+            num += o * h; den += h * h;
+        }
+        const double scale = den > 0.0 ? num / den : 0.0;
+        double maxErr = 0.0;
+        for (int i = 0; i < N; ++i)
+            maxErr = juce::jmax (maxErr, std::abs (out.getSample (0, lat + i) - scale * irBuf.getSample (0, i)));
+
+        fails += report ("IR oracle", maxErr < 1.0e-5,
+                         "impulse reproduces IR: max abs err " + juce::String (maxErr, 8)
+                       + "  (scale " + juce::String (scale, 4) + ", latency " + juce::String (lat) + ")");
+    }
+
+    // RT-safety: processBlock must perform ZERO heap allocations. Arm the global
+    // allocation counter around a tight loop with IR + a resampling NAM active
+    // (engine at 44.1 kHz, model at 48 kHz => the RealtimeResampler hot path).
+    {
+        ++suitesRun;
+        const double srA = 44100.0;
+        AudioEngine engine; engine.prepare (srA, block);
+
+        auto ir = std::make_unique<IRNode>();
+        ir->loadFile (makeSyntheticIR (srA));
+        engine.setNode (AudioEngine::irSlot, std::move (ir));
+
+        const juce::File namFile = findNamModel();
+        const bool haveNam = namFile.existsAsFile();
+        juce::String resampleNote = "IR";
+        if (haveNam)
+        {
+            auto nam = std::make_unique<NamNode>(); juce::String err;
+            if (nam->loadFile (namFile, err))
+            {
+                engine.setNode (AudioEngine::namSlot, std::move (nam));
+                resampleNote = "IR+NAM(resampling 48k@44.1k)";
+            }
+        }
+        juce::Thread::sleep (700); // IR convolution load
+
+        auto in = sig::pluck (srA, block * 24);
+        juce::AudioBuffer<float> blk (1, block);
+
+        // Warm up so any one-time lazy setup inside the convolver/model settles.
+        for (int k = 0; k < 16; ++k)
+        {
+            blk.copyFrom (0, 0, in, 0, (k % 20) * block, block);
+            engine.processBlock (blk);
+        }
+
+        const auto before = alloc_probe::count.load();
+        alloc_probe::tracking.store (true, std::memory_order_relaxed);
+        for (int k = 0; k < 128; ++k)
+        {
+            blk.copyFrom (0, 0, in, 0, (k % 20) * block, block);
+            engine.processBlock (blk);
+        }
+        alloc_probe::tracking.store (false, std::memory_order_relaxed);
+        const auto growth = alloc_probe::count.load() - before;
+
+        fails += report ("RT alloc-free", growth == 0,
+                         juce::String ((juce::int64) growth) + " allocs over 128 processBlock calls ("
+                       + resampleNote + ")");
+    }
+
+    // Empty chain is a perfect wire: no nodes => output bit-exact == input.
+    {
+        ++suitesRun;
+        AudioEngine engine; engine.prepare (sr, block);
+        auto in  = sig::sine (sr, block * 10);
+        auto out = renderThroughEngine (engine, in, block);
+        float maxd = 0.0f;
+        for (int i = 0; i < in.getNumSamples(); ++i)
+            maxd = juce::jmax (maxd, std::abs (out.getSample (0, i) - in.getSample (0, i)));
+        fails += report ("Empty-chain identity", maxd == 0.0f, "max|out-in| " + juce::String (maxd, 8));
+    }
+
+    // A bypassed slot must be indistinguishable from an absent slot.
+    {
+        ++suitesRun;
+        auto in = sig::sine (sr, block * 10);
+
+        AudioEngine bypassed; bypassed.prepare (sr, block);
+        auto ir = std::make_unique<IRNode>();
+        ir->loadFile (makeSyntheticIR (sr));
+        ir->setBypassed (true);
+        bypassed.setNode (AudioEngine::irSlot, std::move (ir));
+        juce::Thread::sleep (600);
+        auto outBypass = renderThroughEngine (bypassed, in, block);
+
+        AudioEngine absent; absent.prepare (sr, block);
+        auto outAbsent = renderThroughEngine (absent, in, block);
+
+        float maxd = 0.0f;
+        for (int i = 0; i < in.getNumSamples(); ++i)
+            maxd = juce::jmax (maxd, std::abs (outBypass.getSample (0, i) - outAbsent.getSample (0, i)));
+        fails += report ("Bypass==absent", maxd == 0.0f, "max|bypass-absent| " + juce::String (maxd, 8));
+    }
+
+    // Clearing a slot (setNode nullptr) must leave a clean dry passthrough.
+    {
+        ++suitesRun;
+        AudioEngine engine; engine.prepare (sr, block);
+        auto ir = std::make_unique<IRNode>();
+        ir->loadFile (makeSyntheticIR (sr));
+        engine.setNode (AudioEngine::irSlot, std::move (ir));
+        juce::Thread::sleep (600);
+        engine.setNode (AudioEngine::irSlot, nullptr); // clear
+
+        auto in  = sig::sine (sr, block * 10);
+        auto out = renderThroughEngine (engine, in, block);
+        float maxd = 0.0f;
+        for (int i = 0; i < in.getNumSamples(); ++i)
+            maxd = juce::jmax (maxd, std::abs (out.getSample (0, i) - in.getSample (0, i)));
+        fails += report ("Clear-slot dry", maxd == 0.0f, "max|out-in| " + juce::String (maxd, 8));
+    }
+
+    // Hermetic IR-only preset round-trip (no NAM) — so preset serialization is
+    // ALWAYS exercised, even on a machine with no models. CORE under --strict.
+    {
+        ++suitesRun;
+        const juce::File irFile = makeSyntheticIR (sr);
+        auto build = [&] (AudioEngine& e)
+        {
+            e.prepare (sr, block);
+            auto ir = std::make_unique<IRNode>();
+            ir->loadFile (irFile); ir->setMix (0.8f);
+            e.setNode (AudioEngine::irSlot, std::move (ir));
+        };
+
+        AudioEngine original; build (original);
+        juce::Thread::sleep (300);
+
+        const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                          .getChildFile ("tonestack_test_ir_preset.tonestack");
+        const bool saved = Preset::save (presetFile, original, 0.65f, sr, "IR Only");
+
+        AudioEngine restored; restored.prepare (sr, block);
+        Preset::RigInfo info;
+        const bool loaded = Preset::load (presetFile, restored, sr, block, info);
+        juce::Thread::sleep (300);
+
+        auto in   = sig::pluck (sr, block * 120);
+        auto outA = renderThroughEngine (original, in, block);
+        auto outB = renderThroughEngine (restored, in, block);
+        juce::AudioBuffer<float> diff (1, outA.getNumSamples());
+        diff.copyFrom (0, 0, outA, 0, 0, outA.getNumSamples());
+        diff.addFrom  (0, 0, outB, 0, 0, outB.getNumSamples(), -1.0f);
+
+        fails += report ("Preset(IR) save", saved, presetFile.getFileName());
+        fails += report ("Preset(IR) load", loaded && info.masterGain > 0.64f && info.masterGain < 0.66f,
+                         "masterGain " + juce::String (info.masterGain, 3) + "  name '" + info.name + "'");
+        fails += report ("Preset(IR) round-trip", metric::rms (diff) < 1.0e-6f,
+                         "diff RMS " + juce::String (metric::rms (diff), 8)
+                       + "  (ref " + juce::String (metric::rms (outA), 5) + ")");
+    }
+
+    // Malformed presets must be rejected cleanly (return false, never crash).
+    {
+        ++suitesRun;
+        AudioEngine engine; engine.prepare (sr, block);
+        Preset::RigInfo info;
+        const auto temp = juce::File::getSpecialLocation (juce::File::tempDirectory);
+
+        const juce::File f1 = temp.getChildFile ("tonestack_bad_truncated.tonestack");
+        f1.replaceWithText ("{ \"format\": \"tonestack-preset\", \"schemaVersion\": 1, \"chain\": [");
+        const bool r1 = Preset::load (f1, engine, sr, block, info);
+
+        const juce::File f2 = temp.getChildFile ("tonestack_bad_garbage.tonestack");
+        f2.replaceWithText ("not json at all %%%");
+        const bool r2 = Preset::load (f2, engine, sr, block, info);
+
+        const juce::File f3 = temp.getChildFile ("tonestack_bad_schema.tonestack");
+        f3.replaceWithText ("{ \"format\": \"tonestack-preset\", \"schemaVersion\": 99, \"chain\": [] }");
+        const bool r3 = Preset::load (f3, engine, sr, block, info);
+
+        const juce::File f4 = temp.getChildFile ("tonestack_bad_wrongformat.tonestack");
+        f4.replaceWithText ("{ \"hello\": 123 }");
+        const bool r4 = Preset::load (f4, engine, sr, block, info);
+
+        const bool r5 = Preset::load (temp.getChildFile ("tonestack_nonexistent.tonestack"),
+                                      engine, sr, block, info);
+
+        fails += report ("Preset malformed", ! r1 && ! r2 && ! r3 && ! r4 && ! r5,
+                         "truncated/garbage/badschema/wrongformat/missing all rejected");
+    }
+
+    // NAM node: load a .nam (committed fixture, else ~/Documents/NAMs) and verify
+    // it processes. The headline assertion is a DETERMINISM oracle — NAM inference
+    // is deterministic, so the same pluck rendered twice must be bit-identical —
+    // plus a louder-in => louder-out gain relationship, both far stronger than the
+    // old "RMS > 1e-4" liveness check. SKIP (counted) only if no model exists.
+    {
+        const juce::File namFile = findNamModel();
+        if (! namFile.existsAsFile())
+        {
+            skipSuite ("NAM", "no .nam fixture or ~/Documents/NAMs model", /*core*/ false);
         }
         else
         {
-            AudioEngine engine; engine.prepare (sr, block);
-            auto nam = std::make_unique<NamNode>();
+            ++suitesRun;
+
+            auto build = [&] (AudioEngine& e, juce::String& err) -> bool
+            {
+                e.prepare (sr, block);
+                auto nam = std::make_unique<NamNode>();
+                const bool ok = nam->loadFile (namFile, err);
+                const double expected = nam->getExpectedSampleRate();
+                e.setNode (AudioEngine::namSlot, std::move (nam));
+                juce::ignoreUnused (expected);
+                return ok;
+            };
+
             juce::String err;
-            const bool loaded = nam->loadFile (namFiles[0], err);
-            const double expectedSr = nam->getExpectedSampleRate();
-            engine.setNode (AudioEngine::namSlot, std::move (nam));
+            AudioEngine e1; const bool loaded = build (e1, err);
+            const double expectedSr = e1.getNode (AudioEngine::namSlot) != nullptr
+                                        ? static_cast<NamNode*> (e1.getNode (AudioEngine::namSlot))->getExpectedSampleRate()
+                                        : -1.0;
 
-            auto in  = sig::pluck (sr, block * 200);
-            auto out = renderThroughEngine (engine, in, block);
+            auto in   = sig::pluck (sr, block * 120);
+            auto out1 = renderThroughEngine (e1, in, block);
 
-            fails += report ("NAM load", loaded, namFiles[0].getFileName() + (err.isEmpty() ? "" : " (" + err + ")"));
+            AudioEngine e2; build (e2, err);
+            auto out2 = renderThroughEngine (e2, in, block);
+
+            float detMax = 0.0f;
+            for (int i = 0; i < out1.getNumSamples(); ++i)
+                detMax = juce::jmax (detMax, std::abs (out1.getSample (0, i) - out2.getSample (0, i)));
+
+            auto rmsForAmp = [&] (float amp)
+            {
+                AudioEngine e; juce::String e0; build (e, e0);
+                auto sig = sig::pluck (sr, block * 120, 82.41f, amp);
+                return metric::rms (renderThroughEngine (e, sig, block));
+            };
+            const float rmsLo = rmsForAmp (0.15f);
+            const float rmsHi = rmsForAmp (0.45f);
+
+            fails += report ("NAM load", loaded, namFile.getFileName() + (err.isEmpty() ? "" : " (" + err + ")"));
             fails += report ("NAM rate", std::abs (expectedSr - sr) < 1.0,
                              "model " + juce::String (expectedSr, 0) + " Hz, bench " + juce::String (sr, 0) + " Hz");
-            fails += report ("NAM finite", metric::finite (out), "no NaN/Inf");
-            fails += report ("NAM output", metric::rms (out) > 1.0e-4f,
-                             "in RMS " + juce::String (metric::rms (in), 5)
-                           + "  out RMS " + juce::String (metric::rms (out), 5));
+            fails += report ("NAM finite", metric::finite (out1), "no NaN/Inf");
+            fails += report ("NAM determinism", detMax == 0.0f, "same pluck x2 bit-identical, max diff " + juce::String (detMax, 8));
+            fails += report ("NAM gain", rmsHi > rmsLo * 1.5f,
+                             "out RMS lo " + juce::String (rmsLo, 5) + " -> hi " + juce::String (rmsHi, 5));
         }
     }
 
-    // Preset round-trip: build NAM+IR chain, save, reload into a fresh engine,
-    // and verify the rendered output matches (bit-for-bit via RMS of the diff).
+    // Full NAM+IR preset round-trip: save, reload into a fresh engine, verify the
+    // rendered output matches bit-for-bit (RMS of the diff). This additionally
+    // covers the NAM slot in preset serialization. SKIP (counted) if no model —
+    // the hermetic IR-only round-trip above keeps preset coverage either way.
     {
-        juce::Array<juce::File> namFiles;
-        juce::File namDir (juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                               .getChildFile ("NAMs"));
-        namDir.findChildFiles (namFiles, juce::File::findFiles, true, "*.nam");
-        const juce::File irFile = makeSyntheticIR (sr);
-
-        if (namFiles.isEmpty())
+        const juce::File model = findNamModel();
+        if (! model.existsAsFile())
         {
-            std::cout << "  SKIP  Preset               no .nam to build a chain\n";
+            skipSuite ("Preset(NAM+IR)", "no .nam to build a chain", /*core*/ false);
         }
         else
         {
+            // Copy the model under the per-user temp dir so Preset's SEC-3
+            // allow-list accepts the referenced path on any machine (incl. CI,
+            // where the checkout may live outside the user's home).
+            const juce::File namFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                           .getChildFile ("tonestack_test_model.nam");
+            model.copyFileTo (namFile);
+            const juce::File irFile = makeSyntheticIR (sr);
+
             auto buildChain = [&] (AudioEngine& e)
             {
                 e.prepare (sr, block);
                 auto nam = std::make_unique<NamNode>(); juce::String err;
-                nam->loadFile (namFiles[0], err);
+                nam->loadFile (namFile, err);
                 e.setNode (AudioEngine::namSlot, std::move (nam));
                 auto ir = std::make_unique<IRNode>();
                 ir->loadFile (irFile); ir->setMix (0.8f);
@@ -377,6 +697,10 @@ int runSelfTest()
             const bool loaded = Preset::load (presetFile, restored, sr, block, info);
             juce::Thread::sleep (300);
 
+            // Confirm both slots actually came back (catches a silently-dropped node).
+            const bool slotsRestored = restored.getNode (AudioEngine::namSlot) != nullptr
+                                    && restored.getNode (AudioEngine::irSlot)  != nullptr;
+
             auto in   = sig::pluck (sr, block * 150);
             auto outA = renderThroughEngine (original, in, block);
             auto outB = renderThroughEngine (restored, in, block);
@@ -386,34 +710,25 @@ int runSelfTest()
             diff.copyFrom (0, 0, outA, 0, 0, outA.getNumSamples());
             diff.addFrom  (0, 0, outB, 0, 0, outB.getNumSamples(), -1.0f);
 
+            ++suitesRun;
             fails += report ("Preset save", saved, presetFile.getFileName());
-            fails += report ("Preset load", loaded && info.masterGain > 0.69f && info.masterGain < 0.71f,
-                             "masterGain " + juce::String (info.masterGain, 3) + "  name '" + info.name + "'");
+            fails += report ("Preset load", loaded && slotsRestored
+                                            && info.masterGain > 0.69f && info.masterGain < 0.71f,
+                             "masterGain " + juce::String (info.masterGain, 3) + "  name '" + info.name + "'"
+                           + (slotsRestored ? "" : "  [slot missing]"));
             fails += report ("Preset round-trip", metric::rms (diff) < 1.0e-6f,
                              "diff RMS " + juce::String (metric::rms (diff), 8)
                            + "  (ref " + juce::String (metric::rms (outA), 5) + ")");
         }
     }
 
-    // Resampler transparency: 44.1k -> 48k -> 44.1k on a sine keeps pitch + level.
+    // RealtimeResampler: beyond the single 44.1<->48 round-trip + pitch metric,
+    // exercise identity, downsample, amplitude preservation, and the FIFO clamp.
+    // CORE under --strict (the resampler sits on the hot path for every
+    // sample-rate-mismatched NAM and is pure, deterministic C++).
     {
-        const double hostR = 44100.0, modelR = 48000.0;
+        ++suitesRun;
         const int blk = 128;
-        RealtimeResampler up, down;
-        up.prepare (hostR, modelR, blk);
-        down.prepare (modelR, hostR, up.getMaxOutputSamples());
-        std::vector<float> ub ((size_t) up.getMaxOutputSamples());
-        std::vector<float> db ((size_t) down.getMaxOutputSamples() * 2 + 16);
-
-        auto in = sig::sine (hostR, blk * 300, 440.0f);
-        juce::AudioBuffer<float> out (1, in.getNumSamples()); out.clear();
-        int w = 0;
-        for (int pos = 0; pos + blk <= in.getNumSamples(); pos += blk)
-        {
-            const int nUp = up.process (in.getReadPointer (0) + pos, blk, ub.data(), (int) ub.size());
-            const int nDown = down.process (ub.data(), nUp, db.data(), (int) db.size());
-            for (int i = 0; i < nDown && w < out.getNumSamples(); ++i) out.setSample (0, w++, db[i]);
-        }
 
         auto zcRate = [] (const float* d, int from, int to)
         {
@@ -421,24 +736,123 @@ int runSelfTest()
             for (int i = from + 1; i < to; ++i) if ((d[i - 1] < 0.0f) != (d[i] < 0.0f)) ++zc;
             return (double) zc / juce::jmax (1, to - from);
         };
-        const int lo = 4000, hi = juce::jmin (in.getNumSamples(), w) - 4000;
-        const double zcIn = zcRate (in.getReadPointer (0), lo, hi);
-        const double zcOut = zcRate (out.getReadPointer (0), lo, hi);
-        const double pitchErr = zcIn > 0 ? std::abs (zcOut - zcIn) / zcIn : 1.0;
+        // RMS over a window, skipping interpolator priming at the edges.
+        auto rmsWin = [] (const float* d, int from, int to)
+        {
+            double s = 0.0; for (int i = from; i < to; ++i) s += (double) d[i] * d[i];
+            return std::sqrt (s / juce::jmax (1, to - from));
+        };
 
-        fails += report ("Resampler pitch", pitchErr < 0.02,
-                         "zc/samp in " + juce::String (zcIn, 5) + " out " + juce::String (zcOut, 5)
-                       + "  (" + juce::String (pitchErr * 100.0, 2) + "% err)");
+        // Run a chained up->down resample of a 440 Hz sine, returning the output
+        // (same device rate in and out) so pitch AND amplitude can be measured.
+        auto roundTrip = [&] (double hostR, double modelR)
+        {
+            RealtimeResampler up, down;
+            up.prepare (hostR, modelR, blk);
+            down.prepare (modelR, hostR, up.getMaxOutputSamples());
+            std::vector<float> ub ((size_t) up.getMaxOutputSamples());
+            std::vector<float> db ((size_t) down.getMaxOutputSamples() * 2 + 16);
+
+            auto in = sig::sine (hostR, blk * 300, 440.0f, 0.3f);
+            juce::AudioBuffer<float> out (1, in.getNumSamples()); out.clear();
+            int w = 0;
+            for (int pos = 0; pos + blk <= in.getNumSamples(); pos += blk)
+            {
+                const int nUp = up.process (in.getReadPointer (0) + pos, blk, ub.data(), (int) ub.size());
+                const int nDown = down.process (ub.data(), nUp, db.data(), (int) db.size());
+                for (int i = 0; i < nDown && w < out.getNumSamples(); ++i) out.setSample (0, w++, db[(size_t) i]);
+            }
+            return std::make_pair (std::move (in), std::move (out));
+        };
+
+        // (1) 44.1k <-> 48k round-trip: pitch within 2%, amplitude within 0.5 dB.
+        {
+            auto [in, out] = roundTrip (44100.0, 48000.0);
+            const int lo = 4000, hi = in.getNumSamples() - 4000;
+            const double zcIn = zcRate (in.getReadPointer (0), lo, hi);
+            const double zcOut = zcRate (out.getReadPointer (0), lo, hi);
+            const double pitchErr = zcIn > 0 ? std::abs (zcOut - zcIn) / zcIn : 1.0;
+            const double rIn  = rmsWin (in.getReadPointer (0), lo, hi);
+            const double rOut = rmsWin (out.getReadPointer (0), lo, hi);
+            const double dB   = 20.0 * std::log10 (juce::jmax (1.0e-9, rOut) / juce::jmax (1.0e-9, rIn));
+
+            fails += report ("Resampler pitch", pitchErr < 0.02,
+                             "zc/samp in " + juce::String (zcIn, 5) + " out " + juce::String (zcOut, 5)
+                           + "  (" + juce::String (pitchErr * 100.0, 2) + "% err)");
+            fails += report ("Resampler level", std::abs (dB) < 0.5,
+                             "44.1<->48 amplitude " + juce::String (dB, 3) + " dB");
+        }
+
+        // (2) Identity ratio (48k->48k): transparent passthrough — pitch exact,
+        // amplitude within 0.5 dB (a Lagrange interpolator at integer positions
+        // returns the node samples, offset only by its priming delay).
+        {
+            auto [in, out] = roundTrip (48000.0, 48000.0);
+            const int lo = 2000, hi = in.getNumSamples() - 2000;
+            const double zcIn = zcRate (in.getReadPointer (0), lo, hi);
+            const double zcOut = zcRate (out.getReadPointer (0), lo, hi);
+            const double pitchErr = zcIn > 0 ? std::abs (zcOut - zcIn) / zcIn : 1.0;
+            const double dB = 20.0 * std::log10 (juce::jmax (1.0e-9, rmsWin (out.getReadPointer (0), lo, hi))
+                                                / juce::jmax (1.0e-9, rmsWin (in.getReadPointer (0), lo, hi)));
+            fails += report ("Resampler identity", pitchErr < 0.005 && std::abs (dB) < 0.5,
+                             "pitch err " + juce::String (pitchErr * 100.0, 3) + "%  level " + juce::String (dB, 3) + " dB");
+        }
+
+        // (3) Pure downsample (96k->48k): pitch preserved, output finite.
+        {
+            RealtimeResampler down;
+            down.prepare (96000.0, 48000.0, blk);
+            std::vector<float> db ((size_t) down.getMaxOutputSamples() + 16);
+            auto in = sig::sine (96000.0, blk * 300, 440.0f, 0.3f);
+            juce::AudioBuffer<float> out (1, in.getNumSamples()); out.clear();
+            int w = 0; bool fin = true;
+            for (int pos = 0; pos + blk <= in.getNumSamples(); pos += blk)
+            {
+                const int n = down.process (in.getReadPointer (0) + pos, blk, db.data(), (int) db.size());
+                for (int i = 0; i < n && w < out.getNumSamples(); ++i)
+                {
+                    if (! std::isfinite (db[(size_t) i])) fin = false;
+                    out.setSample (0, w++, db[(size_t) i]);
+                }
+            }
+            // 96k 440Hz has half the zc/sample of the 48k output; compare scaled.
+            const double zcIn  = zcRate (in.getReadPointer (0), 4000, in.getNumSamples() - 4000);
+            const double zcOut = zcRate (out.getReadPointer (0), 2000, w - 2000);
+            const double pitchErr = zcIn > 0 ? std::abs (zcOut - 2.0 * zcIn) / (2.0 * zcIn) : 1.0;
+            fails += report ("Resampler downsample", fin && pitchErr < 0.02,
+                             "96k->48k pitch err " + juce::String (pitchErr * 100.0, 2) + "%  finite " + (fin ? "yes" : "NO"));
+        }
+
+        // (4) FIFO safety-clamp: feeding MORE than the prepared max block must
+        // clamp to capacity instead of overrunning the FIFO or corrupting output.
+        {
+            RealtimeResampler rs;
+            rs.prepare (48000.0, 48000.0, blk);     // fifoCapacity == blk + 8
+            std::vector<float> big ((size_t) blk * 4, 0.25f);
+            std::vector<float> out ((size_t) rs.getMaxOutputSamples() + 16, 0.0f);
+            const int n = rs.process (big.data(), (int) big.size(), out.data(), (int) out.size());
+            bool fin = n >= 0 && n <= (int) out.size();
+            for (int i = 0; i < n; ++i) if (! std::isfinite (out[(size_t) i])) fin = false;
+            fails += report ("Resampler FIFO clamp", fin,
+                             "fed " + juce::String ((int) big.size()) + " > capacity, produced "
+                           + juce::String (n) + " finite samples (no overrun)");
+        }
     }
 
     // VST3 node: only when TONESTACK_TEST_VST is set (dlopen blocks under AMFI in
     // a sandboxed/CLI process — run this from a normal login shell).
+    // VST3: hosting a real plugin reliably needs a GUI/login session (dlopen of a
+    // code-signed bundle blocks under AMFI in a CLI process), and there is no
+    // hermetic .vst3 fixture to commit, so this stays opt-in + env-gated and is
+    // NOT a core suite (its skip never fails --strict). Point TONESTACK_TEST_VST
+    // at a bundle via TONESTACK_VST_PATH to exercise it locally.
     if (std::getenv ("TONESTACK_TEST_VST") != nullptr)
     {
-        juce::File vstFile ("/Users/jamestu/Downloads/SICO High Gain.vst3");
+        const char* envPath = std::getenv ("TONESTACK_VST_PATH");
+        juce::File vstFile (envPath != nullptr ? juce::String (envPath) : juce::String());
         if (! vstFile.exists())
         {
-            std::cout << "  SKIP  VST3                 SICO High Gain.vst3 not found in ~/Downloads\n";
+            skipSuite ("VST3", "set TONESTACK_VST_PATH to a .vst3 bundle to run", /*core*/ false);
         }
         else
         {
@@ -450,11 +864,11 @@ int runSelfTest()
 
             if (status == VstLoad::timeout)
             {
-                std::cout << "  SKIP  VST3                 dlopen blocked (AMFI signature check in CLI) "
-                             "— verify in the GUI app instead\n";
+                skipSuite ("VST3", "dlopen blocked (AMFI signature check in CLI) — verify in the GUI app", /*core*/ false);
             }
             else
             {
+                ++suitesRun;
                 const juce::String name = vst->getSourceName();
                 engine.setNode (AudioEngine::vst3Slot, std::move (vst));
 
@@ -472,6 +886,7 @@ int runSelfTest()
 
     // Zero-latency check: impulse in -> peak near sample 0.
     {
+        ++suitesRun;
         AudioEngine engine; engine.prepare (sr, block);
         auto ir = std::make_unique<IRNode>();
         ir->loadFile (makeSyntheticIR (sr));
@@ -485,7 +900,10 @@ int runSelfTest()
                          "peak at sample " + juce::String (lat) + " (zero-latency conv)");
     }
 
-    std::cout << "=== " << (fails == 0 ? "ALL PASS" : juce::String (fails) + " FAILURE(S)") << " ===\n";
+    std::cout << "=== "
+              << (fails == 0 ? juce::String ("ALL PASS") : juce::String (fails) + " FAILURE(S)")
+              << " (" << suitesRun << " run, " << suitesSkipped << " skipped)"
+              << " ===\n";
     return fails == 0 ? 0 : 1;
 }
 
@@ -589,10 +1007,16 @@ int main (int argc, char** argv)
 
     const juce::String mode = argc > 1 ? juce::String (argv[1]) : "selftest";
     if (mode == "render") return runRender (argc, argv);
-    if (mode == "selftest") return runSelfTest();
+    if (mode == "selftest")
+    {
+        bool strict = false;
+        for (int i = 2; i < argc; ++i)
+            if (juce::String (argv[i]) == "--strict") strict = true;
+        return runSelfTest (strict);
+    }
 
     std::cout << "usage:\n"
-              << "  tonestack_bench selftest\n"
+              << "  tonestack_bench selftest [--strict]   (--strict: a skipped CORE suite fails; used by CI)\n"
               << "  tonestack_bench render [--gen sine|sweep|impulse|noise|pluck [--secs S] | --in f.wav]"
                  " [--ir f.wav [--mix 0..1]] [--sr N] [--block N] --out out.wav\n";
     return 0;

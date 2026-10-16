@@ -1,0 +1,65 @@
+# ToneStack test CI. This workflow is the TEST gate only — it builds the offline
+# bench and runs the C++ self-test under --strict, and lints/builds/tests the
+# React UI. The cross-platform RELEASE build matrix lives in a separate
+# build.yml (owned elsewhere); do not duplicate packaging here.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpp-selftest:
+    name: C++ self-test (macOS)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # Configure + build ONLY the offline bench. It shares the real engine
+      # sources with the app but needs no Node/WebUI, so the test gate stays fast.
+      # (FetchContent pulls JUCE + NeuralAmpModelerCore on first configure.)
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build tonestack_bench
+        run: cmake --build build --target tonestack_bench
+
+      # --strict (via the selftest_strict CTest registration) turns a skipped
+      # CORE suite (preset round-trip, resampler) into a failure, so a
+      # green-but-skipped run can never pass the gate. The committed .nam fixture
+      # keeps the NAM + preset suites running on the clean CI box.
+      - name: Run self-test (ctest, strict)
+        run: ctest --test-dir build --output-on-failure
+
+  ui-tests:
+    name: UI lint + build + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test

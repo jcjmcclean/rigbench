@@ -183,6 +183,9 @@ target_compile_definitions(tonestack_bench PRIVATE
     JUCE_PLUGINHOST_VST3=1
     JUCE_STANDALONE_APPLICATION=1
     JUCE_MODAL_LOOPS_PERMITTED=1   # lets the headless bench pump the message loop
+    # Hermetic test fixtures (committed .nam etc.) so the self-test's NAM + preset
+    # suites are deterministic and never silently skip, incl. on CI.
+    TONESTACK_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/test-fixtures"
 )
 
 target_link_libraries(tonestack_bench PRIVATE
@@ -195,3 +198,13 @@ target_link_libraries(tonestack_bench PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )
+
+#==============================================================================
+# CTest: run the offline self-test via `ctest`. Two registrations:
+#   selftest        — human-facing run (skips are allowed).
+#   selftest_strict — CI gate: --strict makes a skipped CORE suite (preset
+#                     round-trip, resampler) a FAILURE, so a green-but-skipped
+#                     run can never pass. CI runs this one.
+enable_testing()
+add_test(NAME selftest        COMMAND tonestack_bench selftest)
+add_test(NAME selftest_strict COMMAND tonestack_bench selftest --strict)
