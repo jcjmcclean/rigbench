@@ -59,12 +59,44 @@
   font-family: var(--font-display);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-size: 9px;
+  font-size: var(--t-2xs);
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 20px;
 }
-.badge--mock { color: var(--gold); border: 1px solid var(--gold-dim); background: rgba(214, 164, 86, 0.08); }
+/* neutral brushed-silver badge (no amber) — it is informational, not a warning */
+.badge--mock { color: var(--gold); border: 1px solid var(--gold-dim); background: rgba(var(--gold-rgb), 0.06); }
+
+/* ---- loading splash / error fallback (shown while state === null) ---- */
+.splash {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  padding: var(--sp-6);
+  text-align: center;
+}
+.splash__mark {
+  width: 28px; height: 28px; border-radius: 5px;
+  background: conic-gradient(from 210deg, var(--ember), var(--gold), var(--ember-dim), var(--ember));
+  box-shadow: var(--glow-ember);
+}
+.splash__mark--pulse { animation: ledBreath 2.4s ease-in-out infinite; }
+.splash__word {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-xl);
+  letter-spacing: 0.02em;
+  color: var(--ink-0);
+}
+.splash__word em { font-style: normal; color: var(--ember); }
+.splash__hint { color: var(--ink-faint); font-size: var(--t-sm); }
+.splash__title { font-size: var(--t-lg); color: var(--ink-0); font-weight: 600; }
+.splash__msg { color: var(--ink-muted); font-size: var(--t-base); max-width: 44ch; }
 
 @media (max-width: 820px) {
   .stage { justify-content: flex-start; padding: var(--sp-5) var(--sp-4); }

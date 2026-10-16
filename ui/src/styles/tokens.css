@@ -37,6 +37,10 @@
   /* Semantic */
   --danger: #ff5a4d;
   --danger-rgb: 255, 90, 77;   /* channels of --danger */
+  /* Amber reserved for WARNING states only (meter "warn" zone, latency "med").
+     Everything else stays black/steel/electric-blue/silver. */
+  --warn: #d6a456;
+  --warn-rgb: 214, 164, 86;    /* channels of --warn */
 
   /* Type */
   --font-display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
@@ -44,6 +48,7 @@
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
   /* Type scale */
+  --t-2xs: 9px;   /* micro faceplate labels (roles, meter/knob captions) */
   --t-xs: 10px;
   --t-sm: 12px;
   --t-base: 14px;

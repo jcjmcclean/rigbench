@@ -14,12 +14,18 @@
   transition: border-color 0.2s var(--ease);
 }
 .presetmenu__trigger:hover { border-color: var(--gold-dim); }
-.presetmenu__eyebrow { font-size: 8px; }
+.presetmenu__eyebrow { font-size: var(--t-2xs); }
 .presetmenu__name {
   font-family: var(--font-ui);
   font-size: var(--t-base);
   font-weight: 500;
   color: var(--ink-0);
+}
+/* unsaved-changes marker: subtle amber-free accent next to the preset name */
+.presetmenu__dirty {
+  color: var(--ember);
+  font-size: var(--t-xs);
+  font-weight: 600;
 }
 .presetmenu__chev {
   position: absolute;

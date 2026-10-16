@@ -32,6 +32,10 @@ export interface Bridge {
   // Live signal scope: batches of decimated, signed samples (~-1..1) from the
   // audio thread, newest last. Flat/near-zero when there's no input.
   subscribeScope(cb: (samples: number[]) => void): () => void;
+  // Backend error channel (e.g. a plugin/model failed to load). The real JUCE
+  // engine emits an "error" event with a human-readable message; the UI surfaces
+  // it as a toast. In a plain browser the mock wires a no-op.
+  subscribeError(cb: (message: string) => void): () => void;
   loadSlot(type: SlotType): void;
   clearSlot(type: SlotType): void;
   setBypass(type: SlotType, bypassed: boolean): void;
