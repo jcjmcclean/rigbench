@@ -15,39 +15,64 @@ your rig with low latency. A simple, light alternative to Reaper / Amplitube / A
   resampler converts around them when the device runs at another rate (e.g. 44.1 kHz).
 - **IR** — `juce::dsp::Convolution`, zero added latency.
 
-See `ROADMAP.md` for status and `docs/research/` for the integration notes behind each piece.
+See `ROADMAP.md` for status, `docs/reviews/` for the UI/code/security/test/distribution
+reviews + fix plan, `docs/research/` for the integration notes, `docs/testing.md` for the
+test suites, `docs/distribution.md` for shipping, and `SECURITY.md` for the trust model.
 
 ## Build
 
 Prereqs: CMake, Ninja, Node/npm, Xcode command-line tools (macOS, Apple Silicon).
 
 ```sh
-# 1) Build the React UI and embed it
-cd ui && npm install && npm run build
-mkdir -p ../assets && (cd dist && zip -rq ../../assets/webui.zip .)
+# Install UI deps once; CMake builds + embeds the React UI for you on every build.
+cd ui && npm install && cd ..
 
-# 2) Build the app (first configure pulls JUCE + NAM core)
-cd ..
+# First configure pulls JUCE + NAM core.
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build --target ToneStack
 
 open build/ToneStack_artefacts/RelWithDebInfo/ToneStack.app
 ```
 
-### Offline bench (testing)
+The `tonestack_ui` target runs `npm run build` and packs `assets/webui.zip` automatically
+(it's build-generated, not committed), so the embedded UI can never go stale.
 
-A simulated audio interface that runs the real engine headlessly — deterministic DSP tests
-and WAV rendering, no device needed:
+## Test
+
+```sh
+# C++ engine suite (deterministic DSP tests via the offline bench), + CI-strict mode:
+ctest --test-dir build --output-on-failure        # runs selftest + selftest_strict
+# UI unit tests (bridge logic, detection, Knob/Meter):
+cd ui && npm test
+```
+
+`tonestack_bench` also renders audio offline (a simulated audio interface, no device):
 
 ```sh
 cmake --build build --target tonestack_bench
-./build/tonestack_bench_artefacts/RelWithDebInfo/tonestack_bench selftest
-./build/tonestack_bench_artefacts/RelWithDebInfo/tonestack_bench render --gen pluck --nam model.nam --ir cab.wav --out out.wav
+./build/tonestack_bench_artefacts/RelWithDebInfo/tonestack_bench render \
+    --gen pluck --nam model.nam --ir cab.wav --out out.wav
 ```
+
+See `docs/testing.md` for coverage. CI (`.github/workflows/ci.yml`) runs both suites.
+
+## Share it
+
+```sh
+cmake -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTONESTACK_UNIVERSAL=ON
+cmake --build build-rel --target ToneStack
+./packaging/make-dmg.sh        # -> dist/ToneStack-<version>.dmg (Universal: Intel + Apple Silicon)
+```
+
+Send the DMG. The recipient drags it to Applications and, on first launch, **right-clicks
+→ Open → Open** (one-time, because it's self-signed). A zero-warning install needs Apple
+notarization — see `docs/distribution.md`, which also covers Linux and Windows builds.
 
 ## Notes
 
 - Third-party VST3s that are ad-hoc signed / quarantined may need de-quarantining + re-signing
   to load on Apple Silicon (`xattr -dr com.apple.quarantine X.vst3 && codesign --force --deep -s - X.vst3`).
-- Dev builds are ad-hoc signed, so macOS re-prompts for mic access each rebuild; sign with a
-  stable identity ("ToneStack Dev") to make the grant stick (auto-signed by CMake if the cert exists).
+- Dev builds are signed with a stable self-signed identity ("ToneStack Dev", auto-signed by
+  CMake if the cert exists) so macOS remembers the mic grant across rebuilds.
+- Loading a VST3 or opening a shared `.tonestack` preset runs third-party code in a
+  mic-privileged process — see `SECURITY.md`.
