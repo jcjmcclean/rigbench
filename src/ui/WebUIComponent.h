@@ -49,6 +49,8 @@ private:
     void openExternalUrl (const juce::String& url);
     void loadPreset (const juce::String& name);
     void startVstFromPreset (const Preset::VstSlot&);
+    void finishVstLoad (Vst3Node* node, int generation, bool ok, const juce::String& error,
+                        const juce::String& state, bool enabled);
 
     // State push
     juce::var buildStateVar() const;
@@ -64,6 +66,10 @@ private:
     std::vector<float> scopeScratch;
 
     std::unique_ptr<Vst3Node> pendingVst;
+    // Bumped by every plugin load and preset load. A plugin that finishes loading
+    // (or a preset's consent prompt answered) after something newer started is
+    // dropped instead of landing in the wrong rig (audit M2).
+    int vstGeneration = 0;
     std::unique_ptr<juce::DocumentWindow> editorWindow;
     std::unique_ptr<juce::FileChooser> fileChooser;
 

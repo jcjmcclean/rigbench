@@ -302,21 +302,15 @@ void WebUIComponent::doLoadVst (const juce::File& file)
     auto node = std::make_unique<Vst3Node>();
     auto* raw = node.get();
     pendingVst = std::move (node);
+    const int gen = ++vstGeneration;
 
     auto& engine = rig.getEngine();
     const double sr = engine.isPrepared() ? engine.getSampleRate() : 48000.0;
     const int block = engine.isPrepared() ? engine.getMaxBlockSize() : 512;
 
-    raw->loadAsync (file, sr, block, [this] (bool ok, juce::String err)
+    raw->loadAsync (file, sr, block, [this, raw, gen] (bool ok, juce::String err)
     {
-        if (ok)
-            rig.installVst (std::move (pendingVst));
-        else
-        {
-            pendingVst.reset();
-            reportError ("Could not load plugin: " + (err.isNotEmpty() ? err : juce::String ("unknown error")));
-        }
-        markDirty();
+        finishVstLoad (raw, gen, ok, err, {}, true);
     });
 }
 
@@ -354,11 +348,47 @@ void WebUIComponent::openAudioSettings()
         web->emitEventIfBrowserIsVisible ("showSettings", juce::var());
 }
 
+void WebUIComponent::finishVstLoad (Vst3Node* node, int gen, bool ok, const juce::String& err,
+                                    const juce::String& state, bool enabled)
+{
+    // Only the plugin we're waiting for counts. (A replaced one is destroyed with
+    // its pending callback, but don't rely on that.)
+    if (node == nullptr || pendingVst.get() != node)
+        return;
+
+    // This runs inside the node's own completion callback, so don't destroy it
+    // here: hand it on, or drop it on a later message.
+    std::unique_ptr<Vst3Node> loaded (pendingVst.release());
+    auto dropLater = [&loaded]
+    {
+        juce::MessageManager::callAsync ([n = std::shared_ptr<Vst3Node> (loaded.release())] {});
+    };
+    if (gen != vstGeneration)
+    {
+        dropLater();   // superseded by a newer load
+        return;
+    }
+
+    if (ok)
+    {
+        loaded->setStateBase64 (state);
+        loaded->setBypassed (! enabled);
+        rig.installVst (std::move (loaded));
+    }
+    else
+    {
+        dropLater();
+        reportError ("Could not load plugin: " + (err.isNotEmpty() ? err : juce::String ("unknown error")));
+    }
+    markDirty();
+}
+
 void WebUIComponent::loadPreset (const juce::String& name)
 {
     // Close any open plugin editor BEFORE the preset load clears slots (which
     // destroys the current VST3 instance) — a live editor on a freed instance crashes.
     editorWindow = nullptr;
+    ++vstGeneration;   // any plugin still loading belongs to the old rig
     reportError (rig.loadPreset (name, [this] (const Preset::VstSlot& v) { startVstFromPreset (v); }));
 }
 
@@ -374,29 +404,24 @@ void WebUIComponent::startVstFromPreset (const Preset::VstSlot& v)
         return;
     }
 
-    auto startLoad = [this, v]
+    const int presetGen = vstGeneration;   // loadPreset bumped it just before this
+
+    auto startLoad = [this, v, presetGen]
     {
+        if (presetGen != vstGeneration)
+            return;   // another preset or plugin was loaded while the prompt was open
+
         auto node = std::make_unique<Vst3Node>();
         auto* raw = node.get();
         pendingVst = std::move (node);
+        const int gen = ++vstGeneration;
         auto& engine = rig.getEngine();
         const double sr = engine.isPrepared() ? engine.getSampleRate() : 48000.0;   // M3: never 0/0
         const int block = engine.isPrepared() ? engine.getMaxBlockSize() : 512;
         raw->loadAsync (v.path, sr, block,
-            [this, raw, state = v.stateBase64, enabled = v.enabled] (bool loaded, juce::String err)
+            [this, raw, gen, state = v.stateBase64, enabled = v.enabled] (bool loaded, juce::String err)
             {
-                if (loaded)
-                {
-                    raw->setStateBase64 (state);
-                    raw->setBypassed (! enabled);
-                    rig.installVst (std::move (pendingVst));
-                }
-                else
-                {
-                    pendingVst.reset();
-                    reportError ("Could not load plugin: " + (err.isNotEmpty() ? err : juce::String ("unknown error")));
-                }
-                markDirty();
+                finishVstLoad (raw, gen, loaded, err, state, enabled);
             });
     };
 
