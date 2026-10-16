@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ChainModule } from "./ChainModule";
+import { soundLinks } from "../links";
 import type { SlotState } from "../types";
 
-function renderModule(slot: SlotState) {
+function renderModule(slot: SlotState, extra: { onOpenUrl?: (url: string) => void } = {}) {
   const handlers = {
     onLoad: vi.fn(),
     onClear: vi.fn(),
@@ -12,7 +13,7 @@ function renderModule(slot: SlotState) {
     onGain: vi.fn(),
     onEditor: vi.fn(),
   };
-  const utils = render(<ChainModule slot={slot} index={1} {...handlers} />);
+  const utils = render(<ChainModule slot={slot} index={1} {...handlers} {...extra} />);
   const article = utils.container.querySelector("article")!;
   return { ...utils, ...handlers, article };
 }
@@ -140,5 +141,42 @@ describe("ChainModule empty state", () => {
     // No bypass, change, remove, knobs or editor while empty.
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+  });
+});
+
+describe("ChainModule empty state: \"Don't have one?\" links", () => {
+  const empty = { vst3: vst3({ loaded: false, name: "" }), nam: nam({ loaded: false, name: "" }), ir: ir({ loaded: false, name: "" }) };
+
+  it.each(["vst3", "nam", "ir"] as const)("%s lists every sound link for its type, each opening its URL", (type) => {
+    const onOpenUrl = vi.fn();
+    const { onLoad } = renderModule(empty[type], { onOpenUrl });
+    expect(screen.getByText("Don’t have one?")).toBeInTheDocument();
+    for (const { label, url } of soundLinks[type]) {
+      onOpenUrl.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: label }));
+      expect(onOpenUrl).toHaveBeenCalledExactlyOnceWith(url);
+    }
+    expect(onLoad).not.toHaveBeenCalled();
+    // The load button plus one per link.
+    expect(screen.getAllByRole("button")).toHaveLength(1 + soundLinks[type].length);
+  });
+
+  it("the NAM slot links to free amp models on TONE3000", () => {
+    const onOpenUrl = vi.fn();
+    renderModule(empty.nam, { onOpenUrl });
+    fireEvent.click(screen.getByRole("button", { name: "Free amp models on TONE3000" }));
+    expect(onOpenUrl).toHaveBeenCalledExactlyOnceWith("https://www.tone3000.com/search?format=nam");
+  });
+
+  it("no links without an onOpenUrl handler", () => {
+    renderModule(empty.nam);
+    expect(screen.queryByText("Don’t have one?")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("no links on a loaded slot", () => {
+    renderModule(nam(), { onOpenUrl: vi.fn() });
+    expect(screen.queryByText("Don’t have one?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /TONE3000/ })).not.toBeInTheDocument();
   });
 });

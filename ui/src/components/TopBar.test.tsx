@@ -73,6 +73,12 @@ describe("TopBar settings", () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
     expect(fake.bridge.setMonitor).not.toHaveBeenCalled();
   });
+
+  it("the gear is harmless without a handler", () => {
+    render(<TopBar state={makeState()} dirty={false} />);
+    expect(() => fireEvent.click(screen.getByRole("button", { name: "Settings" }))).not.toThrow();
+    expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute("title", "Settings");
+  });
 });
 
 describe("TopBar with no audio device", () => {
@@ -81,6 +87,24 @@ describe("TopBar with no audio device", () => {
     expect(screen.getByText("No audio device")).toBeInTheDocument();
     expect(screen.queryByText(/0\.0 kHz/)).not.toBeInTheDocument();
     expect(screen.queryByText(/ms ·/)).not.toBeInTheDocument();
+  });
+
+  it("shows a dash for rate, buffer and latency, and flags the device in the 'bad' tone", () => {
+    render(<TopBar state={makeState({ sampleRate: 0, bufferSize: 512, roundTripMs: 30, device: "Scarlett" })} dirty={false} />);
+    expect(telem("Device")).toHaveTextContent(/^No audio device$/);
+    expect(telem("Device")).toHaveClass("telem__value--bad");
+    expect(telem("Rate")).toHaveTextContent(/^—$/);
+    expect(telem("Buffer")).toHaveTextContent(/^—$/);
+    expect(telem("Latency")).toHaveTextContent(/^—$/);
+    // No latency colour (a stale 30 ms "high" would be misleading).
+    expect(telem("Latency").className).not.toMatch(/telem__value--/);
+    expect(screen.queryByText("Scarlett")).not.toBeInTheDocument();
+  });
+
+  it("a running device shows its name without a warning tone", () => {
+    render(<TopBar state={makeState({ device: "Scarlett" })} dirty={false} />);
+    expect(telem("Device")).toHaveTextContent("Scarlett");
+    expect(telem("Device").className).not.toMatch(/telem__value--/);
   });
 });
 

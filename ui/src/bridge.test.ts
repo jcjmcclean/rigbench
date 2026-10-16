@@ -418,3 +418,248 @@ describe("mock engine behaviour", () => {
     expect(cb).not.toHaveBeenCalled();
   });
 });
+
+describe("real bridge: input peaks (setup's per-input levels)", () => {
+  it("passes the meters event's inputPeaks to peak subscribers, not into the state", async () => {
+    const { emit } = installBackend();
+    const { bridge } = await importBridge();
+    emit("state", makeState());
+    const states: EngineState[] = [];
+    bridge.subscribe((s) => states.push(s));
+    const peaks: number[][] = [];
+    const unsub = bridge.subscribeInputPeaks((p) => peaks.push(p));
+
+    emit("meters", { inputLevel: 0.3, outputLevel: 0.2, playing: true, inputPeaks: [0.01, 0.6] });
+    expect(peaks).toEqual([[0.01, 0.6]]);
+    const last = states[states.length - 1];
+    expect(last.inputLevel).toBe(0.3);
+    expect(last.outputLevel).toBe(0.2);
+    expect(last).not.toHaveProperty("inputPeaks");
+
+    unsub();
+    emit("meters", { inputLevel: 0.1, inputPeaks: [0.9] });
+    expect(peaks).toHaveLength(1);
+    expect(states[states.length - 1]).not.toHaveProperty("inputPeaks");
+  });
+
+  it("delivers peaks even before the first state arrives", async () => {
+    const { emit } = installBackend();
+    getStateMock.mockReturnValue(new Promise<EngineState>(() => {}));
+    const { bridge } = await importBridge();
+    const peaks: number[][] = [];
+    bridge.subscribeInputPeaks((p) => peaks.push(p));
+    emit("meters", { inputLevel: 0.5, inputPeaks: [0.4] });
+    expect(peaks).toEqual([[0.4]]);
+  });
+
+  it("meters without inputPeaks don't call peak subscribers; an empty list is passed on", async () => {
+    const { emit } = installBackend();
+    const { bridge } = await importBridge();
+    emit("state", makeState());
+    const cb = vi.fn();
+    bridge.subscribeInputPeaks(cb);
+    emit("meters", { inputLevel: 0.5 });
+    expect(cb).not.toHaveBeenCalled();
+    emit("meters", { inputLevel: 0.5, inputPeaks: [] });
+    expect(cb).toHaveBeenCalledExactlyOnceWith([]);
+  });
+
+  it("fans out to every peak subscriber", async () => {
+    const { emit } = installBackend();
+    const { bridge } = await importBridge();
+    const a = vi.fn();
+    const b = vi.fn();
+    bridge.subscribeInputPeaks(a);
+    bridge.subscribeInputPeaks(b);
+    emit("meters", { inputPeaks: [0.2, 0.3] });
+    expect(a).toHaveBeenCalledExactlyOnceWith([0.2, 0.3]);
+    expect(b).toHaveBeenCalledExactlyOnceWith([0.2, 0.3]);
+  });
+});
+
+describe("real bridge: showSettings (the native menu's Settings…)", () => {
+  it("calls subscribers on the showSettings event and detaches by token", async () => {
+    const { emit } = installBackend();
+    const { bridge } = await importBridge();
+    const cb = vi.fn();
+    const unsub = bridge.subscribeShowSettings(cb);
+    emit("showSettings", undefined);
+    emit("showSettings", {});
+    expect(cb).toHaveBeenCalledTimes(2);
+    expect(cb).toHaveBeenNthCalledWith(1); // called with no payload
+    unsub();
+    const backend = (globalThis as JuceWin).__JUCE__!.backend as { removeEventListener: ReturnType<typeof vi.fn> };
+    expect(backend.removeEventListener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("real bridge: audio setup calls", () => {
+  it("setAudioSetup/getAudioSetup resolve to what the engine returns", async () => {
+    installBackend();
+    const { bridge } = await importBridge();
+    const i = (name: string) => getNativeFunctionMock.mock.calls.findIndex(([n]) => n === name);
+    const engineSetup = { inputDevice: "Apollo", error: "" };
+    (getNativeFunctionMock.mock.results[i("getAudioSetup")].value as ReturnType<typeof vi.fn>).mockResolvedValue(engineSetup);
+    (getNativeFunctionMock.mock.results[i("setAudioSetup")].value as ReturnType<typeof vi.fn>).mockResolvedValue({ ...engineSetup, error: "nope" });
+    expect(await bridge.getAudioSetup()).toEqual(engineSetup);
+    expect((await bridge.setAudioSetup({ bufferSize: 64 })).error).toBe("nope");
+  });
+});
+
+describe("mock engine: pretend devices and first-run setup", () => {
+  async function mockBridge(search = "") {
+    delete (globalThis as JuceWin).__JUCE__;
+    window.history.replaceState(null, "", `/${search}`);
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const { bridge } = await importBridge();
+    const states: EngineState[] = [];
+    bridge.subscribe((s) => states.push(s));
+    return { bridge, last: () => states[states.length - 1] };
+  }
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it("normally starts set up: the Scarlett with the guitar on Input 2, monitoring on", async () => {
+    const { bridge, last } = await mockBridge();
+    expect(last()).toMatchObject({ setupComplete: true, monitoring: true });
+    const audio = await bridge.getAudioSetup();
+    expect(audio).toMatchObject({
+      inputDevice: "Scarlett 2i2 USB",
+      outputDevice: "Scarlett 2i2 USB",
+      inputDevices: ["MacBook Pro Microphone", "Scarlett 2i2 USB"],
+      inputs: ["Input 1", "Input 2"],
+      input: 1,
+      listeningToAll: false,
+      builtInInput: false,
+      sampleRate: 48000,
+      bufferSize: 128,
+      error: "",
+    });
+    expect(audio.latencyMs).toBeCloseTo(((2 * 128) / 48000) * 1000 + 1.4, 6);
+    expect(audio.bufferSizes).toContain(256);
+  });
+
+  it("?setup starts as a fresh install: setup not done, muted, on the laptop mic", async () => {
+    const { bridge, last } = await mockBridge("?setup");
+    expect(last()).toMatchObject({ setupComplete: false, monitoring: false });
+    expect(await bridge.getAudioSetup()).toMatchObject({
+      inputDevice: "MacBook Pro Microphone",
+      outputDevice: "MacBook Pro Speakers",
+      inputs: ["Microphone"],
+      input: 0,
+      builtInInput: true,
+    });
+  });
+
+  it("getAudioSetup returns a copy (callers can't mutate the engine)", async () => {
+    const { bridge } = await mockBridge();
+    const a = await bridge.getAudioSetup();
+    a.inputDevice = "hacked";
+    expect((await bridge.getAudioSetup()).inputDevice).toBe("Scarlett 2i2 USB");
+  });
+
+  it("setAudioSetup switches device (first input), and the top-bar state follows", async () => {
+    const { bridge, last } = await mockBridge("?setup");
+    const next = await bridge.setAudioSetup({ inputDevice: "Scarlett 2i2 USB", outputDevice: "Scarlett 2i2 USB" });
+    expect(next).toMatchObject({ inputDevice: "Scarlett 2i2 USB", outputDevice: "Scarlett 2i2 USB", inputs: ["Input 1", "Input 2"], input: 0, builtInInput: false });
+    expect(last().device).toBe("Scarlett 2i2 USB");
+  });
+
+  it("buffer size and sample rate changes update latency and the state", async () => {
+    const { bridge, last } = await mockBridge();
+    const a = await bridge.setAudioSetup({ bufferSize: 256 });
+    expect(a.bufferSize).toBe(256);
+    expect(a.latencyMs).toBeCloseTo(((2 * 256) / 48000) * 1000 + 1.4, 6);
+    expect(last()).toMatchObject({ bufferSize: 256, sampleRate: 48000 });
+    expect(last().roundTripMs).toBeCloseTo(a.latencyMs, 6);
+    const b = await bridge.setAudioSetup({ sampleRate: 96000 });
+    expect(last()).toMatchObject({ sampleRate: 96000, bufferSize: 256 });
+    expect(b.latencyMs).toBeCloseTo(((2 * 256) / 96000) * 1000 + 1.4, 6);
+  });
+
+  it("listenToAllInputs opens every input (input -1); choosing one closes the rest", async () => {
+    const { bridge } = await mockBridge();
+    expect(await bridge.setAudioSetup({ listenToAllInputs: true })).toMatchObject({ listeningToAll: true, input: -1 });
+    expect(await bridge.setAudioSetup({ input: 1 })).toMatchObject({ listeningToAll: false, input: 1 });
+  });
+
+  it("emits per-input peaks: every input while listening to all, the guitar loudest", async () => {
+    const { bridge } = await mockBridge();
+    await bridge.setAudioSetup({ listenToAllInputs: true });
+    const peaks: number[][] = [];
+    const unsub = bridge.subscribeInputPeaks((p) => peaks.push(p));
+    vi.advanceTimersByTime(50);
+    expect(peaks).toHaveLength(1);
+    const [hiss, guitar] = peaks[0];
+    expect(peaks[0]).toHaveLength(2);
+    expect(hiss).toBeLessThan(0.05);
+    expect(guitar).toBeGreaterThan(0.05);
+    unsub();
+    vi.advanceTimersByTime(100);
+    expect(peaks).toHaveLength(1);
+  });
+
+  it("emits just the selected input's peak otherwise", async () => {
+    const { bridge } = await mockBridge();
+    const peaks: number[][] = [];
+    bridge.subscribeInputPeaks((p) => peaks.push(p));
+    vi.advanceTimersByTime(50);
+    expect(peaks.at(-1)).toHaveLength(1);
+    expect(peaks.at(-1)![0]).toBeGreaterThan(0.05); // Input 2: the guitar
+    await bridge.setAudioSetup({ input: 0 });
+    vi.advanceTimersByTime(50);
+    expect(peaks.at(-1)).toEqual([0.004]); // Input 1: hiss
+  });
+
+  it("the laptop mic never hears the guitar", async () => {
+    const { bridge } = await mockBridge("?setup");
+    await bridge.setAudioSetup({ listenToAllInputs: true });
+    const peaks: number[][] = [];
+    bridge.subscribeInputPeaks((p) => peaks.push(p));
+    vi.advanceTimersByTime(500);
+    expect(peaks.flat().every((p) => p === 0.004)).toBe(true);
+  });
+
+  it("an input past the device's last one falls back to the first", async () => {
+    const { bridge } = await mockBridge("?setup"); // the laptop mic: one input
+    expect(await bridge.setAudioSetup({ input: 1 })).toMatchObject({ input: 0, inputs: ["Microphone"] });
+  });
+
+  it("a device it doesn't know has no inputs, and only hiss", async () => {
+    const { bridge } = await mockBridge();
+    expect(await bridge.setAudioSetup({ inputDevice: "Unplugged Thing" })).toMatchObject({ inputs: [], input: 0, builtInInput: false });
+    const peaks: number[][] = [];
+    bridge.subscribeInputPeaks((p) => peaks.push(p));
+    vi.advanceTimersByTime(50);
+    expect(peaks).toEqual([[0.004]]);
+    expect(await bridge.setAudioSetup({ listenToAllInputs: true })).toMatchObject({ listeningToAll: true, input: -1 });
+    vi.advanceTimersByTime(50);
+    expect(peaks.at(-1)).toEqual([]);
+  });
+
+  it("finishSetup turns setup-complete and monitoring on", async () => {
+    const { bridge, last } = await mockBridge("?setup");
+    bridge.finishSetup();
+    expect(last()).toMatchObject({ setupComplete: true, monitoring: true, playing: true });
+  });
+
+  it("openUrl opens a new window without an opener", async () => {
+    const { bridge } = await mockBridge();
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    bridge.openUrl("https://www.tone3000.com/");
+    expect(open).toHaveBeenCalledExactlyOnceWith("https://www.tone3000.com/", "_blank", "noopener");
+  });
+
+  it("playTestSound is a harmless no-op; showSettings never fires on its own", async () => {
+    const { bridge } = await mockBridge();
+    const cb = vi.fn();
+    const unsub = bridge.subscribeShowSettings(cb);
+    expect(() => bridge.playTestSound()).not.toThrow();
+    vi.advanceTimersByTime(500);
+    unsub();
+    expect(cb).not.toHaveBeenCalled();
+  });
+});

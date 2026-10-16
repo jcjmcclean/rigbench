@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { fake, makeState } from "./test/fakeBridge";
-import App from "./App";
+import App, { CONNECT_TIMEOUT_MS } from "./App";
 import type { EngineState } from "./types";
 
 // App against a controllable fake engine: lets us hold the app on the splash,
@@ -253,5 +254,177 @@ describe("App dirty tracking (the 'edited' marker)", () => {
     expect(presetTrigger()).toHaveTextContent("Init");
     emit(makeState({ activePreset: null, masterGain: 0.2 }));
     expect(edited()).not.toBeNull();
+  });
+});
+
+describe("App connect timeout", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("waits 8 s for the engine", () => {
+    expect(CONNECT_TIMEOUT_MS).toBe(8000);
+  });
+
+  it("gives up with the fatal screen if no state arrives in time", () => {
+    vi.useFakeTimers();
+    render(<App />);
+    act(() => { vi.advanceTimersByTime(CONNECT_TIMEOUT_MS - 1); });
+    expect(screen.getByText("Connecting to engine…")).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(screen.getByRole("heading", { name: "Can’t reach the audio engine" })).toBeInTheDocument();
+    expect(screen.getByText(/couldn’t talk to the audio engine/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText("Connecting to engine…")).not.toBeInTheDocument();
+  });
+
+  it("doesn't fire once state has arrived", () => {
+    vi.useFakeTimers();
+    render(<App />);
+    act(() => { vi.advanceTimersByTime(CONNECT_TIMEOUT_MS / 2); });
+    emit(makeState());
+    act(() => { vi.advanceTimersByTime(CONNECT_TIMEOUT_MS * 2); });
+    expect(screen.queryByRole("heading", { name: /Can’t reach/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+  });
+
+  it("doesn't fire when the engine already has state at first render", () => {
+    vi.useFakeTimers();
+    fake.emitState(makeState());
+    render(<App />);
+    act(() => { vi.advanceTimersByTime(CONNECT_TIMEOUT_MS * 2); });
+    expect(screen.getByRole("main")).toBeInTheDocument();
+  });
+
+  it("recovers into the app if state turns up after giving up", () => {
+    vi.useFakeTimers();
+    render(<App />);
+    act(() => { vi.advanceTimersByTime(CONNECT_TIMEOUT_MS); });
+    expect(screen.getByRole("heading", { name: "Can’t reach the audio engine" })).toBeInTheDocument();
+    emit(makeState());
+    expect(screen.queryByRole("heading", { name: /Can’t reach/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+  });
+
+  it("doesn't fire after unmount", () => {
+    vi.useFakeTimers();
+    const err = vi.spyOn(console, "error");
+    const { unmount } = render(<App />);
+    unmount();
+    act(() => { vi.advanceTimersByTime(CONNECT_TIMEOUT_MS * 2); });
+    expect(err).not.toHaveBeenCalled();
+  });
+});
+
+describe("App first-run setup", () => {
+  const setupHeading = () => screen.findByRole("heading", { name: "What’s your guitar plugged into?" });
+  const settingsDialog = () => screen.queryByRole("dialog", { name: "Settings" });
+
+  it("shows the setup wizard over the app until the engine says setup is complete", async () => {
+    render(<App />);
+    emit(makeState({ setupComplete: false, monitoring: false }));
+    expect(await setupHeading()).toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Muted/ })).toBeInTheDocument();
+  });
+
+  it("doesn't show the wizard once setup is complete", () => {
+    render(<App />);
+    emit(makeState({ setupComplete: true }));
+    expect(screen.queryByText("What’s your guitar plugged into?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(fake.bridge.getAudioSetup).not.toHaveBeenCalled();
+  });
+
+  it("finishing tells the engine; the wizard goes when the engine confirms", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    emit(makeState({ setupComplete: false, monitoring: false }));
+    await setupHeading();
+    await user.click(screen.getByRole("button", { name: "Skip setup" }));
+    expect(fake.bridge.finishSetup).toHaveBeenCalledTimes(1);
+    emit(makeState({ setupComplete: true, monitoring: true }));
+    expect(screen.queryByText("What’s your guitar plugged into?")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Live/ })).toBeInTheDocument();
+  });
+
+  it("no Settings while the wizard is up, even if the engine's menu asks", async () => {
+    render(<App />);
+    emit(makeState({ setupComplete: false }));
+    await setupHeading();
+    act(() => fake.emitShowSettings());
+    expect(settingsDialog()).not.toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("the full wizard drives the engine: listen to all, pick the input, finish", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    emit(makeState({ setupComplete: false, monitoring: false }));
+    await setupHeading();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { name: "Play a few notes" });
+    act(() => fake.emitInputPeaks([0.004, 0.5]));
+    expect(screen.getByText("Found your guitar on Input 2.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { name: "Where do you want to hear it?" });
+    await user.click(screen.getByRole("button", { name: "Start playing" }));
+    expect(fake.bridge.setAudioSetup.mock.calls.map(([c]) => c)).toEqual([{ listenToAllInputs: true }, { input: 1 }]);
+    expect(fake.bridge.finishSetup).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("App Settings", () => {
+  const settingsDialog = () => screen.queryByRole("dialog", { name: "Settings" });
+
+  it("the gear opens Settings; Done closes it", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    emit(makeState());
+    expect(settingsDialog()).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(settingsDialog()).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Guitar comes in from" })).toHaveValue("Test Interface");
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(settingsDialog()).not.toBeInTheDocument();
+  });
+
+  it("the engine's showSettings event (the app menu) opens Settings", async () => {
+    render(<App />);
+    emit(makeState());
+    act(() => fake.emitShowSettings());
+    expect(settingsDialog()).toBeInTheDocument();
+    await screen.findByText(/Working/);
+  });
+
+  it("showSettings while Settings is already open keeps a single dialog", async () => {
+    render(<App />);
+    emit(makeState());
+    act(() => fake.emitShowSettings());
+    act(() => fake.emitShowSettings());
+    expect(screen.getAllByRole("dialog", { name: "Settings" })).toHaveLength(1);
+    await screen.findByText(/Working/);
+  });
+
+  it("Run setup again closes Settings and shows the wizard; finishing returns to the app", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    emit(makeState({ setupComplete: true }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await screen.findByText(/Working/);
+    await user.click(screen.getByRole("button", { name: "Run setup again" }));
+    expect(settingsDialog()).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "What’s your guitar plugged into?" })).toBeInTheDocument();
+    // The engine already counts setup as done, so finishing hides it straight away.
+    await user.click(screen.getByRole("button", { name: "Skip setup" }));
+    expect(fake.bridge.finishSetup).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("What’s your guitar plugged into?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("subscribes to showSettings once, and unsubscribes on unmount", () => {
+    const { unmount } = render(<App />);
+    emit(makeState());
+    expect(fake.setupCounts().showSettings).toBe(1);
+    unmount();
+    expect(fake.setupCounts()).toEqual({ inputPeaks: 0, showSettings: 0 });
   });
 });

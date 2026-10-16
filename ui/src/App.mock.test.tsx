@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // App wired to the REAL in-browser mock engine (createMockBridge in bridge.ts),
@@ -209,5 +209,40 @@ describe("App + mock engine: presets", () => {
     cancel.focus();
     tick(300); // six meter ticks re-render the whole app
     expect(cancel).toHaveFocus();
+  });
+});
+
+describe("App + mock engine: first-run setup (?setup)", () => {
+  afterEach(() => { window.history.replaceState(null, "", "/"); });
+
+  it("walks the wizard: interface, finds the guitar on Input 2, output, then plays live", async () => {
+    window.history.replaceState(null, "", "/?setup");
+    await renderApp();
+    const user = userEvent.setup();
+    expect(await screen.findByRole("heading", { name: "What’s your guitar plugged into?" })).toBeInTheDocument();
+    expect(screen.getByText(/computer’s own microphone/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Muted/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Scarlett 2i2 USB" }));
+    await waitFor(() => expect(screen.queryByText(/computer’s own microphone/)).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { name: "Play a few notes" });
+    tick(50);
+    expect(screen.getByText("Found your guitar on Input 2.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { name: "Where do you want to hear it?" });
+    expect(screen.getByRole("radio", { name: "Scarlett 2i2 USB" })).toHaveAttribute("aria-checked", "true");
+    await user.click(screen.getByRole("button", { name: "Start playing" }));
+
+    expect(screen.queryByRole("heading", { name: /Where do you want/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Live/ })).toBeInTheDocument();
+    expect(screen.getByText("Scarlett 2i2 USB", { selector: ".telem__value" })).toBeInTheDocument();
+  });
+
+  it("without ?setup there's no wizard", async () => {
+    await renderApp();
+    expect(screen.queryByRole("heading", { name: "What’s your guitar plugged into?" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

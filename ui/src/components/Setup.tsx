@@ -28,7 +28,10 @@ export function Setup({ onDone }: { onDone: () => void }) {
     return () => { live = false; };
   }, []);
 
-  useEffect(() => { headingRef.current?.focus(); }, [step]);
+  // Focus each step's heading as it appears (including the first, once the
+  // devices have loaded).
+  const ready = setup !== null;
+  useEffect(() => { headingRef.current?.focus(); }, [step, ready]);
 
   const apply = async (changes: AudioSetupChanges) => {
     setBusy(true);
@@ -157,7 +160,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
         <div className="setup__actions">
           <button className="setup__skip" onClick={finish}>Skip setup</button>
           <span className="setup__spacer" />
-          {index > 0 && <button className="btn" onClick={() => setStep(steps[index - 1])} disabled={busy}>Back</button>}
+          {index > 0 && <button className="btn" onClick={() => goTo(steps[index - 1])} disabled={busy}>Back</button>}
           {step === "device" && setup.inputDevices.length === 0 && (
             <button className="btn" onClick={() => bridge.getAudioSetup().then(setSetup)}>Look again</button>
           )}

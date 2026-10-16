@@ -45,9 +45,14 @@ test.describe("monitoring", () => {
     await expect(page.getByRole("button", { name: /^Live$/ })).toBeVisible();
   });
 
-  test("audio settings button is present (native-only in the mock)", async ({ page }) => {
+  test("the gear button opens the Settings screen, and Done closes it", async ({ page }) => {
     await openApp(page);
-    await page.getByRole("button", { name: "Audio settings" }).click();
+    await page.getByRole("button", { name: "Settings" }).click();
+    const dialog = page.getByRole("dialog", { name: "Settings" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("status")).toContainText("Working");
+    await dialog.getByRole("button", { name: "Done" }).click();
+    await expect(dialog).toHaveCount(0);
     await expect(page.getByRole("main")).toBeVisible();
   });
 });

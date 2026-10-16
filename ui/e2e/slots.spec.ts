@@ -43,7 +43,8 @@ test.describe("signal chain slots", () => {
     await expect(load).toBeVisible();
     await expect(ir).toHaveClass(/is-empty/);
     await expect(ir.getByRole("slider")).toHaveCount(0);
-    await expect(ir.getByRole("button", { name: /ON|BYPASS/ })).toHaveCount(0);
+    // Exact names: the empty slot's download links ("…on TONE3000") contain "ON".
+    await expect(ir.getByRole("button", { name: /^(ON|BYPASS)$/ })).toHaveCount(0);
     await load.click();
     await expect(ir.locator(".module__name")).toHaveText("Hiwatt SE4123 — R121");
     await expect(ir.getByRole("slider", { name: "Mix" })).toHaveAttribute("aria-valuetext", "100%");

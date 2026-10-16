@@ -122,6 +122,8 @@ export function createFakeBridge() {
     bridge,
     /** Number of live subscribers per channel (to check unsubscribe on unmount). */
     counts: () => ({ state: subs.size, error: errSubs.size, scope: scopeSubs.size }),
+    /** Live subscribers on the setup-related channels. */
+    setupCounts: () => ({ inputPeaks: peakSubs.size, showSettings: showSettingsSubs.size }),
     emitState(s: EngineState) {
       current = s;
       subs.forEach((cb) => cb(s));

@@ -112,6 +112,21 @@ describe("SignalChain -> bridge wiring", () => {
     expect(fake.bridge.setMix).toHaveBeenCalledExactlyOnceWith("ir", expect.closeTo(0.95, 6));
   });
 
+  it("an empty slot's download link calls openUrl with its URL", () => {
+    const s = fullRig();
+    s.slots.ir = { ...s.slots.ir, loaded: false, name: "" };
+    render(<SignalChain state={s} />);
+    fireEvent.click(slot("ir").getByRole("button", { name: "Free cab IRs on TONE3000" }));
+    expect(fake.bridge.openUrl).toHaveBeenCalledExactlyOnceWith("https://www.tone3000.com/search?format=ir");
+    expect(fake.bridge.loadSlot).not.toHaveBeenCalled();
+  });
+
+  it("only empty slots show download links", () => {
+    render(<SignalChain state={makeState()} />); // vst3 empty, nam + ir loaded
+    expect(screen.getAllByText("Don’t have one?")).toHaveLength(1);
+    expect(slot("vst3").getByText("Don’t have one?")).toBeInTheDocument();
+  });
+
   it("Open editor calls openEditor", () => {
     render(<SignalChain state={fullRig()} />);
     fireEvent.click(screen.getByRole("button", { name: /Open editor/ }));
