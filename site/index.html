@@ -1,9 +1,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tonebench: guitar tone for macOS, Windows &amp; Linux</title>
-<meta name="description" content="A lightweight, fast, free guitar-tone app for macOS, Windows, and Linux. Host a VST3 plugin, load a NAM amp model and an IR cab, chain them, and play with low latency." />
+<title>Tonebench: play guitar through NAM, IRs, and VST3</title>
+<meta name="description" content="Free, open-source desktop app for macOS, Windows, and Linux. Plug in your guitar and play through a VST3 plugin, a NAM amp model, and a cab IR." />
 <meta property="og:title" content="Tonebench" />
-<meta property="og:description" content="Load a VST3 plugin, a NAM amp model, and an IR cab. Chain them. Play. A fast, free tone app for macOS, Windows, and Linux." />
+<meta property="og:description" content="Load a VST3 plugin, a NAM amp model, and a cab IR, chain them up, and play. Free and open source, for macOS, Windows, and Linux." />
 <meta name="theme-color" content="#0a0b0d" />
 
 <style>
@@ -207,21 +207,15 @@
     font-weight: 650;
   }
   .lead { max-width: 640px; font-size: 19px; color: var(--silver); }
-  .lead strong { color: var(--head); font-weight: 600; }
 
 
-  /* ---- feature grid ---- */
-  .features {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 36px 40px;
-    margin-top: 36px;
-  }
-  .feat h3 { margin: 0 0 6px; font-size: 17px; color: var(--head); font-weight: 600; letter-spacing: -0.01em; }
-  .feat p { margin: 0; font-size: 15px; color: var(--muted); line-height: 1.55; }
-  @media (max-width: 820px) { .features { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 520px) { .features { grid-template-columns: 1fr; } }
-
+  /* ---- lists + small print ---- */
+  .body { max-width: 640px; }
+  .list { max-width: 640px; margin: 0 0 8px; padding-left: 1.2em; font-size: 18px; color: var(--silver); }
+  .list li { margin-bottom: 10px; padding-left: 4px; }
+  .list li::marker { color: var(--muted); }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; color: var(--head); }
+  .note { max-width: 640px; margin: 18px 0 0; font-size: 15px; color: var(--muted); }
 
   /* ---- footer ---- */
   footer { border-top: 1px solid var(--line); padding: 44px 0 60px; }
@@ -259,9 +253,8 @@
   <div class="wrap">
     <span class="mark"><span class="tone">Tone</span><span class="bench">bench</span></span>
     <span class="links">
-      <a href="#what" class="hide-sm">What it is</a>
-      <a href="#features" class="hide-sm">Features</a>
-      <a href="#how" class="hide-sm">How it works</a>
+      <a href="#what" class="hide-sm">What it does</a>
+      <a href="#need" class="hide-sm">What you need</a>
       <a href="https://github.com/jcjmcclean/tonebench">GitHub</a>
     </span>
   </div>
@@ -274,7 +267,7 @@
       <canvas class="scope" aria-hidden="true"></canvas>
       <h1 class="mark"><span class="tone">Tone</span><span class="bench">bench</span></h1>
     </div>
-    <p class="tagline">Load a plugin, an amp model, and a cab. Chain them. Play.</p>
+    <p class="tagline">Load a VST3 plugin, a NAM amp model, and a cab IR, chain them up, and play. That’s the whole idea.</p>
     <div class="btns">
       <a class="btn btn-primary" href="https://github.com/jcjmcclean/tonebench/releases">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
@@ -285,69 +278,58 @@
         View on GitHub
       </a>
     </div>
-    <p class="platform">macOS · Windows · Linux · AGPLv3</p>
+    <p class="platform">Free and open source · macOS, Windows, Linux · v0.1.0</p>
 
     <div class="shot hero-shot">
       <div class="live" data-crop="0 0 1440 805">
         <iframe src="app/showcase.html" title="Interactive Tonebench preview: a VST3 plugin, a NAM amp model, and an IR cab chained together with a live signal scope"></iframe>
       </div>
     </div>
-    <p class="live-hint">Live demo: drag the knobs, flip a slot off and on, hit Change, pick a preset.</p>
+    <p class="live-hint">This is the real interface running in your browser, just without the sound. Have a go with the knobs and presets.</p>
   </div>
 </header>
 
 
+<section id="why">
+  <div class="wrap">
+    <h2>Why I built this</h2>
+    <p class="lead">A friend of mine built a guitar amp and sent it over as a VST3 plugin. I wanted to play through it properly, alongside the NAM models and cab IRs I already used, and I didn’t want to buy a whole amp-sim app just to try one amp.</p>
+    <p class="lead">I’ve paid for a few of those apps before. The cheap ones run out of features fast, and the expensive ones are fiddly and stuffed with things I’m never going to touch. So Tonebench is small: a plugin, an amp, and a cab, each with an on/off switch. His amp turned out really good and worked a treat.</p>
+  </div>
+</section>
+
 <section id="what">
   <div class="wrap">
-    <h2>Made to try out one friend’s amp</h2>
-    <p class="lead">Tonebench is a lightweight, free guitar-tone app for macOS, Windows, and Linux. You host a VST3 plugin, load a <strong>Neural Amp Modeler</strong> amp and an impulse-response cab, then play guitar through the chain with low latency. It started when a friend built an amp as a VST3 plugin and sent it over, and buying a whole app just to try one plugin (next to the NAM models and IR cabs I already used) made no sense.</p>
-  </div>
-</section>
-
-<section id="features">
-  <div class="wrap">
-    <h2>Plugin, amp, cab. In that order.</h2>
-    <div class="features">
-      <div class="feat">
-        <h3>Host VST3 plugins</h3>
-        <p>Drop in any VST3 instrument or effect and run it live in the chain.</p>
-      </div>
-      <div class="feat">
-        <h3>NAM amp models</h3>
-        <p>Load Neural Amp Modeler captures with real-time resampling to your session rate.</p>
-      </div>
-      <div class="feat">
-        <h3>IR cab sims</h3>
-        <p>Load impulse-response cabinets with zero added latency through the convolver.</p>
-      </div>
-      <div class="feat">
-        <h3>Per-slot bypass</h3>
-        <p>Chain plugin, amp, and cab in order, and bypass any slot without breaking the flow.</p>
-      </div>
-      <div class="feat">
-        <h3>Presets</h3>
-        <p>Save a full chain and recall it the next time you pick up the guitar.</p>
-      </div>
-      <div class="feat">
-        <h3>Live signal scope</h3>
-        <p>Watch the waveform move as you play, so you can see what the chain is doing.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="how">
-  <div class="wrap">
-    <div>
-        <h2>Native audio, with the interface out of the way</h2>
-        <p class="lead">Audio runs through an ordered chain on the realtime thread: plugin, then amp, then cab, with each slot resampled and convolved in place. The interface is a React app living in a webview on its own thread, so drawing the scope and moving knobs never costs you latency. Native C++ and JUCE underneath keep it fast and small.</p>
-    </div>
+    <h2>What it does</h2>
+    <ul class="list">
+      <li>Loads a VST3 plugin, such as an amp, a drive, or an effect, and opens the plugin’s own window when you need it.</li>
+      <li>Loads NAM amp models (<code>.nam</code> files). If your interface runs at a different sample rate, Tonebench resamples as you play, so you don’t have to care.</li>
+      <li>Loads a cab IR (WAV, AIFF, or FLAC) with no added latency.</li>
+      <li>Runs them in that order: plugin, then amp, then cab. You can switch any slot off. The amp has a level knob and the cab has a mix knob.</li>
+      <li>Saves the whole rig as a preset, so you can load it again later.</li>
+      <li>Shows your audio device, sample rate, buffer size, and round-trip latency along the top, and the signal on a scope as you play.</li>
+    </ul>
 
     <div class="shot" style="margin-top:48px">
       <div class="live" data-crop="304 246 833 336">
         <iframe src="app/showcase.html?view=chain" title="Interactive Tonebench signal chain: a VST3 plugin, a NAM amp model, and an IR cab" loading="lazy"></iframe>
       </div>
     </div>
+    <p class="note">Under the hood it’s a C++ audio engine built on JUCE. The interface runs in a webview on its own thread, so moving knobs and drawing the scope don’t add latency. The source and build steps are on <a href="https://github.com/jcjmcclean/tonebench">GitHub</a>.</p>
+  </div>
+</section>
+
+<section id="need">
+  <div class="wrap">
+    <h2>What you need</h2>
+    <ul class="list">
+      <li>A guitar and an audio interface. Plug into input 1: that’s the one Tonebench listens to.</li>
+      <li>A NAM amp model, a cab IR, or both. You can download them free from <a href="https://www.tone3000.com/">TONE3000</a>, where players share their captures.</li>
+      <li>A VST3 plugin, if you have one you want to play through. You can leave that slot empty.</li>
+    </ul>
+    <p class="body">On a Mac, the first time you open Tonebench, right-click it and choose Open, then Open again. You only have to do that once, because the app is self-signed. Then allow microphone access, which is how macOS lets it hear your guitar. On Windows it needs the WebView2 runtime, which current versions of Windows 10 and 11 already have.</p>
+    <p class="body">Plugins, and presets other people share, run code inside the app, so only load ones you trust.</p>
+    <p class="body">It’s early days: this is v0.1.0. If something doesn’t work, or there’s something you’d like it to do, <a href="https://github.com/jcjmcclean/tonebench/issues">open an issue on GitHub</a>.</p>
   </div>
 </section>
 </main>
@@ -357,7 +339,6 @@
     <div class="foot">
       <div>
         <span class="mark"><span class="tone">Tone</span><span class="bench">bench</span></span>
-        <p>A fast, free guitar-tone app for macOS, Windows, and Linux. The simple middle ground between amp sims that run out of room and the ones that get in your way.</p>
       </div>
       <div class="cols">
         <div class="col">
@@ -367,15 +348,14 @@
           <a href="https://github.com/jcjmcclean/tonebench/issues">Report an issue</a>
         </div>
         <div class="col">
-          <div class="h">Built on</div>
+          <div class="h">Built with</div>
           <a href="https://juce.com/">JUCE</a>
           <a href="https://www.neuralampmodeler.com/">Neural Amp Modeler</a>
-          <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPLv3 license</a>
         </div>
       </div>
     </div>
     <div class="license">
-      <span>Released under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPLv3</a>. Built on JUCE and NAM.</span>
+      <span>Free and open source under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPLv3</a> licence.</span>
       <span>&copy; 2026 Tonebench</span>
     </div>
   </div>
