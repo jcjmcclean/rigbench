@@ -2,9 +2,31 @@
 #include "IRNode.h"
 #include "NamNode.h"
 #include "Vst3Node.h"
+#include "SlotTypes.h"
 
 namespace Preset
 {
+
+namespace
+{
+// SEC-3: a .tonestack preset is shared freely and can name arbitrary absolute
+// paths. Loading NAM/IR content from an attacker-chosen location is a DoS /
+// information-disclosure vector (VST3 is full arbitrary-code-execution and is
+// gated separately with a consent prompt in the UI layer). Constrain preset-
+// referenced content files to locations the user actually controls — their home
+// directory, the app-data dir, and the PER-USER (private, mode-0700) temp dir —
+// which rejects world-writable /tmp, system dirs, and other users' homes.
+bool isAllowedContentPath (const juce::File& f)
+{
+    if (! f.existsAsFile())
+        return false;
+
+    const auto home    = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+    const auto temp    = juce::File::getSpecialLocation (juce::File::tempDirectory);
+    const auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+    return f.isAChildOf (home) || f.isAChildOf (temp) || f.isAChildOf (appData);
+}
+} // namespace
 
 juce::File presetsDir()
 {
@@ -73,6 +95,12 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
     if (! root.isObject() || root.getProperty ("format", {}) != juce::var ("tonestack-preset"))
         return false;
 
+    // Refuse unknown/future schema versions rather than mis-parsing (or crashing) on
+    // a layout we don't understand. Only version 1 exists today.
+    const int schemaVersion = (int) root.getProperty ("schemaVersion", 0);
+    if (schemaVersion != 1)
+        return false;
+
     const auto ioVar = root.getProperty ("io", juce::var());
     info.masterGain      = (float) (double) ioVar.getProperty ("masterGain", 0.8);
     info.sampleRateAtSave = (double) ioVar.getProperty ("sampleRateAtSave", sampleRate);
@@ -95,32 +123,46 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
         if (slot < 0 || slot >= AudioEngine::numSlots)
             continue;
 
-        if (type == "ir")
+        // Resolve the type string against the single slot-type table (SlotTypes.h).
+        const auto* desc = SlotTypes::byId (type);
+        if (desc == nullptr)
+            continue;
+
+        const juce::File path (s.getProperty ("path", {}).toString());
+
+        if (desc->index == AudioEngine::irSlot)
         {
+            if (! isAllowedContentPath (path))   // SEC-3
+                continue;
             auto ir = std::make_unique<IRNode>();
-            if (ir->loadFile (juce::File (s.getProperty ("path", {}).toString())))
+            if (ir->loadFile (path))
             {
                 ir->setMix ((float) (double) s.getProperty ("mix", 1.0));
                 ir->setBypassed (! enabled);
                 engine.setNode (slot, std::move (ir));
             }
         }
-        else if (type == "nam")
+        else if (desc->index == AudioEngine::namSlot)
         {
+            if (! isAllowedContentPath (path))   // SEC-3
+                continue;
             auto nam = std::make_unique<NamNode>();
             juce::String err;
-            if (nam->loadFile (juce::File (s.getProperty ("path", {}).toString()), err))
+            if (nam->loadFile (path, err))
             {
                 nam->setBypassed (! enabled);
                 engine.setNode (slot, std::move (nam));
             }
         }
-        else if (type == "vst3")
+        else if (desc->index == AudioEngine::vst3Slot)
         {
+            // SEC-3: VST3 = arbitrary code execution. Do NOT load here; hand the
+            // slot to the UI, which requires explicit user consent (see
+            // WebUIComponent::loadPreset) before instantiating the bundle.
             if (installVst)
                 installVst (VstSlot {
                     slot, enabled,
-                    juce::File (s.getProperty ("path", {}).toString()),
+                    path,
                     s.getProperty ("identifier", {}).toString(),
                     s.getProperty ("state", {}).toString() });
         }

@@ -10,6 +10,16 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
         return false;
     }
 
+    // SEC-4: .nam is attacker-controlled JSON whose declared dimensions drive Eigen
+    // allocations inside third-party namcore. Cap the on-disk size before parsing so
+    // a hand-crafted model can't trigger a multi-GB allocation / OOM-kill (DoS).
+    constexpr juce::int64 maxBytes = 64ll * 1024 * 1024; // 64 MB
+    if (file.getSize() > maxBytes)
+    {
+        error = "Model file too large (over 64 MB): " + file.getFileName();
+        return false;
+    }
+
     try
     {
         nam::DspLoadOptions opt;
