@@ -1,0 +1,89 @@
+.app {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-6) var(--sp-7);
+  overflow: auto;
+}
+
+/* ambient atmosphere — tube-glow behind the chain + faint patchbay grid */
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(60% 55% at 50% 62%, rgba(255, 122, 45, 0.10), transparent 70%),
+    radial-gradient(40% 40% at 50% 62%, rgba(214, 164, 86, 0.06), transparent 75%);
+  pointer-events: none;
+}
+.stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(70% 60% at 50% 60%, #000 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 60%, #000 30%, transparent 80%);
+  pointer-events: none;
+}
+.stage__heading, .chain { position: relative; z-index: 1; }
+
+.stage__heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  text-align: center;
+}
+.stage__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-xl);
+  letter-spacing: 0.01em;
+  color: var(--ink-0);
+}
+.stage__title em { font-style: normal; color: var(--ink-muted); }
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-5);
+  border-top: 1px solid var(--hairline-soft);
+  background: var(--bg-1);
+  font-size: var(--t-xs);
+}
+.statusbar__hint { color: var(--ink-faint); }
+.statusbar__right { display: flex; align-items: center; gap: var(--sp-3); }
+.statusbar__ver { color: var(--ink-faint); }
+
+.badge {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.badge--mock { color: var(--gold); border: 1px solid var(--gold-dim); background: rgba(214, 164, 86, 0.08); }
+
+@media (max-width: 820px) {
+  .stage { justify-content: flex-start; padding: var(--sp-5) var(--sp-4); }
+  .stage__title { font-size: var(--t-lg); }
+  .statusbar__hint { display: none; }
+}
