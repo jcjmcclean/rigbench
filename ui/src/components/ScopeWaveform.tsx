@@ -96,13 +96,16 @@ export function ScopeWaveform() {
       ctx.lineWidth = 1;
       ctx.stroke(path);
 
-      // 4) a highlight "packet" flowing left -> right along the cable (signal direction)
-      const flowX = ((ts / 1300) % 1) * w;
-      const fx = ctx.createRadialGradient(flowX, mid, 0, flowX, mid, 70);
-      fx.addColorStop(0, `rgba(200,228,255,${0.28 + 0.4 * lively})`);
-      fx.addColorStop(1, "rgba(200,228,255,0)");
-      ctx.fillStyle = fx;
-      ctx.fillRect(flowX - 70, 0, 140, h);
+      // 4) a bright dot flowing left -> right, riding along the waveform
+      const dotX = ((ts / 1400) % 1) * w;
+      const dotY = ys[Math.min(w, Math.max(0, Math.round(dotX)))] ?? mid;
+      ctx.shadowColor = "rgba(109,184,255,0.95)";
+      ctx.shadowBlur = 11;
+      ctx.fillStyle = `rgba(226,240,255,${0.72 + 0.28 * lively})`;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
