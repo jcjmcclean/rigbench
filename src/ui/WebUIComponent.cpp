@@ -2,6 +2,7 @@
 #include "PluginEditorWindow.h"
 #include "app/AudioSetup.h"
 #include "app/ExternalLinks.h"
+#include "app/PluginScanner.h"
 #include "engine/AppPaths.h"
 #include "engine/SlotTypes.h"
 #include "BinaryData.h"
@@ -96,6 +97,30 @@ WebUIComponent::WebUIComponent (Options componentOptions)
                     ready();   // the page loaded and reached the engine
             })
         .withNativeFunction ("loadSlot",  op ([this, arg] (auto& a) { loadSlotChooser (arg (a, 0).toString()); }))
+        // The plugins installed in the standard VST3 folders, as [{ name, path }].
+        // loadPlugin only accepts a path from the latest list (the UI can't
+        // name an arbitrary file to load and run).
+        .withNativeFunction ("listPlugins", [this] (const juce::Array<juce::var>&, Completion done)
+            {
+                scannedPlugins = PluginScanner::scan (SlotTypes::vst3Folders());
+                juce::Array<juce::var> list;
+                for (auto& p : scannedPlugins)
+                {
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("name", p.name);
+                    o->setProperty ("path", p.file.getFullPathName());
+                    list.add (juce::var (o));
+                }
+                done (list);
+            })
+        .withNativeFunction ("loadPlugin", op ([this, arg] (auto& a)
+            {
+                const juce::File chosen (arg (a, 0).toString());
+                for (auto& p : scannedPlugins)
+                    if (p.file == chosen)
+                        return loadFile (AudioEngine::vst3Slot, chosen);
+                reportError ("That plugin isn't in the list any more. Try opening the list again.");
+            }))
         .withNativeFunction ("clearSlot", op ([this, arg] (auto& a)
             {
                 const auto id = arg (a, 0).toString();

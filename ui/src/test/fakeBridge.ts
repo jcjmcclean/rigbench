@@ -6,7 +6,7 @@
 // engine events (`fake.emitState`, `fake.emitError`, `fake.emitScope`).
 // Call `fake.reset()` in `beforeEach`.
 import { vi } from "vitest";
-import type { AudioSetup, Bridge, EngineState, TunerReading } from "../types";
+import type { AudioSetup, Bridge, EngineState, PluginInfo, TunerReading } from "../types";
 
 export function makeAudioSetup(over: Partial<AudioSetup> = {}): AudioSetup {
   return {
@@ -93,6 +93,11 @@ export function createFakeBridge() {
       return () => { tunerSubs.delete(cb); };
     }),
     loadSlot: vi.fn(),
+    listPlugins: vi.fn(async (): Promise<PluginInfo[]> => [
+      { name: "BYOD", path: "/Plug-Ins/VST3/BYOD.vst3" },
+      { name: "Dragonfly Plate Reverb", path: "/Plug-Ins/VST3/Dragonfly Plate Reverb.vst3" },
+    ]),
+    loadPlugin: vi.fn(),
     clearSlot: vi.fn(),
     setBypass: vi.fn(),
     setMix: vi.fn(),

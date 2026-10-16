@@ -283,6 +283,8 @@ describe("real bridge: initial state + native calls", () => {
     installBackend();
     const { bridge } = await importBridge();
     bridge.loadSlot("nam");
+    bridge.loadPlugin("/VST3/BYOD.vst3");
+    void bridge.listPlugins();
     bridge.clearSlot("ir");
     bridge.setBypass("vst3", true);
     bridge.setMix("ir", 0.25);
@@ -301,6 +303,8 @@ describe("real bridge: initial state + native calls", () => {
     void bridge.getAudioSetup();
     void bridge.setAudioSetup({ input: 1 });
     expect(native("loadSlot")).toHaveBeenCalledExactlyOnceWith("nam");
+    expect(native("loadPlugin")).toHaveBeenCalledExactlyOnceWith("/VST3/BYOD.vst3");
+    expect(native("listPlugins")).toHaveBeenCalledExactlyOnceWith();
     expect(native("clearSlot")).toHaveBeenCalledExactlyOnceWith("ir");
     expect(native("setBypass")).toHaveBeenCalledExactlyOnceWith("vst3", true);
     expect(native("setMix")).toHaveBeenCalledExactlyOnceWith("ir", 0.25);

@@ -3,7 +3,7 @@
 // real state first (it imports nothing).
 import { hasRealJuceBackend } from "./juceDetect";
 import * as Juce from "juce-framework-frontend";
-import type { AudioSetup, AudioSetupChanges, Bridge, EngineState, SlotType, TunerReading } from "./types";
+import type { AudioSetup, AudioSetupChanges, Bridge, EngineState, PluginInfo, SlotType, TunerReading } from "./types";
 
 // ---------------------------------------------------------------------------
 // The real engine exposes native functions + state/meter events through JUCE's
@@ -182,6 +182,18 @@ function createMockBridge(): Bridge {
       else s.name = names.vst3[0];
       emit();
     },
+    async listPlugins() {
+      return ["Airwindows Consolidated", "BYOD", "Dragonfly Plate Reverb", "SICO High Gain"].map((name) => ({
+        name,
+        path: `/Library/Audio/Plug-Ins/VST3/${name}.vst3`,
+      }));
+    },
+    loadPlugin(path) {
+      const s = state.slots.vst3;
+      s.loaded = true;
+      s.name = path.split("/").pop()!.replace(/\.vst3$/, "");
+      emit();
+    },
     clearSlot(type) {
       const s = state.slots[type];
       s.loaded = false;
@@ -252,6 +264,8 @@ function createJuceBridge(): Bridge {
   const f = {
     getState: fn("getState"),
     loadSlot: fn("loadSlot"),
+    listPlugins: fn("listPlugins"),
+    loadPlugin: fn("loadPlugin"),
     clearSlot: fn("clearSlot"),
     setBypass: fn("setBypass"),
     setMix: fn("setMix"),
@@ -333,6 +347,8 @@ function createJuceBridge(): Bridge {
       return () => { tunerSubs.delete(cb); };
     },
     loadSlot: (t) => void f.loadSlot(t),
+    listPlugins: async () => (await f.listPlugins()) as PluginInfo[],
+    loadPlugin: (p) => void f.loadPlugin(p),
     clearSlot: (t) => void f.clearSlot(t),
     setBypass: (t, b) => void f.setBypass(t, b),
     setMix: (t, v) => void f.setMix(t, v),

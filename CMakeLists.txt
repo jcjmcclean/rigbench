@@ -124,6 +124,7 @@ set(TONEBENCH_APP_SOURCES
     src/app/AppSettings.cpp
     src/app/AudioPath.cpp
     src/app/AudioSetup.cpp
+    src/app/PluginScanner.cpp
     src/app/PresetNames.cpp
     src/app/RigController.cpp
     src/app/Tuner.cpp

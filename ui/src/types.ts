@@ -59,6 +59,12 @@ export interface AudioSetupChanges {
   bufferSize?: number;
 }
 
+// A VST3 plugin installed in one of the standard folders.
+export interface PluginInfo {
+  name: string;
+  path: string;
+}
+
 // What the tuner hears (C++ RigController::readTuner).
 export interface TunerReading {
   note: string;    // "E", "A#" ...
@@ -84,7 +90,9 @@ export interface Bridge {
   subscribeTuner(cb: (reading: TunerReading | null) => void): () => void;
   // The native menu's "Settings..." asks the UI to open its Settings screen.
   subscribeShowSettings(cb: () => void): () => void;
-  loadSlot(type: SlotType): void;
+  loadSlot(type: SlotType): void;             // opens a file chooser for that slot
+  listPlugins(): Promise<PluginInfo[]>;        // installed VST3s (scans the standard folders)
+  loadPlugin(path: string): void;              // one from the latest listPlugins answer
   clearSlot(type: SlotType): void;
   setBypass(type: SlotType, bypassed: boolean): void;
   setMix(type: SlotType, value: number): void;

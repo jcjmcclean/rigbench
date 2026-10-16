@@ -131,9 +131,12 @@ describe("App + mock engine: slots", () => {
     expect(slot("ir").getByRole("slider", { name: "Mix" })).toHaveAttribute("aria-valuetext", "100%");
   });
 
-  it("loading the empty VST3 slot offers the plugin editor", async () => {
+  it("loading the empty VST3 slot lists installed plugins; picking one offers its editor", async () => {
     await renderApp();
     fireEvent.click(slot("vst3").getByRole("button", { name: /Load a plugin/ }));
+    const picker = await screen.findByRole("dialog", { name: "Load a plugin" });
+    fireEvent.click(await within(picker).findByRole("button", { name: "SICO High Gain" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(slot("vst3").getByText("SICO High Gain")).toBeInTheDocument();
     expect(slot("vst3").getByRole("button", { name: /Open editor/ })).toBeInTheDocument();
   });

@@ -73,6 +73,16 @@ describe("SignalChain -> bridge wiring", () => {
     expect(fake.bridge.setGain).not.toHaveBeenCalled();
   });
 
+  it("with onPickPlugin, the plugin slot's load opens the picker instead of a file chooser", () => {
+    const onPickPlugin = vi.fn();
+    render(<SignalChain state={makeState()} onPickPlugin={onPickPlugin} />);
+    fireEvent.click(slot("vst3").getByRole("button", { name: /Load a plugin/ }));
+    expect(onPickPlugin).toHaveBeenCalledTimes(1);
+    expect(fake.bridge.loadSlot).not.toHaveBeenCalled();
+    fireEvent.click(slot("nam").getByRole("button", { name: "Change" }));
+    expect(fake.bridge.loadSlot).toHaveBeenCalledExactlyOnceWith("nam");
+  });
+
   it("the input Gate knob reads Off by default and calls setGate", () => {
     render(<SignalChain state={makeState({ gate: 0 })} />);
     const gate = screen.getByRole("slider", { name: "Gate" });

@@ -5,6 +5,7 @@ import { Toasts, type ToastItem } from "./components/Toast";
 import { Settings } from "./components/Settings";
 import { Setup } from "./components/Setup";
 import { Tuner } from "./components/Tuner";
+import { PluginPicker } from "./components/PluginPicker";
 import { bridge, isMock } from "./bridge";
 import type { EngineState } from "./types";
 import "./App.css";
@@ -35,6 +36,7 @@ export default function App() {
   // or again when asked for from Settings).
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tunerOpen, setTunerOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [setupAgain, setSetupAgain] = useState(false);
   const showSetup = !!state && (!state.setupComplete || setupAgain);
   useEffect(() => bridge.subscribeShowSettings(() => setSettingsOpen(true)), []);
@@ -125,7 +127,7 @@ export default function App() {
       <TopBar state={state} dirty={dirty} onPresetSaved={onPresetSaved} onOpenSettings={() => setSettingsOpen(true)} onOpenTuner={() => setTunerOpen(true)} />
 
       <main className="stage">
-        <SignalChain state={state} />
+        <SignalChain state={state} onPickPlugin={() => setPickerOpen(true)} />
       </main>
 
       <footer className="statusbar">
@@ -147,6 +149,7 @@ export default function App() {
         />
       )}
       {tunerOpen && !showSetup && !settingsOpen && <Tuner onClose={() => setTunerOpen(false)} />}
+      {pickerOpen && !showSetup && <PluginPicker onClose={() => setPickerOpen(false)} />}
       {showSetup && <Setup onDone={() => setSetupAgain(false)} />}
     </div>
   );

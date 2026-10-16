@@ -21,7 +21,9 @@
     "setTuner",
     "setGate",
     "renamePreset",
-    "deletePreset"
+    "deletePreset",
+    "listPlugins",
+    "loadPlugin"
   ],
   "events": [
     "state",
@@ -111,5 +113,9 @@
     "octave",
     "cents",
     "hz"
+  ],
+  "pluginKeys": [
+    "name",
+    "path"
   ]
 }

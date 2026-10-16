@@ -70,7 +70,9 @@ function Terminal({
   );
 }
 
-export function SignalChain({ state }: { state: EngineState }) {
+// onPickPlugin: the plugin slot's load/change opens a picker of installed
+// plugins instead of a file chooser.
+export function SignalChain({ state, onPickPlugin }: { state: EngineState; onPickPlugin?: () => void }) {
   // No idle floor: when there's no signal, nothing flows.
   const flow = state.playing ? state.outputLevel : 0;
   const live = state.playing;
@@ -87,7 +89,7 @@ export function SignalChain({ state }: { state: EngineState }) {
           <ChainModule
             slot={state.slots[type]}
             index={i}
-            onLoad={() => bridge.loadSlot(type)}
+            onLoad={() => (type === "vst3" && onPickPlugin ? onPickPlugin() : bridge.loadSlot(type))}
             onClear={() => bridge.clearSlot(type)}
             onBypass={(b) => bridge.setBypass(type, b)}
             onMix={(v) => bridge.setMix(type, v)}

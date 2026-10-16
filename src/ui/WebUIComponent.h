@@ -2,6 +2,7 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
+#include "app/PluginScanner.h"
 #include "app/RigController.h"
 #include "engine/Vst3Node.h"
 #include <optional>
@@ -66,6 +67,7 @@ private:
     std::vector<float> scopeScratch;
 
     std::unique_ptr<Vst3Node> pendingVst;
+    juce::Array<PluginScanner::Plugin> scannedPlugins;   // the latest listPlugins answer
     // Bumped by every plugin load and preset load. A plugin that finishes loading
     // (or a preset's consent prompt answered) after something newer started is
     // dropped instead of landing in the wrong rig (audit M2).

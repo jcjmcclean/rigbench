@@ -51,10 +51,11 @@ test.describe("signal chain slots", () => {
     await expect(ir).toHaveClass(/is-loaded/);
   });
 
-  test("the empty VST3 slot loads a plugin that offers its editor", async ({ page }) => {
+  test("the empty VST3 slot lists installed plugins; picking one offers its editor", async ({ page }) => {
     await openApp(page);
     const vst = slot(page, "VST3");
     await vst.getByRole("button", { name: /Load a plugin/ }).click();
+    await page.getByRole("dialog", { name: "Load a plugin" }).getByRole("button", { name: "SICO High Gain" }).click();
     await expect(vst.locator(".module__name")).toHaveText("SICO High Gain");
     await expect(vst.getByRole("button", { name: /Open editor/ })).toBeVisible();
     await expect(vst.getByRole("slider")).toHaveCount(0);
@@ -63,6 +64,7 @@ test.describe("signal chain slots", () => {
   test("the ✕ is clickable with the mouse on every loaded slot (not covered by the name)", async ({ page }) => {
     await openApp(page);
     await slot(page, "VST3").getByRole("button", { name: /Load a plugin/ }).click();
+    await page.getByRole("dialog", { name: "Load a plugin" }).getByRole("button", { name: "BYOD" }).click();
     for (const [kind, empty] of [["VST3", /Load a plugin/], ["NAM", /Load an amp model/], ["IR", /Load a cab IR/]] as const) {
       const unit = slot(page, kind);
       await unit.hover();
@@ -73,5 +75,16 @@ test.describe("signal chain slots", () => {
       await remove.click();
       await expect(unit.getByRole("button", { name: empty })).toBeVisible();
     }
+  });
+
+  test("the plugin picker's Browse… falls back to a file chooser", async ({ page }) => {
+    await openApp(page);
+    await slot(page, "VST3").getByRole("button", { name: /Load a plugin/ }).click();
+    const picker = page.getByRole("dialog", { name: "Load a plugin" });
+    await expect(picker.getByRole("list", { name: "Installed plugins" }).getByRole("button")).toHaveCount(4);
+    await picker.getByRole("button", { name: "Browse…" }).click();
+    await expect(picker).toHaveCount(0);
+    // (the mock's file chooser loads its stand-in plugin)
+    await expect(slot(page, "VST3").locator(".module__name")).toHaveText("SICO High Gain");
   });
 });

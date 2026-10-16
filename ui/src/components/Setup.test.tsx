@@ -72,7 +72,8 @@ describe("Setup step 1: the audio interface", () => {
     const dialog = screen.getByRole("dialog", { name: "What’s your guitar plugged into?" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(screen.getByLabelText("Step 1 of 3")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "What’s your guitar plugged into?" })).toHaveFocus();
+    // Focus moves in an effect once the devices have loaded.
+    await waitFor(() => expect(screen.getByRole("heading", { name: "What’s your guitar plugged into?" })).toHaveFocus());
     expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
   });
 
