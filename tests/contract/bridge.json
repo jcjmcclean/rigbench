@@ -18,7 +18,8 @@
     "playTestSound",
     "finishSetup",
     "openUrl",
-    "setTuner"
+    "setTuner",
+    "setGate"
   ],
   "events": [
     "state",
@@ -36,6 +37,7 @@
     "monitoring",
     "inputGain",
     "masterGain",
+    "gate",
     "playing",
     "inputLevel",
     "outputLevel",

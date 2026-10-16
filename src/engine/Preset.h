@@ -17,6 +17,7 @@ namespace Preset
     {
         float  inputGain  = 0.8f;
         float  masterGain = 0.8f;
+        float  gate = 0.0f;          // input noise gate, 0 = off
         double sampleRateAtSave = 48000.0;
         juce::String name;
 

@@ -109,6 +109,7 @@ WebUIComponent::WebUIComponent (Options componentOptions)
         .withNativeFunction ("setInput",  op ([this, arg] (auto& a) { rig.setInput  (arg (a, 0)); }))
         .withNativeFunction ("setMaster", op ([this, arg] (auto& a) { rig.setMaster (arg (a, 0)); }))
         .withNativeFunction ("setMonitor", op ([this, arg] (auto& a) { rig.setMonitor ((bool) arg (a, 0)); }))
+        .withNativeFunction ("setGate",    op ([this, arg] (auto& a) { rig.setGate (arg (a, 0)); }))
         .withNativeFunction ("openEditor", op ([this] (auto&) { openVstEditorWindow(); }))
         // Audio device setup (Settings screen + first-run setup). setAudioSetup
         // resolves with the new setup; its "error" says why a change failed.

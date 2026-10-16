@@ -146,6 +146,7 @@ TEST_CASE ("Controller: save then load brings the whole rig back", "[controller]
     r.rig.setGain ("nam", 0.7);
     r.rig.setMix ("ir", 0.2);
     r.rig.setBypass ("nam", true);
+    r.rig.setGate (0.3);
 
     REQUIRE (r.rig.savePreset ("Crunch").isEmpty());
     REQUIRE (r.rig.getActivePreset() == "Crunch");
@@ -154,6 +155,7 @@ TEST_CASE ("Controller: save then load brings the whole rig back", "[controller]
     // Change everything, then load it back.
     r.rig.setInput (1.0);
     r.rig.setMaster (1.0);
+    r.rig.setGate (0.0);
     r.rig.clearSlot ("nam");
     r.rig.setMix ("ir", 1.0);
 
@@ -161,6 +163,7 @@ TEST_CASE ("Controller: save then load brings the whole rig back", "[controller]
     const auto s = r.state();
     REQUIRE_THAT ((double) s["inputGain"], WithinAbs (0.4, 1e-6));
     REQUIRE_THAT ((double) s["masterGain"], WithinAbs (0.6, 1e-6));
+    REQUIRE_THAT ((double) s["gate"], WithinAbs (0.3, 1e-6));
     REQUIRE_THAT ((double) s["slots"]["nam"]["gain"], WithinAbs (0.7, 1e-6));
     REQUIRE ((bool) s["slots"]["nam"]["bypassed"]);
     REQUIRE_THAT ((double) s["slots"]["ir"]["mix"], WithinAbs (0.2, 1e-6));

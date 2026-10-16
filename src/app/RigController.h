@@ -38,6 +38,7 @@ public:
     void setInput  (const juce::var& value);
     void setMaster (const juce::var& value);
     void setMonitor (bool on);
+    void setGate   (const juce::var& value);                              // 0 = off
 
     //== first-run setup =======================================================
     bool isSetupComplete() const noexcept { return settings.isSetupComplete(); }

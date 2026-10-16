@@ -5,6 +5,7 @@
 
 using namespace testing;
 using Catch::Matchers::WithinAbs;
+using Catch::Matchers::WithinRel;
 
 namespace
 {
@@ -197,4 +198,42 @@ TEST_CASE ("Gain changes ramp across a block instead of jumping", "[audiopath]")
     io = deviceBuffer (64, 1.0f);
     path.process (io, 0, 64);
     REQUIRE (io.getSample (0, 0) == 1.0f);                       // settled
+}
+
+TEST_CASE ("The noise gate is off by default, cuts hiss when on, and lets playing through", "[audiopath][gate]")
+{
+    AudioEngine engine;
+    AudioPath path (engine);
+    path.prepare (256, 48000.0);
+    path.setInputGain (1.0f);
+    path.setMasterGain (1.0f);
+
+    // Steady input at `level` for ~0.5 s; returns the output level at the end.
+    auto settle = [&] (float level)
+    {
+        float out = 0.0f;
+        for (int i = 0; i < 100; ++i)
+        {
+            auto io = deviceBuffer (256, 0.0f);
+            for (int s = 0; s < 256; ++s)   // a 375 Hz square wave at `level`
+                io.setSample (0, s, ((s / 64) % 2 == 0) ? level : -level);
+            path.process (io, 0, 256);
+            out = io.getMagnitude (0, 0, 256);
+        }
+        return out;
+    };
+
+    const float hiss = juce::Decibels::decibelsToGain (-60.0f);
+    const float note = juce::Decibels::decibelsToGain (-12.0f);
+
+    REQUIRE (path.getGate() == 0.0f);
+    REQUIRE_THAT (settle (hiss), WithinAbs (hiss, 1e-6));   // off: untouched
+
+    path.setGate (0.5f);   // threshold -50 dB
+    REQUIRE (AudioPath::gateThresholdDb (0.5f) == -50.0f);
+    REQUIRE (settle (hiss) < hiss * 0.1f);                    // hiss well below where it was
+    REQUIRE_THAT (settle (note), WithinRel (note, 0.05f));    // playing passes
+
+    path.setGate (5.0f);   // clamped
+    REQUIRE (path.getGate() == 1.0f);
 }

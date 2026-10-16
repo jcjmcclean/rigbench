@@ -80,6 +80,7 @@ bool save (const juce::File& file, const AudioEngine& engine, const RigInfo& inf
     auto io = std::make_unique<juce::DynamicObject>();
     io->setProperty ("inputGain", info.inputGain);
     io->setProperty ("masterGain", info.masterGain);
+    io->setProperty ("gate", info.gate);
     io->setProperty ("sampleRateAtSave", info.sampleRateAtSave);
     root->setProperty ("io", juce::var (io.release()));
 
@@ -147,6 +148,7 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
     const auto ioVar = root.getProperty ("io", juce::var());
     info.inputGain       = unit (ioVar.getProperty ("inputGain", {}), 0.8);
     info.masterGain      = unit (ioVar.getProperty ("masterGain", {}), 0.8);
+    info.gate            = unit (ioVar.getProperty ("gate", {}), 0.0);
     info.sampleRateAtSave = (double) ioVar.getProperty ("sampleRateAtSave", sampleRate);
     info.name            = root.getProperty ("name", {}).toString();
 

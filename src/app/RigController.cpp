@@ -70,6 +70,7 @@ void RigController::setGain (const juce::String& slotId, const juce::var& value)
 void RigController::setInput (const juce::var& value)  { audio.setInputGain (clampUnit (value)); }
 void RigController::setMaster (const juce::var& value) { audio.setMasterGain (clampUnit (value)); }
 void RigController::setMonitor (bool on)               { audio.setMonitoring (on); }
+void RigController::setGate (const juce::var& value)   { audio.setGate (clampUnit (value)); }
 
 //==============================================================================
 juce::String RigController::loadNam (const juce::File& file)
@@ -113,6 +114,7 @@ juce::String RigController::savePreset (const juce::String& name)
     Preset::RigInfo info;
     info.inputGain  = audio.getInputGain();
     info.masterGain = audio.getMasterGain();
+    info.gate       = audio.getGate();
     info.sampleRateAtSave = engine.getSampleRate();
     info.name = name;
 
@@ -137,6 +139,7 @@ juce::String RigController::loadPreset (const juce::String& name,
 
     audio.setInputGain (info.inputGain);
     audio.setMasterGain (info.masterGain);
+    audio.setGate (info.gate);
     activePreset = name;
 
     if (info.problems.isEmpty())
@@ -177,6 +180,7 @@ juce::var RigController::buildState (const DeviceInfo& device, float inputLevel,
     o->setProperty ("playing", audio.isMonitoring());
     o->setProperty ("inputGain", (double) audio.getInputGain());
     o->setProperty ("masterGain", (double) audio.getMasterGain());
+    o->setProperty ("gate", (double) audio.getGate());
     o->setProperty ("inputLevel", inputLevel);
     o->setProperty ("outputLevel", outputLevel);
 

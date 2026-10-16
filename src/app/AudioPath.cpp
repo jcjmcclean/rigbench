@@ -8,6 +8,12 @@ void AudioPath::prepare (int samplesPerBlockExpected, double newSampleRate)
     testToneLength = (int) (sampleRate * 0.8);
     snapGains = true;
     tuner.prepare (sampleRate);
+
+    noiseGate.prepare ({ sampleRate, (juce::uint32) alloc, 1 });
+    noiseGate.setRatio (8.0f);       // a firm expander rather than a hard on/off chop
+    noiseGate.setAttack (1.0f);      // ms
+    noiseGate.setRelease (120.0f);   // ms: lets notes ring out
+    appliedGate = -1.0f;
     engine.prepare (sampleRate, alloc);
 }
 
@@ -63,6 +69,18 @@ void AudioPath::process (juce::AudioBuffer<float>& io, int start, int num) noexc
     appliedInputGain = ig;
     const float inLevel = monoBuffer.getMagnitude (0, 0, num);
     holdMax (inPeak, inLevel);
+
+    if (const float gateAmount = getGate(); gateAmount > 0.0f)
+    {
+        if (! juce::exactlyEqual (gateAmount, appliedGate))
+        {
+            noiseGate.setThreshold (gateThresholdDb (gateAmount));
+            appliedGate = gateAmount;
+        }
+        float* gateChans[1] = { monoBuffer.getWritePointer (0) };
+        juce::dsp::AudioBlock<float> gateBlock (gateChans, 1, (size_t) num);
+        noiseGate.process (juce::dsp::ProcessContextReplacing<float> (gateBlock));
+    }
 
     float* chans[1] = { monoBuffer.getWritePointer (0) };
     juce::AudioBuffer<float> work (chans, 1, num);

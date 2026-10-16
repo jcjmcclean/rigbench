@@ -2,6 +2,7 @@
 
 #include "Tuner.h"
 #include "engine/AudioEngine.h"
+#include <juce_dsp/juce_dsp.h>
 #include <array>
 #include <atomic>
 #include <vector>
@@ -37,6 +38,12 @@ public:
     float getInputGain() const noexcept        { return inputGain.load (std::memory_order_relaxed); }
     void  setMasterGain (float g) noexcept     { masterGain.store (g, std::memory_order_relaxed); }
     float getMasterGain() const noexcept       { return masterGain.load (std::memory_order_relaxed); }
+
+    // Noise gate on the input, after the input gain: 0 = off, otherwise the
+    // threshold runs from -80 dB (just above 0) to -20 dB (at 1).
+    void  setGate (float amount01) noexcept    { gate.store (juce::jlimit (0.0f, 1.0f, amount01), std::memory_order_relaxed); }
+    float getGate() const noexcept             { return gate.load (std::memory_order_relaxed); }
+    static float gateThresholdDb (float amount01) noexcept { return -80.0f + 60.0f * amount01; }
 
     //== meters + scope (message thread) =======================================
     // Peaks held since the last take (input after trim; output after master), so a
@@ -78,6 +85,9 @@ private:
     std::atomic<bool>  monitorOn  { true };
     std::atomic<float> inputGain  { 0.8f };
     std::atomic<float> masterGain { 0.8f };
+    std::atomic<float> gate { 0.0f };
+    juce::dsp::NoiseGate<float> noiseGate;   // audio thread
+    float appliedGate = -1.0f;               // audio thread: last threshold set
     std::atomic<float> inPeak  { 0.0f };
     std::atomic<float> outPeak { 0.0f };
     std::array<std::atomic<float>, maxChannelMeters> channelPeaks {};
