@@ -1,5 +1,6 @@
 import { Knob } from "./Knob";
 import type { SlotState, SlotType } from "../types";
+import { percent, dbFromUnit } from "../format";
 import "./ChainModule.css";
 
 const META: Record<SlotType, { kind: string; role: string; empty: string }> = {
@@ -18,12 +19,6 @@ interface Props {
   onGain: (v: number) => void;
   onEditor: () => void;
 }
-
-const pct = (v: number) => `${Math.round(v * 100)}%`;
-const db = (v: number) => {
-  const d = (v - 0.5) * 48;
-  return `${d >= 0 ? "+" : ""}${d.toFixed(0)} dB`;
-};
 
 export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onGain, onEditor }: Props) {
   const m = META[slot.type];
@@ -46,7 +41,7 @@ export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onG
           <span className="module__role eyebrow">{m.role}</span>
         </div>
         <div className="module__head-right">
-          <span className="module__led" aria-hidden />
+          <span className={`module__led jewel${active ? " jewel--lit" : ""}`} aria-hidden />
           {slot.loaded && (
             <button
               className="module__bypass"
@@ -67,10 +62,10 @@ export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onG
 
             <div className="module__controls">
               {slot.type === "ir" && (
-                <Knob value={slot.mix ?? 1} onChange={onMix} label="Mix" size={64} format={pct} />
+                <Knob value={slot.mix ?? 1} onChange={onMix} label="Mix" size={64} format={percent} />
               )}
               {slot.type === "nam" && (
-                <Knob value={slot.gain ?? 0.5} onChange={onGain} label="Level" size={64} format={db} />
+                <Knob value={slot.gain ?? 0.5} onChange={onGain} label="Level" size={64} format={dbFromUnit} />
               )}
               {slot.type === "vst3" && (
                 <button className="module__editor" onClick={onEditor}>

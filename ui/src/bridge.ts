@@ -144,14 +144,8 @@ function createJuceBridge(): Bridge {
   const subs = new Set<(s: EngineState) => void>();
   const notify = () => { if (current) subs.forEach((cb) => cb(current as EngineState)); };
 
-  const backend = (window as unknown as {
-    __JUCE__: {
-      backend: {
-        addEventListener: (id: string, cb: (v: unknown) => void) => number;
-        removeEventListener?: (token: number) => void;
-      };
-    };
-  }).__JUCE__.backend;
+  // Non-null: createJuceBridge only runs when hasRealJuceBackend is true.
+  const backend = window.__JUCE__!.backend!;
 
   backend.addEventListener("state", (s: unknown) => { current = s as EngineState; notify(); });
   backend.addEventListener("meters", (m: unknown) => {

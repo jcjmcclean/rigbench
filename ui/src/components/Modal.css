@@ -36,7 +36,7 @@
   user-select: text;
   -webkit-user-select: text;
 }
-.field:focus { outline: none; border-color: var(--ember); box-shadow: 0 0 0 2px rgba(63,155,240, 0.2); }
+.field:focus { outline: none; border-color: var(--ember); box-shadow: 0 0 0 2px rgba(var(--ember-rgb), 0.2); }
 
 .modal__actions {
   display: flex;

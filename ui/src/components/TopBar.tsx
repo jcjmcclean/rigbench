@@ -37,7 +37,7 @@ export function TopBar({ state }: { state: EngineState }) {
           onClick={() => bridge.setMonitor(!state.monitoring)}
           title={state.monitoring ? "Monitoring on — click to mute" : "Monitoring off"}
         >
-          <span className="transport__dot" />
+          <span className={`transport__dot jewel${state.monitoring ? " jewel--lit" : ""}`} />
           {state.monitoring ? "Live" : "Muted"}
         </button>
         <button className="iconbtn" onClick={() => bridge.openAudioSettings()} title="Audio settings" aria-label="Audio settings">

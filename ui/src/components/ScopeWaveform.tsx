@@ -66,6 +66,10 @@ export function ScopeWaveform() {
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
 
+      // NOTE: canvas can't read CSS custom properties, so the accent-blue
+      // channels below (63,155,240 and its lighter 90,175,255 / 109,184,255
+      // variants) are inlined. Keep 63,155,240 in sync with --ember-rgb in tokens.css.
+
       // 1) filled glow area between the curve and the mid-line
       const fill = ctx.createLinearGradient(0, mid - amp, 0, mid + amp);
       fill.addColorStop(0, "rgba(63,155,240,0)");

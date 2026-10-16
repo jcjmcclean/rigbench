@@ -26,7 +26,7 @@
   stroke: var(--ember);
   stroke-width: 6;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 4px rgba(63,155,240, 0.6));
+  filter: drop-shadow(0 0 4px rgba(var(--ember-rgb), 0.6));
   transition: stroke-dasharray 0.06s linear;
 }
 
@@ -96,8 +96,8 @@
   background: linear-gradient(var(--ember-bright), var(--ember));
   border-radius: 3px;
   box-shadow:
-    0 0 3px rgba(63,155,240, 0.85),
-    0 0 7px rgba(63,155,240, 0.5),            /* jewel bloom */
+    0 0 3px rgba(var(--ember-rgb), 0.85),
+    0 0 7px rgba(var(--ember-rgb), 0.5),            /* jewel bloom */
     inset 0 0 1px rgba(255, 255, 255, 0.7),     /* lit engraving edge */
     0 1px 0 rgba(0, 0, 0, 0.45);                /* engraved depth */
 }

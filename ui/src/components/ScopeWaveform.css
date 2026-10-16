@@ -9,7 +9,7 @@
   top: 50%;
   transform: translateY(-50%);
   height: 38px;
-  z-index: 1; /* behind the modules: the cable threads BEHIND the rack, showing in the gaps */           /* above the module panels — runs full-width across the chain */
+  z-index: 1; /* behind the modules: the cable threads BEHIND the rack, showing in the gaps */
   pointer-events: none;
 }
 
