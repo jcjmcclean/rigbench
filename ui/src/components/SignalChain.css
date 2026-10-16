@@ -9,9 +9,11 @@
   margin: 0 auto;
 }
 
-/* modules + terminals ride above the scope waveform (they mask it) */
-.chain .module,
-.chain .terminal { position: relative; z-index: 1; }
+/* Terminals (input/output) ride above the waveform. Modules do NOT create a
+   stacking context, so their knobs can individually sit above the waveform
+   (z-index on .knob) while the faceplate stays below it. */
+.chain .terminal { position: relative; z-index: 5; }
+.chain .module { position: relative; }
 
 /* ---- connectors (the signal path) ---- */
 .connector {
