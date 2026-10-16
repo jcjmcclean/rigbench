@@ -7,10 +7,14 @@ export function PresetMenu({
   presets,
   active,
   dirty = false,
+  onSaved,
 }: {
   presets: string[];
   active: string | null;
   dirty?: boolean;
+  // Told the name after a save is requested, so the owner can re-baseline its
+  // "edited" tracking even when the name (activePreset) doesn't change.
+  onSaved?: (name: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -25,7 +29,7 @@ export function PresetMenu({
 
   const doSave = () => {
     const n = name.trim();
-    if (n) { bridge.savePreset(n); setSaveOpen(false); setName(""); }
+    if (n) { bridge.savePreset(n); onSaved?.(n); setSaveOpen(false); setName(""); }
   };
 
   const close = (returnFocus = true) => {

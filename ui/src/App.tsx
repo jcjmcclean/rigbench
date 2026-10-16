@@ -29,11 +29,16 @@ export default function App() {
   const hasStateRef = useRef(false);
   useEffect(() => { hasStateRef.current = state !== null; }, [state]);
 
+  // Name of a preset save the user just requested (see dirty tracking below).
+  const pendingSave = useRef<string | null>(null);
+
   const MAX_TOASTS = 4;
   useEffect(() => {
     return bridge.subscribeError((message) => {
       // No engine state yet → fatal "couldn't connect"; otherwise a recoverable
       // notice (e.g. a model failed to load) shown as a toast (newest kept, capped).
+      // A save that errors must not re-baseline the "edited" tracking below.
+      pendingSave.current = null;
       if (!hasStateRef.current) {
         setFatal(message);
       } else {
@@ -49,19 +54,24 @@ export default function App() {
   );
 
   // Dirty tracking: snapshot the rig whenever the active preset changes (load or
-  // save), then compare the live signature against it.
+  // save), then compare the live signature against it. Saving over the active
+  // preset keeps the same name, so a requested save is remembered and the
+  // snapshot retaken once the engine reports that preset as active.
   const [dirty, setDirty] = useState(false);
   const snapRef = useRef<string>("");
   const prevPreset = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (!state) return;
     const sig = rigSignature(state);
-    if (state.activePreset !== prevPreset.current) {
+    const saved = pendingSave.current !== null && pendingSave.current === state.activePreset;
+    if (state.activePreset !== prevPreset.current || saved) {
       prevPreset.current = state.activePreset;
+      pendingSave.current = null;
       snapRef.current = sig;
     }
     setDirty(sig !== snapRef.current);
   }, [state]);
+  const onPresetSaved = useCallback((name: string) => { pendingSave.current = name; }, []);
 
   if (fatal && !state) {
     return (
@@ -86,7 +96,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar state={state} dirty={dirty} />
+      <TopBar state={state} dirty={dirty} onPresetSaved={onPresetSaved} />
 
       <main className="stage">
         <SignalChain state={state} />

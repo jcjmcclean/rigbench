@@ -256,6 +256,9 @@
   color: var(--ink-faint);
   opacity: 0;
   transition: opacity 0.2s, color 0.2s;
+  /* above .module__name (z-index 5), which overlaps this corner and would
+     otherwise swallow the click */
+  z-index: 6;
 }
 /* reveal on hover, and on keyboard focus anywhere in the module (otherwise the
    ✕ is invisible-but-focusable) */

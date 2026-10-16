@@ -87,3 +87,21 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # End-to-end: the real app in Chromium against the in-browser mock engine.
+      # Playwright starts the Vite dev server itself (playwright.config.ts).
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            ui/playwright-report
+            ui/test-results
+          retention-days: 7
