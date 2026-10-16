@@ -173,3 +173,28 @@ TEST_CASE ("The scope gets signed peaks while playing and stays flat when quiet"
         REQUIRE (pts.size() < (size_t) AudioPath::scopeCapacity);
     }
 }
+
+TEST_CASE ("Gain changes ramp across a block instead of jumping", "[audiopath]")
+{
+    AudioEngine engine;
+    AudioPath path (engine);
+    path.prepare (64, 48000.0);
+    path.setInputGain (1.0f);
+    path.setMasterGain (0.0f);
+
+    auto io = deviceBuffer (64, 1.0f);
+    path.process (io, 0, 64);
+    REQUIRE (io.getMagnitude (0, 0, 64) == 0.0f);   // first block after prepare: no ramp
+
+    path.setMasterGain (1.0f);
+    io = deviceBuffer (64, 1.0f);
+    path.process (io, 0, 64);
+    REQUIRE (io.getSample (0, 0) < 0.1f);                        // starts near the old gain
+    REQUIRE_THAT (io.getSample (0, 63), WithinAbs (1.0, 0.05));  // ends at the new one
+    for (int i = 1; i < 64; ++i)
+        REQUIRE (io.getSample (0, i) >= io.getSample (0, i - 1));
+
+    io = deviceBuffer (64, 1.0f);
+    path.process (io, 0, 64);
+    REQUIRE (io.getSample (0, 0) == 1.0f);                       // settled
+}

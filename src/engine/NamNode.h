@@ -62,6 +62,7 @@ private:
     std::atomic<float> inGain  { 1.0f };
     std::atomic<float> outGain { 1.0f };
     std::atomic<float> uiGain  { 0.5f };
+    float appliedOutGain = 1.0f;   // audio thread: ramps toward outGain (no zipper)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NamNode)
 };

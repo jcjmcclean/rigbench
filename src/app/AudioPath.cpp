@@ -6,6 +6,7 @@ void AudioPath::prepare (int samplesPerBlockExpected, double newSampleRate)
     monoBuffer.setSize (1, alloc, false, false, true);
     sampleRate = newSampleRate > 0 ? newSampleRate : 48000.0;
     testToneLength = (int) (sampleRate * 0.8);
+    snapGains = true;
     engine.prepare (sampleRate, alloc);
 }
 
@@ -45,10 +46,17 @@ void AudioPath::process (juce::AudioBuffer<float>& io, int start, int num) noexc
         return;
     }
 
+    const float ig = getInputGain(), g = getMasterGain();
+    if (snapGains)
+    {
+        appliedInputGain = ig;
+        appliedMasterGain = g;
+        snapGains = false;
+    }
+
     monoBuffer.copyFrom (0, 0, io, 0, start, num);
-    const float ig = getInputGain();
-    if (ig != 1.0f)
-        monoBuffer.applyGain (0, 0, num, ig);
+    monoBuffer.applyGainRamp (0, 0, num, appliedInputGain, ig);
+    appliedInputGain = ig;
     const float inLevel = monoBuffer.getMagnitude (0, 0, num);
     holdMax (inPeak, inLevel);
 
@@ -56,15 +64,13 @@ void AudioPath::process (juce::AudioBuffer<float>& io, int start, int num) noexc
     juce::AudioBuffer<float> work (chans, 1, num);
     engine.processBlock (work);
 
-    const float g = getMasterGain();
+    work.applyGainRamp (0, 0, num, appliedMasterGain, g);
+    appliedMasterGain = g;
     for (int ch = 0; ch < numChans; ++ch)
-    {
         io.copyFrom (ch, start, work, 0, 0, num);
-        io.applyGain (ch, start, num, g);
-    }
-    holdMax (outPeak, work.getMagnitude (0, 0, num) * g);
+    holdMax (outPeak, work.getMagnitude (0, 0, num));
 
-    pushScope (work.getReadPointer (0), num, g, inLevel > scopeGate);
+    pushScope (work.getReadPointer (0), num, 1.0f, inLevel > scopeGate);
     addTestTone (io, start, num);
 }
 

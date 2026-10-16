@@ -77,6 +77,11 @@ private:
     std::atomic<float> outPeak { 0.0f };
     std::array<std::atomic<float>, maxChannelMeters> channelPeaks {};
 
+    // The gains last applied, so a knob move ramps across the next block instead
+    // of jumping (which crackles). Audio thread only; snapped after prepare().
+    float appliedInputGain = 0.0f, appliedMasterGain = 0.0f;
+    bool snapGains = true;
+
     double sampleRate = 48000.0;
     int testToneLength = 0;                     // samples (set in prepare)
     std::atomic<int> testToneRemaining { 0 };

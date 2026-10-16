@@ -62,10 +62,13 @@ void IRNode::process (juce::AudioBuffer<float>& mono) noexcept
     if (numSamples > maxBlockSize)
         return; // block larger than prepared would overflow dryBuffer (matches NAM/VST3)
 
+    // Mix ramps across the block from the last value, so turning it doesn't crackle.
     const float wet = mix.load (std::memory_order_relaxed);
+    const float from = appliedMix;
+    appliedMix = wet;
 
-    // Keep a dry copy if we're blending.
-    const bool blend = wet < 0.999f;
+    // Keep a dry copy if we're blending (now or at the start of this block).
+    const bool blend = wet < 0.999f || from < 0.999f;
     if (blend)
         dryBuffer.copyFrom (0, 0, mono, 0, 0, numSamples);
 
@@ -75,12 +78,13 @@ void IRNode::process (juce::AudioBuffer<float>& mono) noexcept
 
     if (blend)
     {
-        mono.applyGain (0, 0, numSamples, wet);
-        mono.addFrom (0, 0, dryBuffer, 0, 0, numSamples, 1.0f - wet);
+        mono.applyGainRamp (0, 0, numSamples, from, wet);
+        mono.addFromWithRamp (0, 0, dryBuffer.getReadPointer (0), numSamples, 1.0f - from, 1.0f - wet);
     }
 }
 
 void IRNode::reset()
 {
+    appliedMix = mix.load (std::memory_order_relaxed);
     conv.reset();
 }

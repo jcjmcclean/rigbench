@@ -85,6 +85,19 @@ TEST_CASE ("IR: mix blends dry and wet", "[ir]")
         REQUIRE_THAT (b.getSample (0, 10), WithinAbs (0.5 * wet.getSample (0, 10), 1e-5));
     }
 
+    SECTION ("changing mix ramps across the next block")
+    {
+        ir.setMix (1.0f);
+        ir.reset();
+        auto b = constant (256, 0.0f);
+        ir.process (b);                 // settle at fully wet
+        ir.setMix (0.0f);
+        b = impulse (256);
+        ir.process (b);
+        // The impulse at sample 0 is still mostly wet; the ramp only reaches dry at the end.
+        REQUIRE_THAT (b.getSample (0, 0), WithinAbs (wet.getSample (0, 0), 0.02));
+    }
+
     SECTION ("mix is clamped to 0..1")
     {
         ir.setMix (3.0f);
@@ -241,6 +254,25 @@ TEST_CASE ("NAM: the Level knob maps 0..1 to -24..+24 dB", "[nam]")
     REQUIRE_THAT (run (1.0f) / unity, WithinRel (juce::Decibels::decibelsToGain (24.0f), 1e-3f));
     REQUIRE_THAT (run (0.0f) / unity, WithinRel (juce::Decibels::decibelsToGain (-24.0f), 1e-3f));
     REQUIRE (nam.getUiGain() == 0.0f);
+}
+
+TEST_CASE ("NAM: turning the Level knob ramps instead of jumping", "[nam]")
+{
+    NamNode nam;
+    juce::String err;
+    REQUIRE (nam.loadFile (namFixture(), err));
+    nam.prepare (48000.0, 256);
+
+    auto dc = [] { return constant (256, 0.1f); };
+    auto b = dc();
+    nam.process (b);
+    const float unity = b.getSample (0, 255);
+
+    nam.setUiGain (1.0f);   // +24 dB
+    b = dc();
+    nam.process (b);
+    REQUIRE (b.getSample (0, 10) < unity * 4.0f);   // still near the old level early on
+    REQUIRE_THAT (b.getSample (0, 255) / unity, WithinRel (juce::Decibels::decibelsToGain (24.0f), 1e-3f));
 }
 
 TEST_CASE ("NAM: the model is deterministic", "[nam]")
