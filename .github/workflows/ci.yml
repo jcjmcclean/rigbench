@@ -1,4 +1,4 @@
-# ToneStack test CI. This workflow is the TEST gate only — it builds the offline
+# Tonebench test CI. This workflow is the TEST gate only — it builds the offline
 # bench and runs the C++ self-test under --strict, and lints/builds/tests the
 # React UI. The cross-platform RELEASE build matrix lives in a separate
 # build.yml (owned elsewhere); do not duplicate packaging here.
@@ -27,8 +27,8 @@ jobs:
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-      - name: Build tonestack_bench
-        run: cmake --build build --target tonestack_bench
+      - name: Build tonebench_cli
+        run: cmake --build build --target tonebench_cli
 
       # --strict (via the selftest_strict CTest registration) turns a skipped
       # CORE suite (preset round-trip, resampler) into a failure, so a

@@ -28,7 +28,7 @@ namespace Preset
         juce::String stateBase64;
     };
 
-    static constexpr const char* fileExtension = ".tonestack";
+    static constexpr const char* fileExtension = ".tonebench";
 
     juce::File presetsDir();
 

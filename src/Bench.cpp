@@ -1,11 +1,11 @@
-// ToneStack offline bench — a simulated audio interface for deterministic
+// Tonebench offline bench — a simulated audio interface for deterministic
 // testing. It feeds known signals through the REAL engine, block-by-block, just
 // like the live audio callback, then writes a WAV you can listen to and prints
 // metrics (level, peak, clipping, NaN, measured latency).
 //
 // Usage:
-//   tonestack_bench selftest
-//   tonestack_bench render [input] [chain] [--sr N] [--block N] --out file.wav
+//   tonebench_cli selftest
+//   tonebench_cli render [input] [chain] [--sr N] [--block N] --out file.wav
 //     input:  --gen sine|sweep|impulse|noise|pluck [--secs S]  |  --in file.wav
 //     chain:  --ir file.wav [--mix 0..1]
 //             (--nam / --vst added as those nodes land)
@@ -290,7 +290,7 @@ juce::AudioBuffer<float> synthIRBuffer()
 juce::File makeSyntheticIR (double sr)
 {
     auto ir = synthIRBuffer();
-    auto f = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("tonestack_test_ir.wav");
+    auto f = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("tonebench_test_ir.wav");
     io::saveMono (f, ir, sr);
     return f;
 }
@@ -300,8 +300,8 @@ juce::File makeSyntheticIR (double sr)
 // developer with ~/Documents/NAMs still exercises a real capture.
 juce::File findNamModel()
 {
-   #ifdef TONESTACK_FIXTURES_DIR
-    const juce::File fixture = juce::File (TONESTACK_FIXTURES_DIR).getChildFile ("minimal.nam");
+   #ifdef TONEBENCH_FIXTURES_DIR
+    const juce::File fixture = juce::File (TONEBENCH_FIXTURES_DIR).getChildFile ("minimal.nam");
     if (fixture.existsAsFile())
         return fixture;
    #endif
@@ -347,7 +347,7 @@ int runSelfTest (bool strict)
     const double sr = 48000.0; const int block = 128;
     int fails = 0;
     int suitesRun = 0, suitesSkipped = 0;
-    std::cout << "=== ToneStack self-test" << (strict ? " (--strict)" : "") << " ===\n";
+    std::cout << "=== Tonebench self-test" << (strict ? " (--strict)" : "") << " ===\n";
 
     // Record a skipped suite. In --strict mode, skipping a CORE suite (the ones
     // CI must always exercise: preset round-trip, resampler) is a HARD FAILURE
@@ -539,7 +539,7 @@ int runSelfTest (bool strict)
         juce::Thread::sleep (300);
 
         const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                          .getChildFile ("tonestack_test_ir_preset.tonestack");
+                                          .getChildFile ("tonebench_test_ir_preset.tonebench");
         const bool saved = Preset::save (presetFile, original, 0.65f, sr, "IR Only");
 
         AudioEngine restored; restored.prepare (sr, block);
@@ -569,23 +569,23 @@ int runSelfTest (bool strict)
         Preset::RigInfo info;
         const auto temp = juce::File::getSpecialLocation (juce::File::tempDirectory);
 
-        const juce::File f1 = temp.getChildFile ("tonestack_bad_truncated.tonestack");
-        f1.replaceWithText ("{ \"format\": \"tonestack-preset\", \"schemaVersion\": 1, \"chain\": [");
+        const juce::File f1 = temp.getChildFile ("tonebench_bad_truncated.tonebench");
+        f1.replaceWithText ("{ \"format\": \"tonebench-preset\", \"schemaVersion\": 1, \"chain\": [");
         const bool r1 = Preset::load (f1, engine, sr, block, info);
 
-        const juce::File f2 = temp.getChildFile ("tonestack_bad_garbage.tonestack");
+        const juce::File f2 = temp.getChildFile ("tonebench_bad_garbage.tonebench");
         f2.replaceWithText ("not json at all %%%");
         const bool r2 = Preset::load (f2, engine, sr, block, info);
 
-        const juce::File f3 = temp.getChildFile ("tonestack_bad_schema.tonestack");
-        f3.replaceWithText ("{ \"format\": \"tonestack-preset\", \"schemaVersion\": 99, \"chain\": [] }");
+        const juce::File f3 = temp.getChildFile ("tonebench_bad_schema.tonebench");
+        f3.replaceWithText ("{ \"format\": \"tonebench-preset\", \"schemaVersion\": 99, \"chain\": [] }");
         const bool r3 = Preset::load (f3, engine, sr, block, info);
 
-        const juce::File f4 = temp.getChildFile ("tonestack_bad_wrongformat.tonestack");
+        const juce::File f4 = temp.getChildFile ("tonebench_bad_wrongformat.tonebench");
         f4.replaceWithText ("{ \"hello\": 123 }");
         const bool r4 = Preset::load (f4, engine, sr, block, info);
 
-        const bool r5 = Preset::load (temp.getChildFile ("tonestack_nonexistent.tonestack"),
+        const bool r5 = Preset::load (temp.getChildFile ("tonebench_nonexistent.tonebench"),
                                       engine, sr, block, info);
 
         fails += report ("Preset malformed", ! r1 && ! r2 && ! r3 && ! r4 && ! r5,
@@ -669,7 +669,7 @@ int runSelfTest (bool strict)
             // allow-list accepts the referenced path on any machine (incl. CI,
             // where the checkout may live outside the user's home).
             const juce::File namFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                           .getChildFile ("tonestack_test_model.nam");
+                                           .getChildFile ("tonebench_test_model.nam");
             model.copyFileTo (namFile);
             const juce::File irFile = makeSyntheticIR (sr);
 
@@ -688,7 +688,7 @@ int runSelfTest (bool strict)
             juce::Thread::sleep (300);
 
             const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                              .getChildFile ("tonestack_test_preset.tonestack");
+                                              .getChildFile ("tonebench_test_preset.tonebench");
             const bool saved = Preset::save (presetFile, original, 0.7f, sr, "Test Rig");
 
             AudioEngine restored;
@@ -839,20 +839,20 @@ int runSelfTest (bool strict)
         }
     }
 
-    // VST3 node: only when TONESTACK_TEST_VST is set (dlopen blocks under AMFI in
+    // VST3 node: only when TONEBENCH_TEST_VST is set (dlopen blocks under AMFI in
     // a sandboxed/CLI process — run this from a normal login shell).
     // VST3: hosting a real plugin reliably needs a GUI/login session (dlopen of a
     // code-signed bundle blocks under AMFI in a CLI process), and there is no
     // hermetic .vst3 fixture to commit, so this stays opt-in + env-gated and is
-    // NOT a core suite (its skip never fails --strict). Point TONESTACK_TEST_VST
-    // at a bundle via TONESTACK_VST_PATH to exercise it locally.
-    if (std::getenv ("TONESTACK_TEST_VST") != nullptr)
+    // NOT a core suite (its skip never fails --strict). Point TONEBENCH_TEST_VST
+    // at a bundle via TONEBENCH_VST_PATH to exercise it locally.
+    if (std::getenv ("TONEBENCH_TEST_VST") != nullptr)
     {
-        const char* envPath = std::getenv ("TONESTACK_VST_PATH");
+        const char* envPath = std::getenv ("TONEBENCH_VST_PATH");
         juce::File vstFile (envPath != nullptr ? juce::String (envPath) : juce::String());
         if (! vstFile.exists())
         {
-            skipSuite ("VST3", "set TONESTACK_VST_PATH to a .vst3 bundle to run", /*core*/ false);
+            skipSuite ("VST3", "set TONEBENCH_VST_PATH to a .vst3 bundle to run", /*core*/ false);
         }
         else
         {
@@ -1016,8 +1016,8 @@ int main (int argc, char** argv)
     }
 
     std::cout << "usage:\n"
-              << "  tonestack_bench selftest [--strict]   (--strict: a skipped CORE suite fails; used by CI)\n"
-              << "  tonestack_bench render [--gen sine|sweep|impulse|noise|pluck [--secs S] | --in f.wav]"
+              << "  tonebench_cli selftest [--strict]   (--strict: a skipped CORE suite fails; used by CI)\n"
+              << "  tonebench_cli render [--gen sine|sweep|impulse|noise|pluck [--secs S] | --in f.wav]"
                  " [--ir f.wav [--mix 0..1]] [--sr N] [--block N] --out out.wav\n";
     return 0;
 }

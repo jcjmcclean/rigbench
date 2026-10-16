@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(ToneStack VERSION 0.1.0 LANGUAGES C CXX)
+project(Tonebench VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)        # NAM core requires C++20
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Architecture: arm64 for fast dev builds. Turn on TONESTACK_UNIVERSAL for a
+# Architecture: arm64 for fast dev builds. Turn on TONEBENCH_UNIVERSAL for a
 # distributable Universal 2 binary (arm64 + x86_64) so Intel Macs can run it too
 # (roughly doubles build time). Pin a deployment target so a build on a newer
 # macOS doesn't accidentally require that same OS on the recipient's machine.
-option(TONESTACK_UNIVERSAL "Build a Universal 2 (arm64;x86_64) binary for distribution" OFF)
+option(TONEBENCH_UNIVERSAL "Build a Universal 2 (arm64;x86_64) binary for distribution" OFF)
 if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
-    if(TONESTACK_UNIVERSAL)
+    if(TONEBENCH_UNIVERSAL)
         set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
     else()
         set(CMAKE_OSX_ARCHITECTURES "arm64")
@@ -60,11 +60,11 @@ target_include_directories(namcore SYSTEM PUBLIC
 target_compile_definitions(namcore PUBLIC NAM_SAMPLE_FLOAT)
 target_compile_definitions(namcore PRIVATE NAM_ENABLE_A2_FAST)
 
-juce_add_gui_app(ToneStack
-    PRODUCT_NAME "ToneStack"
-    BUNDLE_ID    com.tonestack.app
+juce_add_gui_app(Tonebench
+    PRODUCT_NAME "Tonebench"
+    BUNDLE_ID    com.tonebench.app
     MICROPHONE_PERMISSION_ENABLED TRUE
-    MICROPHONE_PERMISSION_TEXT "ToneStack needs audio input to process your guitar."
+    MICROPHONE_PERMISSION_TEXT "Tonebench needs audio input to process your guitar."
     NEEDS_WEB_BROWSER TRUE
     NEEDS_WEBVIEW2 TRUE          # Windows: WebView2 backs the UI bridge (ignored off-Windows)
 )
@@ -73,38 +73,38 @@ juce_add_gui_app(ToneStack
 # the embedded UI can never go stale (it used to be hand-built + git-committed,
 # which is why the WebView needed a per-launch cache-bust hack). cmake -E tar
 # keeps the zip step cross-platform (no `zip` CLI needed on Windows runners).
-set(TONESTACK_WEBUI_ZIP ${CMAKE_CURRENT_SOURCE_DIR}/assets/webui.zip)
-set(TONESTACK_UI_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/ui)
+set(TONEBENCH_WEBUI_ZIP ${CMAKE_CURRENT_SOURCE_DIR}/assets/webui.zip)
+set(TONEBENCH_UI_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 find_program(NPM_EXECUTABLE npm)
 if(NPM_EXECUTABLE)
-    file(GLOB_RECURSE TONESTACK_UI_SOURCES CONFIGURE_DEPENDS
-        ${TONESTACK_UI_DIR}/src/*
-        ${TONESTACK_UI_DIR}/index.html
-        ${TONESTACK_UI_DIR}/package.json)
+    file(GLOB_RECURSE TONEBENCH_UI_SOURCES CONFIGURE_DEPENDS
+        ${TONEBENCH_UI_DIR}/src/*
+        ${TONEBENCH_UI_DIR}/index.html
+        ${TONEBENCH_UI_DIR}/package.json)
     add_custom_command(
-        OUTPUT  ${TONESTACK_WEBUI_ZIP}
+        OUTPUT  ${TONEBENCH_WEBUI_ZIP}
         COMMAND ${NPM_EXECUTABLE} run build
-        COMMAND ${CMAKE_COMMAND} -E rm -f ${TONESTACK_WEBUI_ZIP}
-        COMMAND ${CMAKE_COMMAND} -E chdir ${TONESTACK_UI_DIR}/dist
-                ${CMAKE_COMMAND} -E tar cf ${TONESTACK_WEBUI_ZIP} --format=zip .
-        WORKING_DIRECTORY ${TONESTACK_UI_DIR}
-        DEPENDS ${TONESTACK_UI_SOURCES}
+        COMMAND ${CMAKE_COMMAND} -E rm -f ${TONEBENCH_WEBUI_ZIP}
+        COMMAND ${CMAKE_COMMAND} -E chdir ${TONEBENCH_UI_DIR}/dist
+                ${CMAKE_COMMAND} -E tar cf ${TONEBENCH_WEBUI_ZIP} --format=zip .
+        WORKING_DIRECTORY ${TONEBENCH_UI_DIR}
+        DEPENDS ${TONEBENCH_UI_SOURCES}
         COMMENT "Building React UI -> assets/webui.zip"
         VERBATIM)
-    add_custom_target(tonestack_ui DEPENDS ${TONESTACK_WEBUI_ZIP})
+    add_custom_target(tonebench_ui DEPENDS ${TONEBENCH_WEBUI_ZIP})
 else()
     message(WARNING "npm not found: embedding the existing assets/webui.zip. "
                     "Install Node.js to rebuild the UI from source.")
-    add_custom_target(tonestack_ui)
+    add_custom_target(tonebench_ui)
 endif()
 
 # Embed the built React UI (ui/dist zipped) as binary data served by the WebView.
-juce_add_binary_data(ToneStackWebUI
-    SOURCES ${TONESTACK_WEBUI_ZIP})
-add_dependencies(ToneStackWebUI tonestack_ui)
+juce_add_binary_data(TonebenchWebUI
+    SOURCES ${TONEBENCH_WEBUI_ZIP})
+add_dependencies(TonebenchWebUI tonebench_ui)
 
 # Shared audio-engine sources (used by both the app and the offline self-test).
-set(TONESTACK_ENGINE_SOURCES
+set(TONEBENCH_ENGINE_SOURCES
     src/engine/AudioEngine.cpp
     src/engine/IRNode.cpp
     src/engine/NamNode.cpp
@@ -112,27 +112,27 @@ set(TONESTACK_ENGINE_SOURCES
     src/engine/Preset.cpp
 )
 
-target_sources(ToneStack PRIVATE
+target_sources(Tonebench PRIVATE
     src/Main.cpp
     src/ui/WebUIComponent.cpp
-    ${TONESTACK_ENGINE_SOURCES}
+    ${TONEBENCH_ENGINE_SOURCES}
 )
 
-target_include_directories(ToneStack PRIVATE src)
+target_include_directories(Tonebench PRIVATE src)
 
-target_compile_definitions(ToneStack PRIVATE
+target_compile_definitions(Tonebench PRIVATE
     JUCE_WEB_BROWSER=1          # React UI in a WebView
     JUCE_USE_CURL=0
     JUCE_PLUGINHOST_VST3=1      # host VST3 plugins (T4)
-    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:ToneStack,JUCE_PRODUCT_NAME>"
-    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:ToneStack,JUCE_VERSION>"
+    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Tonebench,JUCE_PRODUCT_NAME>"
+    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Tonebench,JUCE_VERSION>"
 )
 
-target_link_libraries(ToneStack PRIVATE
+target_link_libraries(Tonebench PRIVATE
     # WHOLE_ARCHIVE: NAM registers its architectures (WaveNet, LSTM, ...) via static
     # initializers; without force-load the linker strips those TUs from the static lib.
     "$<LINK_LIBRARY:WHOLE_ARCHIVE,namcore>"
-    ToneStackWebUI
+    TonebenchWebUI
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_dsp
@@ -145,20 +145,24 @@ target_link_libraries(ToneStack PRIVATE
 # Hidden symbol visibility so the host's statically-linked JUCE symbols don't
 # interpose a hosted JUCE plugin's own JUCE (the "two JUCEs in one process"
 # crash). Required for a JUCE host that loads JUCE-based VST3s.
-set_target_properties(ToneStack PROPERTIES
+set_target_properties(Tonebench PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     C_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN ON)
 
-# Sign with a stable self-signed identity ("ToneStack Dev") if it exists, so macOS
-# TCC remembers the microphone grant across rebuilds (ad-hoc signing changes the
-# identity every build and re-prompts). Best-effort: skipped if the cert isn't set up.
+# Sign with a stable self-signed identity so macOS TCC remembers the microphone
+# grant across rebuilds (ad-hoc signing changes the identity every build and
+# re-prompts). Prefers "Tonebench Dev"; falls back to the legacy "ToneStack Dev"
+# cert so an existing keychain identity keeps working after the rename. Best-effort.
 if(APPLE)
-    add_custom_command(TARGET ToneStack POST_BUILD
-        COMMAND /bin/sh -c "ID='ToneStack Dev'; APP='$<TARGET_BUNDLE_DIR:ToneStack>'; \
-            if security find-identity -v -p codesigning 2>/dev/null | grep -q \"$ID\"; then \
-                codesign --force --sign \"$ID\" \"$APP\" 2>/dev/null && echo \"[sign] signed with $ID\" || echo '[sign] sign attempt failed - staying ad-hoc'; \
-            else echo '[sign] no stable identity - ad-hoc (mic re-prompts each build). See README.'; fi; \
+    add_custom_command(TARGET Tonebench POST_BUILD
+        COMMAND /bin/sh -c "APP='$<TARGET_BUNDLE_DIR:Tonebench>'; \
+            for ID in 'Tonebench Dev' 'ToneStack Dev'; do \
+                if security find-identity -v -p codesigning 2>/dev/null | grep -q \"$ID\"; then \
+                    codesign --force --sign \"$ID\" \"$APP\" 2>/dev/null && echo \"[sign] signed with $ID\" && exit 0; \
+                fi; \
+            done; \
+            echo '[sign] no stable identity - ad-hoc (mic re-prompts each build). See README.'; \
             true"
         VERBATIM)
 endif()
@@ -166,18 +170,18 @@ endif()
 #==============================================================================
 # Offline bench (console app) — simulated audio interface for deterministic
 # testing + rendering. Runs the real engine without a device or GUI.
-juce_add_console_app(tonestack_bench
-    PRODUCT_NAME "tonestack_bench"
+juce_add_console_app(tonebench_cli
+    PRODUCT_NAME "tonebench_cli"
 )
 
-target_sources(tonestack_bench PRIVATE
+target_sources(tonebench_cli PRIVATE
     src/Bench.cpp
-    ${TONESTACK_ENGINE_SOURCES}
+    ${TONEBENCH_ENGINE_SOURCES}
 )
 
-target_include_directories(tonestack_bench PRIVATE src)
+target_include_directories(tonebench_cli PRIVATE src)
 
-target_compile_definitions(tonestack_bench PRIVATE
+target_compile_definitions(tonebench_cli PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_PLUGINHOST_VST3=1
@@ -185,10 +189,10 @@ target_compile_definitions(tonestack_bench PRIVATE
     JUCE_MODAL_LOOPS_PERMITTED=1   # lets the headless bench pump the message loop
     # Hermetic test fixtures (committed .nam etc.) so the self-test's NAM + preset
     # suites are deterministic and never silently skip, incl. on CI.
-    TONESTACK_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/test-fixtures"
+    TONEBENCH_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/test-fixtures"
 )
 
-target_link_libraries(tonestack_bench PRIVATE
+target_link_libraries(tonebench_cli PRIVATE
     "$<LINK_LIBRARY:WHOLE_ARCHIVE,namcore>"
     juce::juce_audio_processors
     juce::juce_audio_formats
@@ -206,5 +210,5 @@ target_link_libraries(tonestack_bench PRIVATE
 #                     round-trip, resampler) a FAILURE, so a green-but-skipped
 #                     run can never pass. CI runs this one.
 enable_testing()
-add_test(NAME selftest        COMMAND tonestack_bench selftest)
-add_test(NAME selftest_strict COMMAND tonestack_bench selftest --strict)
+add_test(NAME selftest        COMMAND tonebench_cli selftest)
+add_test(NAME selftest_strict COMMAND tonebench_cli selftest --strict)

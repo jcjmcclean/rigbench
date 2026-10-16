@@ -1,4 +1,4 @@
-# ToneStack
+# Tonebench
 
 A lightweight, fast, native macOS guitar tone app. Load **VST3** plugins, **NAM** (Neural
 Amp Modeler) amp models, and **IR** cab sims; chain them; save presets — and play through
@@ -29,12 +29,12 @@ cd ui && npm install && cd ..
 
 # First configure pulls JUCE + NAM core.
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build --target ToneStack
+cmake --build build --target Tonebench
 
-open build/ToneStack_artefacts/RelWithDebInfo/ToneStack.app
+open build/Tonebench_artefacts/RelWithDebInfo/Tonebench.app
 ```
 
-The `tonestack_ui` target runs `npm run build` and packs `assets/webui.zip` automatically
+The `tonebench_ui` target runs `npm run build` and packs `assets/webui.zip` automatically
 (it's build-generated, not committed), so the embedded UI can never go stale.
 
 ## Test
@@ -46,11 +46,11 @@ ctest --test-dir build --output-on-failure        # runs selftest + selftest_str
 cd ui && npm test
 ```
 
-`tonestack_bench` also renders audio offline (a simulated audio interface, no device):
+`tonebench_cli` also renders audio offline (a simulated audio interface, no device):
 
 ```sh
-cmake --build build --target tonestack_bench
-./build/tonestack_bench_artefacts/RelWithDebInfo/tonestack_bench render \
+cmake --build build --target tonebench_cli
+./build/tonebench_cli_artefacts/RelWithDebInfo/tonebench_cli render \
     --gen pluck --nam model.nam --ir cab.wav --out out.wav
 ```
 
@@ -59,9 +59,9 @@ See `docs/testing.md` for coverage. CI (`.github/workflows/ci.yml`) runs both su
 ## Share it
 
 ```sh
-cmake -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTONESTACK_UNIVERSAL=ON
-cmake --build build-rel --target ToneStack
-./packaging/make-dmg.sh        # -> dist/ToneStack-<version>.dmg (Universal: Intel + Apple Silicon)
+cmake -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTONEBENCH_UNIVERSAL=ON
+cmake --build build-rel --target Tonebench
+./packaging/make-dmg.sh        # -> dist/Tonebench-<version>.dmg (Universal: Intel + Apple Silicon)
 ```
 
 Send the DMG. The recipient drags it to Applications and, on first launch, **right-clicks
@@ -72,7 +72,7 @@ notarization — see `docs/distribution.md`, which also covers Linux and Windows
 
 - Third-party VST3s that are ad-hoc signed / quarantined may need de-quarantining + re-signing
   to load on Apple Silicon (`xattr -dr com.apple.quarantine X.vst3 && codesign --force --deep -s - X.vst3`).
-- Dev builds are signed with a stable self-signed identity ("ToneStack Dev", auto-signed by
+- Dev builds are signed with a stable self-signed identity ("Tonebench Dev", auto-signed by
   CMake if the cert exists) so macOS remembers the mic grant across rebuilds.
-- Loading a VST3 or opening a shared `.tonestack` preset runs third-party code in a
+- Loading a VST3 or opening a shared `.tonebench` preset runs third-party code in a
   mic-privileged process — see `SECURITY.md`.

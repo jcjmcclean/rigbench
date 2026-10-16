@@ -9,7 +9,7 @@ namespace Preset
 
 namespace
 {
-// SEC-3: a .tonestack preset is shared freely and can name arbitrary absolute
+// SEC-3: a .tonebench preset is shared freely and can name arbitrary absolute
 // paths. Loading NAM/IR content from an attacker-chosen location is a DoS /
 // information-disclosure vector (VST3 is full arbitrary-code-execution and is
 // gated separately with a consent prompt in the UI layer). Constrain preset-
@@ -31,7 +31,7 @@ bool isAllowedContentPath (const juce::File& f)
 juce::File presetsDir()
 {
     auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                 .getChildFile ("ToneStack").getChildFile ("Presets");
+                 .getChildFile ("Tonebench").getChildFile ("Presets");
     d.createDirectory();
     return d;
 }
@@ -40,7 +40,7 @@ bool save (const juce::File& file, const AudioEngine& engine,
            float masterGain, double sampleRate, const juce::String& name)
 {
     auto root = std::make_unique<juce::DynamicObject>();
-    root->setProperty ("format", "tonestack-preset");
+    root->setProperty ("format", "tonebench-preset");
     root->setProperty ("schemaVersion", 1);
     root->setProperty ("name", name.isNotEmpty() ? name : file.getFileNameWithoutExtension());
 
@@ -92,7 +92,7 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
     juce::ignoreUnused (maxBlock);
 
     const auto root = juce::JSON::parse (file);
-    if (! root.isObject() || root.getProperty ("format", {}) != juce::var ("tonestack-preset"))
+    if (! root.isObject() || root.getProperty ("format", {}) != juce::var ("tonebench-preset"))
         return false;
 
     // Refuse unknown/future schema versions rather than mis-parsing (or crashing) on

@@ -150,7 +150,7 @@ WebUIComponent::~WebUIComponent()
 juce::File WebUIComponent::audioSettingsFile() const
 {
     auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("ToneStack");
+                   .getChildFile ("Tonebench");
     dir.createDirectory();
     return dir.getChildFile ("audio-settings.xml");
 }
@@ -337,7 +337,7 @@ juce::var WebUIComponent::buildStateVar()
     o->setProperty ("slots", juce::var (slots));
 
     juce::Array<juce::var> presets;
-    for (auto& f : Preset::presetsDir().findChildFiles (juce::File::findFiles, false, "*.tonestack"))
+    for (auto& f : Preset::presetsDir().findChildFiles (juce::File::findFiles, false, "*.tonebench"))
         presets.add (f.getFileNameWithoutExtension());
     o->setProperty ("presets", presets);
     o->setProperty ("activePreset", activePreset.isEmpty() ? juce::var() : juce::var (activePreset));
@@ -518,7 +518,7 @@ void WebUIComponent::loadPreset (const juce::String& name)
             };
 
             const auto message = "This preset wants to load a VST3 plugin, which runs "
-                                 "third-party code inside ToneStack:\n\n"
+                                 "third-party code inside Tonebench:\n\n"
                                  + v.path.getFullPathName()
                                  + "\n\nOnly continue if you trust the source of this preset.";
             juce::AlertWindow::showOkCancelBox (
@@ -547,7 +547,7 @@ void WebUIComponent::devAutoLoad()
     // release build, and the sentinel lives in the app-private data dir — not
     // world-writable /tmp, where any local process could plant a malicious entry.
     const auto sentinel = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                              .getChildFile ("ToneStack").getChildFile ("tonestack_autoload.txt");
+                              .getChildFile ("Tonebench").getChildFile ("tonebench_autoload.txt");
     if (! sentinel.existsAsFile())
         return;
 

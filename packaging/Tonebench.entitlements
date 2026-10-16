@@ -7,7 +7,7 @@
     <key>com.apple.security.device.audio-input</key>
     <true/>
 
-    <!-- ToneStack is a VST3 HOST: it loads third-party plugin binaries that are
+    <!-- Tonebench is a VST3 HOST: it loads third-party plugin binaries that are
          signed by someone else (or ad-hoc). The hardened runtime's library
          validation would refuse to load them, so a plugin host must disable it.
          This is expected for plugin hosts (Reaper, AudioPluginHost, etc. do the
