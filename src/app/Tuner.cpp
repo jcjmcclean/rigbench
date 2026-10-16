@@ -1,12 +1,32 @@
 #include "Tuner.h"
 #include <cmath>
 
+namespace
+{
+// Decimate to about 24 kHz before searching: plenty for guitar fundamentals,
+// and it keeps the search the same size at any device rate.
+int decimationFor (double rate) { return std::max (1, (int) std::lround (rate / 24000.0)); }
+}
+
+int Tuner::windowFor (double rate)
+{
+    // Two periods of the lowest note, rounded up to a power of two.
+    return juce::jlimit (512, ringSize / 2, juce::nextPowerOfTwo ((int) (rate * 2.0 / minHz)));
+}
+
 void Tuner::prepare (double newSampleRate)
 {
     sampleRate = newSampleRate > 0 ? newSampleRate : 48000.0;
-    // Enough for two periods of the lowest note, rounded to keep the maths quick.
-    windowSamples = juce::jlimit (512, ringSize / 2, juce::nextPowerOfTwo ((int) (sampleRate * 2.0 / minHz)));
+    windowSamples = windowFor (sampleRate);
     scratch.assign ((size_t) ringSize, 0.0f);
+}
+
+void Tuner::setActive (bool on) noexcept
+{
+    if (on && ! active.load (std::memory_order_relaxed))
+        for (auto& s : ring)
+            s.store (0.0f, std::memory_order_relaxed);
+    active.store (on, std::memory_order_relaxed);
 }
 
 void Tuner::push (const float* samples, int num) noexcept
@@ -19,7 +39,7 @@ void Tuner::push (const float* samples, int num) noexcept
     int pos = writePos.load (std::memory_order_relaxed);
     for (int i = 0; i < num; ++i)
     {
-        ring[(size_t) pos] = samples[i];
+        ring[(size_t) pos].store (samples[i], std::memory_order_relaxed);
         pos = (pos + 1) & (ringSize - 1);
     }
     writePos.store (pos, std::memory_order_release);
@@ -33,7 +53,7 @@ std::optional<Tuner::Reading> Tuner::read()
     const int end = writePos.load (std::memory_order_acquire);
     const int n = windowSamples;
     for (int i = 0; i < n; ++i)
-        scratch[(size_t) i] = ring[(size_t) ((end - n + i + ringSize) & (ringSize - 1))];
+        scratch[(size_t) i] = ring[(size_t) ((end - n + i + ringSize) & (ringSize - 1))].load (std::memory_order_relaxed);
 
     const double hz = detectPitch (scratch.data(), n, sampleRate);
     if (hz <= 0.0)
@@ -53,13 +73,19 @@ double Tuner::detectPitch (const float* x, int n, double rate)
     if (peak < 0.003f)
         return 0.0;
 
-    // Decimate by 2 (averaging pairs is enough of a low-pass for pitch) to halve
-    // the work; guitar fundamentals are far below the new Nyquist.
-    const int m = n / 2;
-    const double r = rate / 2.0;
+    // Decimate (averaging k samples is enough of a low-pass for pitch); guitar
+    // fundamentals are far below the new Nyquist.
+    const int k = decimationFor (rate);
+    const int m = n / k;
+    const double r = rate / k;
     std::vector<float> y ((size_t) m);
     for (int i = 0; i < m; ++i)
-        y[(size_t) i] = 0.5f * (x[2 * i] + x[2 * i + 1]);
+    {
+        float sum = 0.0f;
+        for (int j = 0; j < k; ++j)
+            sum += x[k * i + j];
+        y[(size_t) i] = sum / (float) k;
+    }
 
     // YIN (de Cheveigné & Kawahara 2002): difference function, cumulative mean
     // normalised, first dip under the threshold, parabolic interpolation.
@@ -104,10 +130,10 @@ double Tuner::detectPitch (const float* x, int n, double rate)
     if (best < 0)
         return 0.0;   // not clearly pitched (noise, chords)
 
-    // Refine at the full rate: the half-rate period is only ~20 samples for high
+    // Refine at the full rate: the decimated period is only ~20 samples for high
     // notes, too coarse for cent accuracy. Find the dip of the difference
-    // function around 2 * best, then interpolate between neighbours.
-    const int lo = std::max (1, 2 * best - 3), hi = std::min (n / 2 - 1, 2 * best + 3);
+    // function around k * best, then interpolate between neighbours.
+    const int lo = std::max (1, k * best - k - 1), hi = std::min (n / 2 - 1, k * best + k + 1);
     const int fw = n - hi - 1;
     auto diffAt = [&] (int tau)
     {

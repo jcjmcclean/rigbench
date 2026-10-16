@@ -45,12 +45,15 @@ void AudioPath::process (juce::AudioBuffer<float>& io, int start, int num) noexc
 
     if (numChans > 0)
         tuner.push (io.getReadPointer (0, start), num);
+    if (tuner.isActive() && numChans > 0)   // keep the input meter alive while tuning
+        holdMax (inPeak, io.getMagnitude (0, start, num) * getInputGain());
 
     if (! isMonitoring() || tuner.isActive() || num > monoBuffer.getNumSamples() || numChans == 0)
     {
         for (int ch = 0; ch < numChans; ++ch)
             io.clear (ch, start, num);
-        inPeak.store (0.0f, std::memory_order_relaxed);
+        if (! tuner.isActive())
+            inPeak.store (0.0f, std::memory_order_relaxed);
         outPeak.store (0.0f, std::memory_order_relaxed);
         addTestTone (io, start, num);
         return;

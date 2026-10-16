@@ -36,7 +36,15 @@ bool looksBuiltIn (const juce::String& name)
         || n == "default" || n.startsWith ("microphone (");
 }
 
-juce::var describe (juce::AudioDeviceManager& dm)
+double roundTripMs (juce::AudioIODevice& dev)
+{
+    // JUCE's device latencies already include the buffer on CoreAudio, WASAPI
+    // and ALSA, so in + out is the round trip.
+    const double sr = dev.getCurrentSampleRate();
+    return sr > 0 ? (dev.getInputLatencyInSamples() + dev.getOutputLatencyInSamples()) / sr * 1000.0 : 0.0;
+}
+
+juce::var describe (juce::AudioDeviceManager& dm, bool listeningToAll)
 {
     auto* o = new juce::DynamicObject();
     juce::var result (o);
@@ -67,7 +75,6 @@ juce::var describe (juce::AudioDeviceManager& dm)
     juce::Array<int> buffers;
     double sampleRate = 0.0, latencyMs = 0.0;
     int bufferSize = 0;
-    bool listeningToAll = false;
 
     if (auto* dev = dm.getCurrentAudioDevice())
     {
@@ -76,12 +83,7 @@ juce::var describe (juce::AudioDeviceManager& dm)
         buffers = dev->getAvailableBufferSizes();
         sampleRate = dev->getCurrentSampleRate();
         bufferSize = dev->getCurrentBufferSizeSamples();
-        if (sampleRate > 0)
-            latencyMs = (2.0 * bufferSize + dev->getInputLatencyInSamples() + dev->getOutputLatencyInSamples())
-                        / sampleRate * 1000.0;
-
-        const int open = dev->getActiveInputChannels().countNumberOfSetBits();
-        listeningToAll = inputs.size() > 1 && open == juce::jmin (inputs.size(), maxInputs);
+        latencyMs = roundTripMs (*dev);
     }
 
     o->setProperty ("inputs", toVar (inputs));
@@ -116,7 +118,9 @@ juce::String apply (juce::AudioDeviceManager& dm, const juce::var& changes)
             dm.setCurrentAudioDeviceType (driver, true);
     }
 
-    auto setup = dm.getAudioDeviceSetup();
+    const auto previous = dm.getAudioDeviceSetup();
+    const bool hadDevice = dm.getCurrentAudioDevice() != nullptr;
+    auto setup = previous;
     auto* type = dm.getCurrentDeviceTypeObject();
 
     auto checkDevice = [&] (const juce::var& v, bool isInput, juce::String& into) -> juce::String
@@ -157,6 +161,15 @@ juce::String apply (juce::AudioDeviceManager& dm, const juce::var& changes)
         setup.inputChannels.setRange (0, maxInputs, true);
         setup.useDefaultInputChannels = false;
     }
+    else if (changes.hasProperty ("inputDevice") && ! changes.hasProperty ("input")
+             && setup.inputDeviceName != previous.inputDeviceName)
+    {
+        // A different interface: start on its first input. (Keeping the old
+        // input number can leave nothing open if the new one has fewer inputs.)
+        setup.inputChannels.clear();
+        setup.inputChannels.setBit (0);
+        setup.useDefaultInputChannels = false;
+    }
     else if (changes.hasProperty ("input"))
     {
         const int input = changes["input"];
@@ -173,7 +186,16 @@ juce::String apply (juce::AudioDeviceManager& dm, const juce::var& changes)
     setup.useDefaultOutputChannels = false;
 
     const auto err = dm.setAudioDeviceSetup (setup, true);
-    return err.isEmpty() ? err : "Couldn't use that setting: " + err;
+    if (err.isEmpty())
+        return {};
+
+    // JUCE closes the device when a change fails; go back to what was working.
+    if (hadDevice)
+    {
+        dm.setAudioDeviceSetup (previous, true);
+        return "Couldn't use that setting, so Tonebench went back to the previous one. (" + err + ")";
+    }
+    return "Couldn't use that setting: " + err;
 }
 
 } // namespace AudioSetup

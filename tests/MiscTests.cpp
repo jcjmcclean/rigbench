@@ -32,6 +32,16 @@ TEST_CASE ("PresetNames: traversal and empty names are rejected (SEC-2)", "[pres
     }
 }
 
+TEST_CASE ("PresetNames: a preset copied in with characters a new name couldn't have still opens", "[presetnames]")
+{
+    TempDir tmp;
+    const auto hand = tmp.file ("Lead #1, live.tonebench");
+    hand.replaceWithText ("{}");
+    REQUIRE (PresetNames::list (tmp.dir).contains ("Lead #1, live"));
+    REQUIRE (PresetNames::presetFileFor (tmp.dir, "Lead #1, live") == hand);
+    REQUIRE (PresetNames::presetFileFor (tmp.dir, "../Lead #1, live") == juce::File());
+}
+
 TEST_CASE ("PresetNames: list ignores other files and folders", "[presetnames]")
 {
     TempDir tmp;
@@ -180,7 +190,8 @@ TEST_CASE ("ExternalLinks: only plain https links open in the browser", "[links]
     for (auto bad : { "", "http://example.com", "file:///etc/passwd", "javascript:alert(1)",
                       "https://", "https:///nohost", "ftp://x.com", "tonebench://open",
                       "https://example.com/a b", "https://example.com/\"onload", "HTTPS:/x.com",
-                      "https://example.com/\nSet-Cookie" })
+                      "https://example.com/\nSet-Cookie", "https://x.com/$(touch${IFS}pwned)",
+                      "https://x.com/`id`", "https://x.com/a\\b", "https://x.com/'q'", "https://x.com/(a)" })
     {
         CAPTURE (bad);
         REQUIRE_FALSE (ExternalLinks::isOpenable (bad));

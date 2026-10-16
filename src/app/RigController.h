@@ -42,7 +42,9 @@ public:
 
     //== first-run setup =======================================================
     bool isSetupComplete() const noexcept { return settings.isSetupComplete(); }
-    void finishSetup();          // remembers it, and turns monitoring on
+    // Remembers that setup is done. "Start playing" turns monitoring on; "Skip
+    // setup" doesn't (the default device may be a laptop's mic and speakers).
+    void finishSetup (bool startMonitoring = true);
     void playTestSound()         { audio.playTestSound(); }
 
     //== tuner =================================================================

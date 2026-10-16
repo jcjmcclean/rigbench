@@ -50,6 +50,7 @@ TEST_CASE ("Controller: on a fresh install, monitoring stays off until setup is 
 
     RigController next (tmp.file ("Presets"), settingsFile);
     REQUIRE (next.isSetupComplete());
+    REQUIRE (next.isSetupComplete());
     REQUIRE (next.getAudio().isMonitoring());
     REQUIRE ((bool) next.buildState ({}, 0, 0)["setupComplete"]);
 }
@@ -147,7 +148,7 @@ TEST_CASE ("AudioSetup: built-in mics are recognised by name", "[setup]")
 TEST_CASE ("AudioSetup: describe has every key the UI expects, even with no device open", "[setup][contract]")
 {
     juce::AudioDeviceManager dm;   // never initialised: no device
-    const auto setup = AudioSetup::describe (dm);
+    const auto setup = AudioSetup::describe (dm, false);
 
     const auto contract = juce::JSON::parse (juce::File (TONEBENCH_SOURCE_DIR).getChildFile ("tests/contract/bridge.json"));
     juce::StringArray expected, actual;
@@ -174,4 +175,13 @@ TEST_CASE ("AudioSetup: bad changes are refused with a reason", "[setup]")
     REQUIRE (AudioSetup::apply (dm, juce::JSON::parse (R"({"input": -2})")) == "That input isn't valid.");
     REQUIRE (AudioSetup::apply (dm, juce::JSON::parse (R"({"inputDevice": "No Such Interface 9000"})"))
                  == "\"No Such Interface 9000\" isn't available. Check it's plugged in, then pick it again.");
+}
+
+TEST_CASE ("Controller: skipping setup doesn't turn monitoring on", "[controller][settings]")
+{
+    TempDir tmp;
+    RigController rig (tmp.file ("Presets"), tmp.file ("settings.json"));
+    rig.finishSetup (false);
+    REQUIRE (rig.isSetupComplete());
+    REQUIRE_FALSE (rig.getAudio().isMonitoring());
 }

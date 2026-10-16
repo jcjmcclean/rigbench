@@ -32,10 +32,11 @@ juce::var RigController::readTuner()
     return juce::var (o);
 }
 
-void RigController::finishSetup()
+void RigController::finishSetup (bool startMonitoring)
 {
     settings.setSetupComplete (true);
-    audio.setMonitoring (true);
+    if (startMonitoring)
+        audio.setMonitoring (true);
 }
 
 RigController::~RigController() = default;

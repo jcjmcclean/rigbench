@@ -72,6 +72,7 @@ private:
     // (or a preset's consent prompt answered) after something newer started is
     // dropped instead of landing in the wrong rig (audit M2).
     int vstGeneration = 0;
+    bool listeningToAllInputs = false;   // first-run setup's "play a few notes" step
     std::unique_ptr<juce::DocumentWindow> editorWindow;
     std::unique_ptr<juce::FileChooser> fileChooser;
 

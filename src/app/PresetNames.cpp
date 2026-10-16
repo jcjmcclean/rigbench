@@ -19,6 +19,12 @@ juce::File presetFileFor (const juce::File& dir, const juce::String& name)
         || name.containsAnyOf ("/\\:"))
         return {};
 
+    // A preset that's already there under exactly this name (one copied in by
+    // hand can contain characters createLegalFileName would strip).
+    if (const auto existing = dir.getChildFile (name + Preset::fileExtension);
+        existing.existsAsFile() && existing.getParentDirectory() == dir)
+        return existing;
+
     const auto leaf = juce::File::createLegalFileName (name.trim());
     if (leaf.isEmpty() || leaf == "." || leaf == ".." || isReservedName (leaf))
         return {};

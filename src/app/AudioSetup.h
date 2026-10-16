@@ -15,7 +15,7 @@
 //   listeningToAll                  true while every input is open (setup's "play a note" step)
 //   sampleRate, sampleRates[]
 //   bufferSize, bufferSizes[]
-//   latencyMs                       buffer + device latency, round trip
+//   latencyMs                       round trip: input + output latency as the device reports it
 //   builtInInput                    true if the input looks like the computer's own mic
 //   error                           why the device couldn't be opened, or ""
 //
@@ -23,7 +23,12 @@
 // listenToAllInputs, sampleRate, bufferSize } and returns "" or an error.
 namespace AudioSetup
 {
-    juce::var describe (juce::AudioDeviceManager&);
+    // listeningToAll: whether the last change asked for every input (the app
+    // tracks it; it can't be told apart from a 2-input device's default).
+    juce::var describe (juce::AudioDeviceManager&, bool listeningToAll = false);
+
+    // Round-trip latency in ms: input + output, as the device reports them.
+    double roundTripMs (juce::AudioIODevice&);
     juce::String apply (juce::AudioDeviceManager&, const juce::var& changes);
 
     // Heuristic: does this device name look like a computer's built-in mic?

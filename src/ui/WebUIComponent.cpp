@@ -93,6 +93,9 @@ WebUIComponent::WebUIComponent (Options componentOptions)
         .withResourceProvider ([this] (const auto& p) { return provideResource (p); })
         .withNativeFunction ("getState", [this] (const juce::Array<juce::var>&, Completion done)
             {
+                // A (re)loaded page starts with no tuner open, so don't leave the
+                // output muted by one from before.
+                rig.setTuner (false);
                 done (buildStateVar());
                 if (auto ready = std::exchange (onUiReady, nullptr))
                     ready();   // the page loaded and reached the engine
@@ -126,7 +129,10 @@ WebUIComponent::WebUIComponent (Options componentOptions)
             {
                 const auto id = arg (a, 0).toString();
                 if (SlotTypes::indexForId (id) == AudioEngine::vst3Slot)
+                {
                     editorWindow = nullptr;   // close the editor before destroying the plugin
+                    ++vstGeneration;          // and don't let a plugin still loading appear later
+                }
                 rig.clearSlot (id);
             }))
         .withNativeFunction ("setBypass", op ([this, arg] (auto& a) { rig.setBypass (arg (a, 0).toString(), (bool) arg (a, 1)); }))
@@ -141,15 +147,18 @@ WebUIComponent::WebUIComponent (Options componentOptions)
         // resolves with the new setup; its "error" says why a change failed.
         .withNativeFunction ("getAudioSetup", [this] (const juce::Array<juce::var>&, Completion done)
             {
-                auto setup = AudioSetup::describe (deviceManager);
+                auto setup = AudioSetup::describe (deviceManager, listeningToAllInputs);
                 if (auto* o = setup.getDynamicObject())
                     o->setProperty ("error", UserText::typeset (o->getProperty ("error").toString()));
                 done (setup);
             })
         .withNativeFunction ("setAudioSetup", [this, arg] (const juce::Array<juce::var>& a, Completion done)
             {
-                const auto err = AudioSetup::apply (deviceManager, arg (a, 0));
-                auto setup = AudioSetup::describe (deviceManager);
+                const auto changes = arg (a, 0);
+                const auto err = AudioSetup::apply (deviceManager, changes);
+                if (err.isEmpty())
+                    listeningToAllInputs = (bool) changes.getProperty ("listenToAllInputs", false);
+                auto setup = AudioSetup::describe (deviceManager, listeningToAllInputs);
                 if (err.isNotEmpty())
                     setup.getDynamicObject()->setProperty ("error", err);
                 if (auto* o = setup.getDynamicObject())
@@ -161,7 +170,11 @@ WebUIComponent::WebUIComponent (Options componentOptions)
         // WebView itself never navigates away (SEC-5). https only.
         .withNativeFunction ("openUrl", op ([this, arg] (auto& a) { openExternalUrl (arg (a, 0).toString()); }))
         .withNativeFunction ("playTestSound", op ([this] (auto&) { rig.playTestSound(); }))
-        .withNativeFunction ("finishSetup", op ([this] (auto&) { rig.finishSetup(); }))
+        .withNativeFunction ("finishSetup", op ([this, arg] (auto& a)
+            {
+                const auto start = arg (a, 0);
+                rig.finishSetup (start.isVoid() || (bool) start);   // "Skip setup" passes false
+            }))
         .withNativeFunction ("setTuner", op ([this, arg] (auto& a) { rig.setTuner ((bool) arg (a, 0)); }))
         .withNativeFunction ("savePreset", op ([this, arg] (auto& a) { reportError (rig.savePreset (arg (a, 0).toString())); }))
         .withNativeFunction ("loadPreset", op ([this, arg] (auto& a) { loadPreset (arg (a, 0).toString()); }))
@@ -179,8 +192,10 @@ WebUIComponent::WebUIComponent (Options componentOptions)
     // Restore the audio device from last session (device, rate, buffer).
     if (componentOptions.openAudioDevice)
     {
+        // One input: the guitar is mono. First-run setup listens to all of them
+        // while it finds the right one.
         std::unique_ptr<juce::XmlElement> savedAudio (juce::XmlDocument::parse (audioSettingsFile()));
-        setAudioChannels (2, 2, savedAudio.get());
+        setAudioChannels (1, 2, savedAudio.get());
     }
     deviceManager.addChangeListener (this);
 
@@ -291,15 +306,10 @@ RigController::DeviceInfo WebUIComponent::currentDeviceInfo() const
     RigController::DeviceInfo info;
     if (auto* dev = deviceManager.getCurrentAudioDevice())
     {
-        const double sr = dev->getCurrentSampleRate();
         info.name = dev->getName();
-        info.sampleRate = sr;
+        info.sampleRate = dev->getCurrentSampleRate();
         info.bufferSize = dev->getCurrentBufferSizeSamples();
-        // Round trip: one buffer in, one buffer out, plus what the device adds
-        // (the same figure Settings shows, AudioSetup::describe).
-        info.roundTripMs = sr > 0 ? (2.0 * dev->getCurrentBufferSizeSamples()
-                                     + dev->getInputLatencyInSamples() + dev->getOutputLatencyInSamples()) / sr * 1000.0
-                                  : 0.0;
+        info.roundTripMs = AudioSetup::roundTripMs (*dev);   // the same figure Settings shows
     }
     return info;
 }
@@ -413,6 +423,7 @@ void WebUIComponent::finishVstLoad (Vst3Node* node, int gen, bool ok, const juce
     {
         loaded->setStateBase64 (state);
         loaded->setBypassed (! enabled);
+        editorWindow = nullptr;   // an editor reopened on the old plugin meanwhile
         rig.installVst (std::move (loaded));
     }
     else

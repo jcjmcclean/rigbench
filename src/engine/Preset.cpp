@@ -36,7 +36,15 @@ bool isAllowedContentPath (const juce::File& f)
 
     // Sample libraries often live on another drive.
    #if JUCE_MAC
-    return f.isAChildOf (juce::File ("/Volumes"));
+    // An external drive, but not the boot volume's "/Volumes/Macintosh HD" link,
+    // which would let a preset reach any file on the Mac.
+    const juce::File volumes ("/Volumes");
+    if (! f.isAChildOf (volumes))
+        return false;
+    auto vol = f;
+    while (vol.getParentDirectory() != volumes)
+        vol = vol.getParentDirectory();
+    return ! vol.isSymbolicLink();
    #elif JUCE_LINUX
     return f.isAChildOf (juce::File ("/media")) || f.isAChildOf (juce::File ("/mnt"))
         || f.isAChildOf (juce::File ("/run/media"));
@@ -44,7 +52,8 @@ bool isAllowedContentPath (const juce::File& f)
     // Any drive, but not Windows itself or installed programs.
     const auto windows = juce::File::getSpecialLocation (juce::File::windowsSystemDirectory).getParentDirectory();
     const auto programs = juce::File::getSpecialLocation (juce::File::globalApplicationsDirectory);
-    return ! f.isAChildOf (windows) && ! f.isAChildOf (programs);
+    const auto programsX86 = juce::File::getSpecialLocation (juce::File::globalApplicationsDirectoryX86);
+    return ! f.isAChildOf (windows) && ! f.isAChildOf (programs) && ! f.isAChildOf (programsX86);
    #else
     return false;
    #endif

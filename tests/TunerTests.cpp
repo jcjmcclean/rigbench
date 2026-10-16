@@ -34,10 +34,10 @@ TEST_CASE ("Tuner: finds the pitch of every open string within a cent or two", "
     // Standard tuning, plus drop D's low D and a fretted high note.
     for (double hz : { 82.41, 110.0, 146.83, 196.0, 246.94, 329.63, 73.42, 659.26, 1046.5 })
     {
-        for (double rate : { 44100.0, 48000.0, 96000.0 })
+        for (double rate : { 44100.0, 48000.0, 88200.0, 96000.0, 176400.0, 192000.0 })
         {
             CAPTURE (hz, rate);
-            const int n = juce::nextPowerOfTwo ((int) (rate * 2.0 / Tuner::minHz));
+            const int n = Tuner::windowFor (rate);   // the window the app reads
             const auto x = guitarNote (hz, rate, n);
             const double found = Tuner::detectPitch (x.data(), n, rate);
             REQUIRE (found > 0.0);
@@ -151,4 +151,33 @@ TEST_CASE ("Tuner: the controller reports readings in the contract's shape", "[t
     expected.sort (false);
     actual.sort (false);
     REQUIRE (actual == expected);
+}
+
+TEST_CASE ("Tuner: turning it on forgets what it heard last time", "[tuner]")
+{
+    Tuner tuner;
+    tuner.prepare (48000.0);
+    tuner.setActive (true);
+    const auto note = guitarNote (110.0, 48000.0, 8192);
+    tuner.push (note.data(), (int) note.size());
+    REQUIRE (tuner.read().has_value());
+
+    tuner.setActive (false);
+    tuner.setActive (true);
+    REQUIRE_FALSE (tuner.read().has_value());   // silence until something's played
+}
+
+TEST_CASE ("Tuner: the input meter keeps working while tuning", "[tuner][audiopath]")
+{
+    AudioEngine engine;
+    AudioPath path (engine);
+    path.prepare (256, 48000.0);
+    path.setInputGain (1.0f);
+    path.getTuner().setActive (true);
+
+    juce::AudioBuffer<float> io (1, 256);
+    juce::FloatVectorOperations::fill (io.getWritePointer (0), 0.25f, 256);
+    path.process (io, 0, 256);
+    REQUIRE_THAT (path.takeInputPeak(), WithinAbs (0.25, 1e-6));
+    REQUIRE (path.takeOutputPeak() == 0.0f);
 }
