@@ -25,7 +25,8 @@ body::before {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(120% 80% at 50% -10%, rgba(255,122,45,0.06), transparent 55%),
+    radial-gradient(120% 80% at 50% -10%, rgba(63,155,240,0.028), transparent 52%),
+    radial-gradient(90% 60% at 50% 2%, rgba(120,150,180,0.03), transparent 58%),
     radial-gradient(100% 100% at 50% 120%, rgba(0,0,0,0.5), transparent 60%);
   z-index: 0;
 }
@@ -40,7 +41,7 @@ button {
 
 h1, h2, h3, p { margin: 0; }
 
-::selection { background: rgba(255,122,45,0.3); }
+::selection { background: rgba(63,155,240,0.3); }
 
 /* Technical labels — silkscreen faceplate style */
 .eyebrow {

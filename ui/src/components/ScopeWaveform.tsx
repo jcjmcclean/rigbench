@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { bridge } from "../bridge";
 import "./ScopeWaveform.css";
 
-const RING = 900; // decimated samples kept across the visible chain (~0.8s)
+const RING = 300; // decimated samples across the visible chain (~0.25s live window)
 
 // A live oscilloscope of the signal, scrolling left (input) -> right (output).
 // New samples enter at the left and flow rightward, so a pick attack visibly
@@ -53,28 +53,30 @@ export function ScopeWaveform() {
         const frac = x / w;
         const idx = (hd - 1 - Math.floor(frac * (RING - 1)) + RING * 2) % RING;
         const v = r[idx];
-        energy += Math.abs(v);
-        const y = mid - v * amp;
+        // perceptual compression: keep quiet/decayed signal visible across the chain
+        const cv = Math.sign(v) * Math.pow(Math.abs(v), 0.6);
+        energy += Math.abs(cv);
+        const y = mid - cv * amp;
         if (x === 0) path.moveTo(x, y);
         else path.lineTo(x, y);
       }
       const lively = Math.min(1, (energy / w) * 6); // 0 (silent) .. 1 (loud)
 
       // soft baseline cable
-      ctx.strokeStyle = `rgba(184,85,32,${0.25 + 0.15 * lively})`;
+      ctx.strokeStyle = `rgba(37,95,158,${0.25 + 0.15 * lively})`;
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
 
       // glow pass + crisp pass
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
-      ctx.shadowColor = "rgba(255,122,45,0.9)";
+      ctx.shadowColor = "rgba(63,155,240,0.9)";
       ctx.shadowBlur = 6 + 10 * lively;
-      ctx.strokeStyle = `rgba(255,152,80,${0.55 + 0.45 * lively})`;
+      ctx.strokeStyle = `rgba(109,184,255,${0.55 + 0.45 * lively})`;
       ctx.lineWidth = 2;
       ctx.stroke(path);
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = `rgba(255,214,180,${0.3 + 0.6 * lively})`;
+      ctx.strokeStyle = `rgba(200,225,255,${0.3 + 0.6 * lively})`;
       ctx.lineWidth = 1;
       ctx.stroke(path);
     };

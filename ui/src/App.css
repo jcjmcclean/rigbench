@@ -25,8 +25,8 @@
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(60% 55% at 50% 62%, rgba(255, 122, 45, 0.10), transparent 70%),
-    radial-gradient(40% 40% at 50% 62%, rgba(214, 164, 86, 0.06), transparent 75%);
+    radial-gradient(60% 55% at 50% 62%, rgba(63,155,240, 0.055), transparent 70%),
+    radial-gradient(45% 45% at 50% 60%, rgba(90,120,160, 0.035), transparent 78%);
   pointer-events: none;
 }
 .stage::after {

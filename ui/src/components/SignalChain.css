@@ -15,8 +15,8 @@
 
 /* ---- connectors (the signal path) ---- */
 .connector {
-  flex: 0 1 60px;
-  min-width: 28px;
+  flex: 0 1 96px;
+  min-width: 44px;
   position: relative;
   display: flex;
   align-items: center;
@@ -30,7 +30,7 @@
 }
 .connector.is-live .connector__line {
   background: linear-gradient(90deg, transparent, var(--ember-dim) 12%, var(--ember) 50%, var(--ember-dim) 88%, transparent);
-  box-shadow: 0 0 calc(3px + 7px * var(--flow, 0)) rgba(255, 122, 45, calc(0.25 + 0.5 * var(--flow, 0)));
+  box-shadow: 0 0 calc(3px + 7px * var(--flow, 0)) rgba(63,155,240, calc(0.25 + 0.5 * var(--flow, 0)));
   opacity: calc(0.45 + 0.55 * var(--flow, 0));
 }
 .connector__pulse {
@@ -81,7 +81,7 @@
 .terminal__tip {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--ember);
-  box-shadow: 0 0 6px rgba(255, 122, 45, 0.8);
+  box-shadow: 0 0 6px rgba(63,155,240, 0.8);
 }
 .terminal--in .terminal__tip { background: var(--signal); box-shadow: 0 0 6px rgba(79, 210, 194, 0.8); }
 .terminal__label { font-size: 9px; }

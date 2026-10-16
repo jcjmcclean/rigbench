@@ -64,7 +64,7 @@
   background: var(--hairline);
 }
 .presetmenu__item.is-active { color: var(--ink-0); }
-.presetmenu__item.is-active .presetmenu__dot { background: var(--ember); box-shadow: 0 0 6px rgba(255, 122, 45, 0.8); }
+.presetmenu__item.is-active .presetmenu__dot { background: var(--ember); box-shadow: 0 0 6px rgba(63,155,240, 0.8); }
 .presetmenu__divider { height: 1px; margin: 6px 4px; background: var(--hairline-soft); }
 .presetmenu__item--save {
   color: var(--gold);

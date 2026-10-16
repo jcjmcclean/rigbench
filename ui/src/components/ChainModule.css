@@ -54,7 +54,7 @@
   pointer-events: none;
   z-index: 3;
   transition: opacity 0.4s var(--ease);
-  box-shadow: 0 0 calc(3px + 7px * var(--flow, 0)) rgba(255, 122, 45, calc(0.2 + 0.5 * var(--flow, 0)));
+  box-shadow: 0 0 calc(3px + 7px * var(--flow, 0)) rgba(63,155,240, calc(0.2 + 0.5 * var(--flow, 0)));
 }
 .module__bridge::after {
   content: "";
@@ -109,7 +109,7 @@
   background-size: 100% 100%, 100% 2px, 100% 100%;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.14),      /* machined top edge */
-    inset 0 -1px 0 rgba(255,122,45,0.14);      /* faint ember seam */
+    inset 0 -1px 0 rgba(63,155,240,0.14);      /* faint ember seam */
   border-bottom: 1px solid rgba(0,0,0,0.45);
 }
 
@@ -165,7 +165,7 @@
   inset: 16%;
   border-radius: 50%;
   z-index: 1;
-  background: radial-gradient(circle at 38% 32%, #3a2318 0%, #1c0f08 58%, #0b0502 100%);
+  background: radial-gradient(circle at 38% 32%, #15222e 0%, #0a131b 58%, #050a0f 100%);
   box-shadow:
     inset 0 1px 2px rgba(0,0,0,0.9),
     inset 0 0 3px rgba(0,0,0,0.8);
@@ -188,19 +188,19 @@
 /* lit: ember glass + layered bloom, keeps the breathing animation */
 .is-active .module__led::before {
   background: radial-gradient(circle at 38% 30%,
-    var(--ember-core) 0%, var(--ember-hot) 17%, var(--ember) 44%, #c94f12 73%, #7a2c08 100%);
+    var(--ember-core) 0%, var(--ember-hot) 17%, var(--ember) 44%, #1b5e9e 73%, #123a66 100%);
   box-shadow:
-    0 0 5px 1px rgba(255,122,45,0.95),
-    0 0 12px 2px rgba(255,122,45,0.55),
-    0 0 22px 5px rgba(255,105,35,0.28),
-    inset 0 0 4px 1px rgba(255,228,196,0.65),
+    0 0 5px 1px rgba(63,155,240,0.95),
+    0 0 12px 2px rgba(63,155,240,0.55),
+    0 0 22px 5px rgba(40,110,180,0.28),
+    inset 0 0 4px 1px rgba(233,243,255,0.65),
     inset 0 -1px 2px rgba(130,45,8,0.6);
   animation: ledBreath 3.2s ease-in-out infinite;
 }
 .is-active .module__led::after { opacity: 0.92; }
 .is-bypassed .module__led { filter: saturate(0.4) brightness(0.7); opacity: 0.6; }
 .is-bypassed .module__led::before {
-  background: radial-gradient(circle at 38% 30%, var(--ember-dim) 0%, #3a1c0a 70%, #1c0f08 100%);
+  background: radial-gradient(circle at 38% 30%, var(--ember-dim) 0%, #132436 70%, #0a131b 100%);
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.9);
 }
 
@@ -321,7 +321,7 @@
 .module__load:hover {
   border-color: var(--ember-dim);
   color: var(--ember-bright);
-  background: rgba(255,122,45,0.04);
+  background: rgba(63,155,240,0.04);
 }
 .module__plus {
   font-size: 28px;

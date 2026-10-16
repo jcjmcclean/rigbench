@@ -1,38 +1,40 @@
-/* ToneStack design tokens — warm analog amp-faceplate system.
-   Palette is deliberately warm (tolex/tube-glow), not the acid-green-on-black cliché. */
+/* ToneStack design tokens — cool black-steel amp-head system.
+   Brand palette follows the SICO hardware look: black + brushed steel/chrome +
+   electric-blue LEDs. (The --ember* names are kept for compatibility; the values
+   are now blue — "ember" just means "primary accent".) */
 :root {
-  /* Surfaces — warm near-black tolex rising to lifted graphite faceplates */
-  --bg-0: #100e0b;          /* deepest — app background */
-  --bg-1: #141210;          /* base panel */
-  --bg-2: #1c1813;          /* raised */
-  --bg-3: #26211b;          /* faceplate */
-  --bg-4: #322b22;          /* faceplate edge highlight */
-  --hairline: #3a3127;      /* warm divider */
-  --hairline-soft: #2a241d;
+  /* Surfaces — cool near-black rising to steel-graphite faceplates */
+  --bg-0: #0a0b0d;          /* deepest — app background */
+  --bg-1: #0f1116;          /* base panel */
+  --bg-2: #14171c;          /* raised */
+  --bg-3: #1b1f26;          /* faceplate */
+  --bg-4: #272d36;          /* faceplate edge highlight */
+  --hairline: #363d47;      /* cool divider */
+  --hairline-soft: #242a32;
 
-  /* Ink — silkscreened amp lettering */
-  --ink-0: #f4eee2;         /* primary text */
-  --ink-1: #cabfae;         /* bright secondary */
-  --ink-muted: #9a9186;     /* secondary */
-  --ink-faint: #6b6459;     /* tertiary / disabled */
+  /* Ink — brushed-steel silkscreen lettering (cool white) */
+  --ink-0: #eef2f7;         /* primary text */
+  --ink-1: #c4ccd6;         /* bright secondary */
+  --ink-muted: #8a93a0;     /* secondary */
+  --ink-faint: #59616d;     /* tertiary / disabled */
 
-  /* Tube-glow accents (warmth / gain / active signal) */
-  --ember: #ff7a2d;         /* primary accent */
-  --ember-bright: #ff9850;
-  --ember-dim: #b85520;
-  --ember-hot: #ffb373;     /* inner jewel body */
-  --ember-core: #ffe7ce;    /* white-hot jewel centre */
-  --gold: #d6a456;          /* secondary accent */
-  --gold-dim: #8f6f3a;
+  /* Primary accent — SICO electric blue (engage LEDs / active signal). */
+  --ember: #3f9bf0;         /* primary accent */
+  --ember-bright: #6db8ff;
+  --ember-dim: #255f9e;
+  --ember-hot: #a7d3ff;     /* inner jewel body */
+  --ember-core: #e9f3ff;    /* white-hot jewel centre */
+  --gold: #cdd6df;          /* secondary = brushed silver */
+  --gold-dim: #7f8995;
 
-  /* Reserved cool accent — ONLY for level metering, so "signal" != "warmth" */
+  /* Reserved metering accent (stays distinct from the blue accent) */
   --signal: #4fd2c2;
   --signal-dim: #2b7d74;
   --signal-hot: #ff5a4d;    /* meter clip */
 
   /* Semantic */
   --led-on: var(--ember);
-  --led-off: #2e2820;
+  --led-off: #1a1f27;
   --danger: #ff5a4d;
 
   /* Type */
@@ -60,7 +62,7 @@
   --shadow-panel: 0 1px 0 rgba(255,255,255,0.04) inset,
                   0 -1px 0 rgba(0,0,0,0.5) inset,
                   0 10px 30px rgba(0,0,0,0.45);
-  --glow-ember: 0 0 16px rgba(255,122,45,0.45), 0 0 2px rgba(255,122,45,0.8);
+  --glow-ember: 0 0 16px rgba(63,155,240,0.5), 0 0 2px rgba(63,155,240,0.85);
   --glow-signal: 0 0 14px rgba(79,210,194,0.5);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
