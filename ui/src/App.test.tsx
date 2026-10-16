@@ -428,3 +428,41 @@ describe("App Settings", () => {
     expect(fake.setupCounts()).toEqual({ inputPeaks: 0, showSettings: 0 });
   });
 });
+
+describe("App Tuner", () => {
+  const tunerDialog = () => screen.queryByRole("dialog", { name: "Tuner" });
+
+  it("the tuner button opens it (engine tuner on); Done closes it (engine tuner off)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    emit(makeState());
+    await user.click(screen.getByRole("button", { name: "Tuner" }));
+    expect(tunerDialog()).toBeInTheDocument();
+    expect(fake.bridge.setTuner).toHaveBeenLastCalledWith(true);
+
+    act(() => fake.emitTuner({ note: "D", octave: 3, cents: 0, hz: 146.8 }));
+    expect(within(tunerDialog()!).getByText("D")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(tunerDialog()).not.toBeInTheDocument();
+    expect(fake.bridge.setTuner).toHaveBeenLastCalledWith(false);
+  });
+
+  it("isn't shown over first-run setup", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    emit(makeState({ setupComplete: false }));
+    await user.click(screen.getByRole("button", { name: "Tuner" }));
+    expect(tunerDialog()).not.toBeInTheDocument();
+  });
+});
+
+describe("App: the gate counts as part of the rig", () => {
+  it("changing it marks the preset edited", () => {
+    render(<App />);
+    emit(makeState({ gate: 0 }));
+    expect(edited()).not.toBeInTheDocument();
+    emit(makeState({ gate: 0.4 }));
+    expect(edited()).toBeInTheDocument();
+  });
+});

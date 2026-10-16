@@ -19,6 +19,7 @@ export interface EngineState {
   monitoring: boolean;
   inputGain: number;    // 0..1 (trim into the chain)
   masterGain: number;   // 0..1
+  gate: number;         // input noise gate, 0 = off .. 1 (threshold -80..-20 dB)
   playing: boolean;     // signal present
   inputLevel: number;   // 0..1 (peak)
   outputLevel: number;  // 0..1
@@ -58,6 +59,14 @@ export interface AudioSetupChanges {
   bufferSize?: number;
 }
 
+// What the tuner hears (C++ RigController::readTuner).
+export interface TunerReading {
+  note: string;    // "E", "A#" ...
+  octave: number;  // E2 is the low E string
+  cents: number;   // -50..+50 from that note
+  hz: number;
+}
+
 export interface Bridge {
   getState(): Promise<EngineState>;
   subscribe(cb: (s: EngineState) => void): () => void;
@@ -71,6 +80,8 @@ export interface Bridge {
   // Raw level (0..1 peak) of each input the device has open, ~30 Hz. First-run
   // setup uses it to find which input the guitar is on.
   subscribeInputPeaks(cb: (peaks: number[]) => void): () => void;
+  // While the tuner is on: what it hears (~30 Hz), or null when there's no clear note.
+  subscribeTuner(cb: (reading: TunerReading | null) => void): () => void;
   // The native menu's "Settings..." asks the UI to open its Settings screen.
   subscribeShowSettings(cb: () => void): () => void;
   loadSlot(type: SlotType): void;
@@ -81,6 +92,8 @@ export interface Bridge {
   setInput(value: number): void;
   setMaster(value: number): void;
   setMonitor(on: boolean): void;
+  setGate(value: number): void;      // 0 = off
+  setTuner(on: boolean): void;       // tuner on mutes the output
   openEditor(): void;
   savePreset(name: string): void;
   loadPreset(name: string): void;

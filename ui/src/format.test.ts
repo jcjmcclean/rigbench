@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dbFromUnit, pct01, percent } from "./format";
+import { dbFromUnit, gateLabel, pct01, percent } from "./format";
 
 describe("pct01 (unit -> bare integer percent)", () => {
   it.each([
@@ -52,5 +52,15 @@ describe("dbFromUnit (unit -> signed dB trim, x48 dB span centred on 0.5)", () =
     // 0.49 -> -0.48 dB, which rounds to zero: it must read "+0 dB", not "-0 dB".
     expect(dbFromUnit(0.49)).toBe("+0 dB");
     expect(dbFromUnit(0.5 - 1e-9)).toBe("+0 dB");
+  });
+});
+
+describe("gateLabel", () => {
+  it("reads Off at 0, then the threshold in dB (matches AudioPath::gateThresholdDb)", () => {
+    expect(gateLabel(0)).toBe("Off");
+    expect(gateLabel(-0.1)).toBe("Off");
+    expect(gateLabel(0.01)).toBe("-79 dB");
+    expect(gateLabel(0.5)).toBe("-50 dB");
+    expect(gateLabel(1)).toBe("-20 dB");
   });
 });

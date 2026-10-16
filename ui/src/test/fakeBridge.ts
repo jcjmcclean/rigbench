@@ -6,7 +6,7 @@
 // engine events (`fake.emitState`, `fake.emitError`, `fake.emitScope`).
 // Call `fake.reset()` in `beforeEach`.
 import { vi } from "vitest";
-import type { AudioSetup, Bridge, EngineState } from "../types";
+import type { AudioSetup, Bridge, EngineState, TunerReading } from "../types";
 
 export function makeAudioSetup(over: Partial<AudioSetup> = {}): AudioSetup {
   return {
@@ -40,6 +40,7 @@ export function makeState(over: Partial<EngineState> = {}): EngineState {
     monitoring: true,
     inputGain: 0.8,
     masterGain: 0.8,
+    gate: 0,
     playing: true,
     inputLevel: 0,
     outputLevel: 0,
@@ -60,6 +61,7 @@ export function createFakeBridge() {
   const scopeSubs = new Set<(s: number[]) => void>();
   const peakSubs = new Set<(p: number[]) => void>();
   const showSettingsSubs = new Set<() => void>();
+  const tunerSubs = new Set<(r: TunerReading | null) => void>();
   let current: EngineState | null = null;
   let audio = makeAudioSetup();
 
@@ -86,6 +88,10 @@ export function createFakeBridge() {
       showSettingsSubs.add(cb);
       return () => { showSettingsSubs.delete(cb); };
     }),
+    subscribeTuner: vi.fn((cb: (r: TunerReading | null) => void) => {
+      tunerSubs.add(cb);
+      return () => { tunerSubs.delete(cb); };
+    }),
     loadSlot: vi.fn(),
     clearSlot: vi.fn(),
     setBypass: vi.fn(),
@@ -94,6 +100,8 @@ export function createFakeBridge() {
     setInput: vi.fn(),
     setMaster: vi.fn(),
     setMonitor: vi.fn(),
+    setGate: vi.fn(),
+    setTuner: vi.fn(),
     openEditor: vi.fn(),
     savePreset: vi.fn(),
     loadPreset: vi.fn(),
@@ -140,6 +148,10 @@ export function createFakeBridge() {
     emitShowSettings() {
       showSettingsSubs.forEach((cb) => cb());
     },
+    emitTuner(r: TunerReading | null) {
+      tunerSubs.forEach((cb) => cb(r));
+    },
+    tunerSubscribers: () => tunerSubs.size,
     /** Replace the fake audio setup the next getAudioSetup() returns. */
     setAudio(over: Partial<AudioSetup>) {
       audio = makeAudioSetup(over);
@@ -152,6 +164,7 @@ export function createFakeBridge() {
       scopeSubs.clear();
       peakSubs.clear();
       showSettingsSubs.clear();
+      tunerSubs.clear();
       Object.values(bridge).forEach((f) => f.mockClear());
     },
   };

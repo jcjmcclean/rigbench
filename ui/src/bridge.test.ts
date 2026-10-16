@@ -51,6 +51,7 @@ function makeState(over: Partial<EngineState> = {}): EngineState {
     setupComplete: true,
     monitoring: true,
     inputGain: 0.8,
+    gate: 0,
     masterGain: 0.8,
     playing: true,
     inputLevel: 0,
@@ -289,6 +290,8 @@ describe("real bridge: initial state + native calls", () => {
     bridge.setInput(0.1);
     bridge.setMaster(0.9);
     bridge.setMonitor(false);
+    bridge.setGate(0.4);
+    bridge.setTuner(true);
     bridge.openEditor();
     bridge.savePreset("My Rig");
     bridge.loadPreset("Other Rig");
@@ -305,6 +308,8 @@ describe("real bridge: initial state + native calls", () => {
     expect(native("setInput")).toHaveBeenCalledExactlyOnceWith(0.1);
     expect(native("setMaster")).toHaveBeenCalledExactlyOnceWith(0.9);
     expect(native("setMonitor")).toHaveBeenCalledExactlyOnceWith(false);
+    expect(native("setGate")).toHaveBeenCalledExactlyOnceWith(0.4);
+    expect(native("setTuner")).toHaveBeenCalledExactlyOnceWith(true);
     expect(native("openEditor")).toHaveBeenCalledExactlyOnceWith();
     expect(native("playTestSound")).toHaveBeenCalledExactlyOnceWith();
     expect(native("finishSetup")).toHaveBeenCalledExactlyOnceWith();
@@ -450,6 +455,26 @@ describe("real bridge: input peaks (setup's per-input levels)", () => {
     bridge.subscribeInputPeaks((p) => peaks.push(p));
     emit("meters", { inputLevel: 0.5, inputPeaks: [0.4] });
     expect(peaks).toEqual([[0.4]]);
+  });
+
+  it("passes the meters event's tuner reading to tuner subscribers, not into the state", async () => {
+    const { emit } = installBackend();
+    const { bridge } = await importBridge();
+    const states: EngineState[] = [];
+    bridge.subscribe((s) => states.push(s));
+    emit("state", makeState());
+    const readings: unknown[] = [];
+    const off = bridge.subscribeTuner((r) => readings.push(r));
+
+    emit("meters", { inputLevel: 0.2, tuner: { note: "E", octave: 2, cents: -4, hz: 82.2 } });
+    emit("meters", { inputLevel: 0.2, tuner: null });
+    emit("meters", { inputLevel: 0.2 });   // tuner off: no key at all, nothing sent
+    expect(readings).toEqual([{ note: "E", octave: 2, cents: -4, hz: 82.2 }, null]);
+    expect(states[states.length - 1]).not.toHaveProperty("tuner");
+
+    off();
+    emit("meters", { tuner: { note: "A", octave: 2, cents: 0, hz: 110 } });
+    expect(readings).toHaveLength(2);
   });
 
   it("meters without inputPeaks don't call peak subscribers; an empty list is passed on", async () => {

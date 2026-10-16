@@ -47,7 +47,7 @@ type Exact<List extends readonly PropertyKey[], Keys extends PropertyKey> =
   [Exclude<Keys, List[number]>] extends [never] ? ([Exclude<List[number], Keys>] extends [never] ? true : never) : never;
 
 const ENGINE_STATE_KEYS = [
-  "device", "sampleRate", "bufferSize", "roundTripMs", "setupComplete", "monitoring", "inputGain", "masterGain",
+  "device", "sampleRate", "bufferSize", "roundTripMs", "setupComplete", "monitoring", "inputGain", "masterGain", "gate",
   "playing", "inputLevel", "outputLevel", "slots", "presets", "activePreset",
 ] as const;
 const engineStateExact: Exact<typeof ENGINE_STATE_KEYS, keyof EngineState> = true;
@@ -59,12 +59,12 @@ const SLOT_TYPES = ["vst3", "nam", "ir"] as const;
 const slotTypesExact: Exact<typeof SLOT_TYPES, SlotType> = true;
 
 const SUBSCRIPTIONS = [
-  "subscribe", "subscribeScope", "subscribeError", "subscribeInputPeaks", "subscribeShowSettings",
+  "subscribe", "subscribeScope", "subscribeError", "subscribeInputPeaks", "subscribeShowSettings", "subscribeTuner",
 ] as const;
 type BridgeAction = Exclude<keyof Bridge, (typeof SUBSCRIPTIONS)[number]>;
 const BRIDGE_ACTIONS = [
   "getState", "loadSlot", "clearSlot", "setBypass", "setMix", "setGain", "setInput", "setMaster",
-  "setMonitor", "openEditor", "savePreset", "loadPreset",
+  "setMonitor", "setGate", "setTuner", "openEditor", "savePreset", "loadPreset",
   "getAudioSetup", "setAudioSetup", "playTestSound", "finishSetup", "openUrl",
 ] as const;
 const bridgeActionsExact: Exact<typeof BRIDGE_ACTIONS, BridgeAction> = true;

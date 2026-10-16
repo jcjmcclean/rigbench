@@ -4,6 +4,7 @@ import { SignalChain } from "./components/SignalChain";
 import { Toasts, type ToastItem } from "./components/Toast";
 import { Settings } from "./components/Settings";
 import { Setup } from "./components/Setup";
+import { Tuner } from "./components/Tuner";
 import { bridge, isMock } from "./bridge";
 import type { EngineState } from "./types";
 import "./App.css";
@@ -14,7 +15,7 @@ function rigSignature(s: EngineState): string {
   const slots = Object.values(s.slots).map(
     (sl) => `${sl.type}:${sl.loaded}:${sl.name}:${sl.bypassed}:${sl.mix ?? ""}:${sl.gain ?? ""}`,
   );
-  return `${s.inputGain}|${s.masterGain}|${slots.join("|")}`;
+  return `${s.inputGain}|${s.masterGain}|${s.gate}|${slots.join("|")}`;
 }
 
 // How long to wait for the engine's first state before saying it can't be
@@ -33,6 +34,7 @@ export default function App() {
   // Settings screen, and first-run setup (shown until the engine says it's done,
   // or again when asked for from Settings).
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tunerOpen, setTunerOpen] = useState(false);
   const [setupAgain, setSetupAgain] = useState(false);
   const showSetup = !!state && (!state.setupComplete || setupAgain);
   useEffect(() => bridge.subscribeShowSettings(() => setSettingsOpen(true)), []);
@@ -120,7 +122,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar state={state} dirty={dirty} onPresetSaved={onPresetSaved} onOpenSettings={() => setSettingsOpen(true)} />
+      <TopBar state={state} dirty={dirty} onPresetSaved={onPresetSaved} onOpenSettings={() => setSettingsOpen(true)} onOpenTuner={() => setTunerOpen(true)} />
 
       <main className="stage">
         <SignalChain state={state} />
@@ -144,6 +146,7 @@ export default function App() {
           onRunSetup={() => { setSettingsOpen(false); setSetupAgain(true); }}
         />
       )}
+      {tunerOpen && !showSetup && !settingsOpen && <Tuner onClose={() => setTunerOpen(false)} />}
       {showSetup && <Setup onDone={() => setSetupAgain(false)} />}
     </div>
   );

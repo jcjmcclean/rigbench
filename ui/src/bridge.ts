@@ -3,7 +3,7 @@
 // real state first (it imports nothing).
 import { hasRealJuceBackend } from "./juceDetect";
 import * as Juce from "juce-framework-frontend";
-import type { AudioSetup, AudioSetupChanges, Bridge, EngineState, SlotType } from "./types";
+import type { AudioSetup, AudioSetupChanges, Bridge, EngineState, SlotType, TunerReading } from "./types";
 
 // ---------------------------------------------------------------------------
 // The real engine exposes native functions + state/meter events through JUCE's
@@ -67,6 +67,7 @@ function createMockBridge(): Bridge {
     monitoring: !freshInstall,
     inputGain: 0.8,
     masterGain: 0.8,
+    gate: 0,
     playing: true,
     inputLevel: 0,
     outputLevel: 0,
@@ -90,6 +91,8 @@ function createMockBridge(): Bridge {
   let scopePhase = 0;
   const peakSubs = new Set<(p: number[]) => void>();
   const showSettingsSubs = new Set<() => void>();
+  const tunerSubs = new Set<(r: TunerReading | null) => void>();
+  let tuning = false;
 
   // Animate meters so the UI feels alive. A slow "playing" cycle with a
   // strummed envelope; levels only reach the output meter through un-bypassed slots.
@@ -105,6 +108,13 @@ function createMockBridge(): Bridge {
     const chainGain = anyLoaded ? 1.15 : 1;
     state.outputLevel = Math.min(1, state.inputLevel * chainGain * state.masterGain);
     emit();
+
+    // Tuner: a low E string, settling into tune as it rings, then silence.
+    if (tuning && tunerSubs.size) {
+      const sounding = phase < 0.75;
+      const cents = Math.round(-18 * Math.exp(-phase * 4) * 10) / 10;
+      tunerSubs.forEach((cb) => cb(sounding ? { note: "E", octave: 2, cents, hz: 82.41 * 2 ** (cents / 1200) } : null));
+    }
 
     // Raw input levels: the guitar strums on its input, the others just hiss.
     if (peakSubs.size) {
@@ -157,6 +167,10 @@ function createMockBridge(): Bridge {
       showSettingsSubs.add(cb);
       return () => showSettingsSubs.delete(cb);
     },
+    subscribeTuner(cb) {
+      tunerSubs.add(cb);
+      return () => tunerSubs.delete(cb);
+    },
     loadSlot(type) {
       const s = state.slots[type];
       s.loaded = true;
@@ -177,6 +191,8 @@ function createMockBridge(): Bridge {
     setInput(value) { state.inputGain = value; emit(); },
     setMaster(value) { state.masterGain = value; emit(); },
     setMonitor(on) { state.monitoring = on; state.playing = on; emit(); },
+    setGate(value) { state.gate = value; emit(); },
+    setTuner(on) { tuning = on; },
     openEditor() { /* native-only */ },
     async getAudioSetup() { return { ...audio }; },
     async setAudioSetup(c: AudioSetupChanges) {
@@ -230,6 +246,8 @@ function createJuceBridge(): Bridge {
     setInput: fn("setInput"),
     setMaster: fn("setMaster"),
     setMonitor: fn("setMonitor"),
+    setGate: fn("setGate"),
+    setTuner: fn("setTuner"),
     openEditor: fn("openEditor"),
     savePreset: fn("savePreset"),
     loadPreset: fn("loadPreset"),
@@ -247,16 +265,21 @@ function createJuceBridge(): Bridge {
   const errSubs = new Set<(m: string) => void>();
   const emitError = (m: string) => errSubs.forEach((cb) => cb(m));
   const peakSubs = new Set<(p: number[]) => void>();
+  const tunerSubs = new Set<(r: TunerReading | null) => void>();
 
   // Non-null: createJuceBridge only runs when hasRealJuceBackend is true.
   const backend = window.__JUCE__!.backend!;
 
   backend.addEventListener("state", (s: unknown) => { current = s as EngineState; notify(); });
-  // Meters carry the main levels (merged into the state) and each input's raw
-  // level (passed to setup on its own channel).
+  // Meters carry the main levels (merged into the state), each input's raw level
+  // (for setup) and the tuner's reading; the last two go out on their own channels.
   backend.addEventListener("meters", (m: unknown) => {
-    const { inputPeaks, ...levels } = m as Partial<EngineState> & { inputPeaks?: number[] };
+    const { inputPeaks, tuner, ...levels } = m as Partial<EngineState> & {
+      inputPeaks?: number[];
+      tuner?: TunerReading | null;
+    };
     if (inputPeaks) peakSubs.forEach((cb) => cb(inputPeaks));
+    if (tuner !== undefined) tunerSubs.forEach((cb) => cb(tuner ?? null));
     if (current) { current = { ...current, ...levels }; notify(); }
   });
   // The engine emits failures (a model or plugin that wouldn't load, a bad preset
@@ -290,6 +313,10 @@ function createJuceBridge(): Bridge {
       const tok = backend.addEventListener("showSettings", () => cb());
       return () => backend.removeEventListener?.(tok);
     },
+    subscribeTuner(cb) {
+      tunerSubs.add(cb);
+      return () => { tunerSubs.delete(cb); };
+    },
     loadSlot: (t) => void f.loadSlot(t),
     clearSlot: (t) => void f.clearSlot(t),
     setBypass: (t, b) => void f.setBypass(t, b),
@@ -298,6 +325,8 @@ function createJuceBridge(): Bridge {
     setInput: (v) => void f.setInput(v),
     setMaster: (v) => void f.setMaster(v),
     setMonitor: (b) => void f.setMonitor(b),
+    setGate: (v) => void f.setGate(v),
+    setTuner: (b) => void f.setTuner(b),
     openEditor: () => void f.openEditor(),
     savePreset: (n) => void f.savePreset(n),
     loadPreset: (n) => void f.loadPreset(n),

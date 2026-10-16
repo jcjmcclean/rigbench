@@ -72,6 +72,19 @@ describe("SignalChain -> bridge wiring", () => {
     expect(fake.bridge.setGain).not.toHaveBeenCalled();
   });
 
+  it("the input Gate knob reads Off by default and calls setGate", () => {
+    render(<SignalChain state={makeState({ gate: 0 })} />);
+    const gate = screen.getByRole("slider", { name: "Gate" });
+    expect(gate).toHaveAttribute("aria-valuetext", "Off");
+    fireEvent.keyDown(gate, { key: "ArrowUp" });
+    expect(fake.bridge.setGate.mock.calls[0][0]).toBeCloseTo(0.05, 6);
+  });
+
+  it("the Gate knob shows its threshold once on", () => {
+    render(<SignalChain state={makeState({ gate: 0.5 })} />);
+    expect(screen.getByRole("slider", { name: "Gate" })).toHaveAttribute("aria-valuetext", "-50 dB");
+  });
+
   it.each<SlotType>(["vst3", "nam", "ir"])("bypass on %s calls setBypass with that slot", (type) => {
     render(<SignalChain state={fullRig()} />);
     fireEvent.click(slot(type).getByRole("button", { name: "ON" }));

@@ -16,3 +16,7 @@ export const dbFromUnit = (v: number) => {
   const d = Number(((v - 0.5) * 48).toFixed(0));
   return `${d >= 0 ? "+" : ""}${d} dB`;
 };
+
+// Noise gate amount [0..1] -> its threshold, "Off" at 0 (e.g. 0.5 -> "-50 dB").
+// MUST match C++ AudioPath::gateThresholdDb: -80 + 60 * amount.
+export const gateLabel = (v: number) => (v <= 0 ? "Off" : `${Math.round(-80 + 60 * v)} dB`);

@@ -17,11 +17,13 @@ export function TopBar({
   dirty,
   onPresetSaved,
   onOpenSettings,
+  onOpenTuner,
 }: {
   state: EngineState;
   dirty: boolean;
   onPresetSaved?: (name: string) => void;
   onOpenSettings?: () => void;
+  onOpenTuner?: () => void;
 }) {
   const latTone = state.roundTripMs < 12 ? "good" : state.roundTripMs < 20 ? "warn" : "bad";
   // Pair the colour with a word so the status isn't colour-only.
@@ -49,6 +51,12 @@ export function TopBar({
 
       <div className="topbar__actions">
         <PresetMenu presets={state.presets} active={state.activePreset} dirty={dirty} onSaved={onPresetSaved} />
+        <button className="iconbtn" onClick={onOpenTuner} title="Tuner" aria-label="Tuner">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M9 2v8a3 3 0 0 0 6 0V2" />
+            <path d="M12 13v9" />
+          </svg>
+        </button>
         <button
           className={`transport ${state.monitoring ? "is-live" : ""}`}
           onClick={() => bridge.setMonitor(!state.monitoring)}

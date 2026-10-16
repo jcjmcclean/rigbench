@@ -5,7 +5,7 @@ import { Knob } from "./Knob";
 import { ScopeWaveform } from "./ScopeWaveform";
 import { bridge } from "../bridge";
 import type { EngineState, SlotType } from "../types";
-import { pct01 } from "../format";
+import { gateLabel, pct01 } from "../format";
 import "./SignalChain.css";
 
 const ORDER: SlotType[] = ["vst3", "nam", "ir"];
@@ -39,13 +39,22 @@ function Terminal({
       </div>
       <span className="terminal__label eyebrow">{kind === "in" ? "Input" : "Output"}</span>
       {kind === "in" && (
-        <Knob
-          value={state.inputGain}
-          onChange={(v) => bridge.setInput(v)}
-          label="Gain"
-          size={52}
-          format={pct01}
-        />
+        <>
+          <Knob
+            value={state.inputGain}
+            onChange={(v) => bridge.setInput(v)}
+            label="Gain"
+            size={52}
+            format={pct01}
+          />
+          <Knob
+            value={state.gate}
+            onChange={(v) => bridge.setGate(v)}
+            label="Gate"
+            size={40}
+            format={gateLabel}
+          />
+        </>
       )}
       {kind === "out" && (
         <Knob
