@@ -5,9 +5,20 @@ project(ToneStack VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)        # NAM core requires C++20
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Apple Silicon first; universal later if we want it.
-if(NOT CMAKE_OSX_ARCHITECTURES)
-    set(CMAKE_OSX_ARCHITECTURES "arm64")
+# Architecture: arm64 for fast dev builds. Turn on TONESTACK_UNIVERSAL for a
+# distributable Universal 2 binary (arm64 + x86_64) so Intel Macs can run it too
+# (roughly doubles build time). Pin a deployment target so a build on a newer
+# macOS doesn't accidentally require that same OS on the recipient's machine.
+option(TONESTACK_UNIVERSAL "Build a Universal 2 (arm64;x86_64) binary for distribution" OFF)
+if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
+    if(TONESTACK_UNIVERSAL)
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+    else()
+        set(CMAKE_OSX_ARCHITECTURES "arm64")
+    endif()
+endif()
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 endif()
 
 include(FetchContent)
@@ -55,11 +66,42 @@ juce_add_gui_app(ToneStack
     MICROPHONE_PERMISSION_ENABLED TRUE
     MICROPHONE_PERMISSION_TEXT "ToneStack needs audio input to process your guitar."
     NEEDS_WEB_BROWSER TRUE
+    NEEDS_WEBVIEW2 TRUE          # Windows: WebView2 backs the UI bridge (ignored off-Windows)
 )
+
+# Build the React UI and pack it into assets/webui.zip, driven by the build so
+# the embedded UI can never go stale (it used to be hand-built + git-committed,
+# which is why the WebView needed a per-launch cache-bust hack). cmake -E tar
+# keeps the zip step cross-platform (no `zip` CLI needed on Windows runners).
+set(TONESTACK_WEBUI_ZIP ${CMAKE_CURRENT_SOURCE_DIR}/assets/webui.zip)
+set(TONESTACK_UI_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/ui)
+find_program(NPM_EXECUTABLE npm)
+if(NPM_EXECUTABLE)
+    file(GLOB_RECURSE TONESTACK_UI_SOURCES CONFIGURE_DEPENDS
+        ${TONESTACK_UI_DIR}/src/*
+        ${TONESTACK_UI_DIR}/index.html
+        ${TONESTACK_UI_DIR}/package.json)
+    add_custom_command(
+        OUTPUT  ${TONESTACK_WEBUI_ZIP}
+        COMMAND ${NPM_EXECUTABLE} run build
+        COMMAND ${CMAKE_COMMAND} -E rm -f ${TONESTACK_WEBUI_ZIP}
+        COMMAND ${CMAKE_COMMAND} -E chdir ${TONESTACK_UI_DIR}/dist
+                ${CMAKE_COMMAND} -E tar cf ${TONESTACK_WEBUI_ZIP} --format=zip .
+        WORKING_DIRECTORY ${TONESTACK_UI_DIR}
+        DEPENDS ${TONESTACK_UI_SOURCES}
+        COMMENT "Building React UI -> assets/webui.zip"
+        VERBATIM)
+    add_custom_target(tonestack_ui DEPENDS ${TONESTACK_WEBUI_ZIP})
+else()
+    message(WARNING "npm not found: embedding the existing assets/webui.zip. "
+                    "Install Node.js to rebuild the UI from source.")
+    add_custom_target(tonestack_ui)
+endif()
 
 # Embed the built React UI (ui/dist zipped) as binary data served by the WebView.
 juce_add_binary_data(ToneStackWebUI
-    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/assets/webui.zip)
+    SOURCES ${TONESTACK_WEBUI_ZIP})
+add_dependencies(ToneStackWebUI tonestack_ui)
 
 # Shared audio-engine sources (used by both the app and the offline self-test).
 set(TONESTACK_ENGINE_SOURCES
@@ -95,7 +137,7 @@ target_link_libraries(ToneStack PRIVATE
     juce::juce_audio_processors
     juce::juce_dsp
     juce::juce_gui_extra
-    PUBLIC
+    PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )
@@ -111,13 +153,15 @@ set_target_properties(ToneStack PROPERTIES
 # Sign with a stable self-signed identity ("ToneStack Dev") if it exists, so macOS
 # TCC remembers the microphone grant across rebuilds (ad-hoc signing changes the
 # identity every build and re-prompts). Best-effort: skipped if the cert isn't set up.
-add_custom_command(TARGET ToneStack POST_BUILD
-    COMMAND /bin/sh -c "ID='ToneStack Dev'; APP='$<TARGET_BUNDLE_DIR:ToneStack>'; \
-        if security find-identity -v -p codesigning 2>/dev/null | grep -q \"$ID\"; then \
-            codesign --force --sign \"$ID\" \"$APP\" 2>/dev/null && echo \"[sign] signed with $ID\" || echo '[sign] sign attempt failed - staying ad-hoc'; \
-        else echo '[sign] no stable identity - ad-hoc (mic re-prompts each build). See README.'; fi; \
-        true"
-    VERBATIM)
+if(APPLE)
+    add_custom_command(TARGET ToneStack POST_BUILD
+        COMMAND /bin/sh -c "ID='ToneStack Dev'; APP='$<TARGET_BUNDLE_DIR:ToneStack>'; \
+            if security find-identity -v -p codesigning 2>/dev/null | grep -q \"$ID\"; then \
+                codesign --force --sign \"$ID\" \"$APP\" 2>/dev/null && echo \"[sign] signed with $ID\" || echo '[sign] sign attempt failed - staying ad-hoc'; \
+            else echo '[sign] no stable identity - ad-hoc (mic re-prompts each build). See README.'; fi; \
+            true"
+        VERBATIM)
+endif()
 
 #==============================================================================
 # Offline bench (console app) — simulated audio interface for deterministic
@@ -147,7 +191,7 @@ target_link_libraries(tonestack_bench PRIVATE
     juce::juce_audio_formats
     juce::juce_dsp
     juce::juce_audio_basics
-    PUBLIC
+    PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )
