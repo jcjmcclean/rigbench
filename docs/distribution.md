@@ -89,6 +89,17 @@ installer (bundle the WebView2 bootstrapper).
 ## CI
 
 `.github/workflows/build.yml` builds on `macos-latest` / `ubuntu-latest` /
-`windows-latest` and uploads a per-OS artifact (DMG / tarball / zip) on manual
-dispatch or a `v*` tag. `.github/workflows/ci.yml` runs the C++ selftest and the
-UI tests on every push. Native runners only — no cross-compilation.
+`windows-latest` (native runners only — no cross-compilation). A **`v*` tag
+publishes a GitHub Release** with all three binaries attached (DMG / tarball /
+zip); a manual **Actions → build → Run workflow** leaves them as run artifacts.
+`.github/workflows/ci.yml` runs the C++ selftest and the UI tests on every push.
+
+Cut a release:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0      # runs the matrix and creates the GitHub Release
+```
+
+Prerequisite: the repo must be on GitHub (push it + enable Actions) — a local-only
+repo won't run CI.
