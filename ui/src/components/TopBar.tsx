@@ -12,8 +12,10 @@ function Telem({ label, value, tone }: { label: string; value: string; tone?: st
   );
 }
 
-export function TopBar({ state }: { state: EngineState }) {
+export function TopBar({ state, dirty }: { state: EngineState; dirty: boolean }) {
   const latTone = state.roundTripMs < 12 ? "good" : state.roundTripMs < 20 ? "warn" : "bad";
+  // Pair the colour with a word so the status isn't colour-only.
+  const latWord = latTone === "good" ? "low" : latTone === "warn" ? "med" : "high";
 
   return (
     <header className="topbar">
@@ -27,11 +29,11 @@ export function TopBar({ state }: { state: EngineState }) {
         <span className="topbar__sep" />
         <Telem label="Rate" value={`${(state.sampleRate / 1000).toFixed(1)} kHz`} />
         <Telem label="Buffer" value={`${state.bufferSize}`} />
-        <Telem label="Latency" value={`${state.roundTripMs.toFixed(1)} ms`} tone={latTone} />
+        <Telem label="Latency" value={`${state.roundTripMs.toFixed(1)} ms · ${latWord}`} tone={latTone} />
       </div>
 
       <div className="topbar__actions">
-        <PresetMenu presets={state.presets} active={state.activePreset} />
+        <PresetMenu presets={state.presets} active={state.activePreset} dirty={dirty} />
         <button
           className={`transport ${state.monitoring ? "is-live" : ""}`}
           onClick={() => bridge.setMonitor(!state.monitoring)}

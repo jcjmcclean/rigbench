@@ -132,7 +132,7 @@
   text-shadow: 0 -1px 0 rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.08);
 }
 .module__role {
-  font-size: 9px;
+  font-size: var(--t-2xs);
   color: var(--ink-muted);
   text-shadow: 0 1px 0 rgba(0,0,0,0.4);
 }
@@ -204,6 +204,10 @@
   background: rgba(0,0,0,0.25);
   border: 1px solid var(--hairline-soft);
   width: 100%;
+  /* long NAM/IR filenames are worth copying — re-enable selection (body is none) */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .module__controls {
@@ -248,13 +252,27 @@
   position: absolute;
   top: var(--sp-3); right: var(--sp-3);
   width: 20px; height: 20px;
-  font-size: 11px;
+  font-size: var(--t-xs);
   color: var(--ink-faint);
   opacity: 0;
   transition: opacity 0.2s, color 0.2s;
 }
-.module:hover .module__clear { opacity: 1; }
+/* reveal on hover, and on keyboard focus anywhere in the module (otherwise the
+   ✕ is invisible-but-focusable) */
+.module:hover .module__clear,
+.module:focus-within .module__clear,
+.module__clear:focus-visible { opacity: 1; }
 .module__clear:hover { color: var(--danger); }
+
+/* touch has no hover — keep the ✕ always visible and tap-sized */
+@media (pointer: coarse), (max-width: 820px) {
+  .module__clear {
+    opacity: 1;
+    width: 44px; height: 44px;
+    top: var(--sp-2); right: var(--sp-2);
+    display: grid; place-items: center;
+  }
+}
 
 /* ---- empty state ---- */
 .module__load {
@@ -294,3 +312,26 @@
 
 .is-empty .module__panel { opacity: 0.92; }
 .is-empty .module__panel::before { opacity: 0.4; }
+
+/* ---- touch: enlarge sub-44px hit targets on coarse pointers ---- */
+@media (pointer: coarse) {
+  .module__bypass { min-height: 44px; padding: 10px 16px; }
+  .module__change { padding: 12px 16px; }
+  .module__editor { padding: 13px 18px; }
+}
+
+/* ---- mobile (vertical rack): the bypass "route-around" is a vertical axis ---- */
+@media (max-width: 820px) {
+  /* bridge runs vertically through the connector gap, not left-to-right */
+  .module__bridge {
+    top: -10px; bottom: -10px; left: 50%; right: auto;
+    width: 2px; height: auto;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, transparent, var(--ember-dim) 10%, var(--ember) 50%, var(--ember-dim) 90%, transparent);
+  }
+  .module__bridge::after { top: 0; left: 50%; }
+  .is-bypassed .module__bridge::after { animation: pulseMoveV 1.15s linear infinite; }
+  /* don't drop the panel downward (it would overlap the module below) — step
+     aside with scale + desaturate instead */
+  .is-bypassed .module__panel { transform: scale(0.97); }
+}

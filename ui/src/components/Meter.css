@@ -49,12 +49,18 @@
   box-shadow: 0 0 5px rgba(var(--signal-rgb),0.75), inset 0 0 2px rgba(255,255,255,0.5);
 }
 .meter__seg--warn.is-on {
-  background: linear-gradient(#f3dca3 0%, var(--gold) 55%);
-  box-shadow: 0 0 5px rgba(214,164,86,0.75), inset 0 0 2px rgba(255,255,255,0.5);
+  background: linear-gradient(#f3dca3 0%, var(--warn) 55%);
+  box-shadow: 0 0 5px rgba(var(--warn-rgb),0.75), inset 0 0 2px rgba(255,255,255,0.5);
 }
+/* clip zone: red AND shape-coded (square cell + bright ring) so it reads without
+   relying on colour alone */
 .meter__seg--clip.is-on {
   background: linear-gradient(#ff9e92 0%, var(--signal-hot) 55%);
-  box-shadow: 0 0 6px rgba(var(--danger-rgb),0.85), inset 0 0 2px rgba(255,255,255,0.5);
+  border-radius: 0;
+  box-shadow:
+    0 0 6px rgba(var(--danger-rgb),0.85),
+    inset 0 0 0 1px rgba(255,255,255,0.7),
+    inset 0 0 2px rgba(255,255,255,0.5);
 }
 
-.meter__label { font-size: 9px; }
+.meter__label { font-size: var(--t-2xs); }

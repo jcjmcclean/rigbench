@@ -49,7 +49,7 @@ export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onG
               onClick={() => onBypass(!slot.bypassed)}
               title={slot.bypassed ? "Bypassed — click to engage" : "Engaged — click to bypass"}
             >
-              {slot.bypassed ? "BYP" : "ON"}
+              {slot.bypassed ? "BYPASS" : "ON"}
             </button>
           )}
         </div>

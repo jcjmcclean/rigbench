@@ -10,9 +10,16 @@ import "./SignalChain.css";
 
 const ORDER: SlotType[] = ["vst3", "nam", "ir"];
 
-// Spacer between units; the live ScopeWaveform shows through here.
-function Connector() {
-  return <div className="connector" aria-hidden />;
+// The signal path between units. On desktop the ScopeWaveform canvas is the
+// visible cable (threaded behind the rack), so these line/pulse spans are hidden
+// by CSS; on mobile the scope is gone, so they become the visible cable.
+function Connector({ live }: { live: boolean }) {
+  return (
+    <div className={`connector${live ? " is-live" : ""}`} aria-hidden>
+      <span className="connector__line" />
+      <span className="connector__pulse" />
+    </div>
+  );
 }
 
 function Terminal({
@@ -57,13 +64,14 @@ function Terminal({
 export function SignalChain({ state }: { state: EngineState }) {
   // No idle floor: when there's no signal, nothing flows.
   const flow = state.playing ? state.outputLevel : 0;
+  const live = state.playing;
 
   return (
     <div className="chain" style={{ ["--flow" as string]: flow }}>
       <ScopeWaveform />
 
       <Terminal kind="in" level={state.inputLevel} state={state} />
-      <Connector />
+      <Connector live={live} />
 
       {ORDER.map((type, i) => (
         <Fragment key={type}>
@@ -77,7 +85,7 @@ export function SignalChain({ state }: { state: EngineState }) {
             onGain={(v) => bridge.setGain(type, v)}
             onEditor={() => bridge.openEditor()}
           />
-          <Connector />
+          <Connector live={live} />
         </Fragment>
       ))}
 

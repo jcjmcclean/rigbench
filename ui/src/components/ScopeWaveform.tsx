@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { bridge } from "../bridge";
 import "./ScopeWaveform.css";
 
@@ -12,6 +12,21 @@ export function ScopeWaveform() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ring = useRef(new Float32Array(RING));
   const head = useRef(0);
+  const [reduced, setReduced] = useState(
+    () => typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+
+  // Honor the OS "reduce motion" setting (and live changes to it): the scope's
+  // rAF loop + flowing glow dot are continuous motion the CSS media query can't
+  // reach, so we gate them here and fall back to a static line.
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     return bridge.subscribeScope((samples) => {
@@ -24,6 +39,29 @@ export function ScopeWaveform() {
   }, []);
 
   useEffect(() => {
+    // Reduced motion: draw a single static cable line, no rAF loop, no flow dot.
+    if (reduced) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (w === 0 || h === 0) return;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const mid = h / 2;
+      ctx.strokeStyle = "rgba(63,155,240,0.4)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, mid);
+      ctx.lineTo(w, mid);
+      ctx.stroke();
+      return;
+    }
+
     let raf = 0;
     const draw = (ts: number) => {
       raf = requestAnimationFrame(draw);
@@ -113,7 +151,7 @@ export function ScopeWaveform() {
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [reduced]);
 
   return <canvas ref={canvasRef} className="scope" aria-hidden />;
 }

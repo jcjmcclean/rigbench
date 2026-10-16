@@ -43,6 +43,10 @@ function createMockBridge(): Bridge {
   const subs = new Set<(s: EngineState) => void>();
   const emit = () => subs.forEach((cb) => cb({ ...state, slots: { ...state.slots } }));
 
+  // No real backend in the browser, so no error events — wire a no-op channel so
+  // the Bridge shape matches the JUCE engine. (A demo error could be emitted here.)
+  const errSubs = new Set<(m: string) => void>();
+
   const scopeSubs = new Set<(s: number[]) => void>();
   let scopePhase = 0;
 
@@ -89,6 +93,10 @@ function createMockBridge(): Bridge {
     subscribeScope(cb) {
       scopeSubs.add(cb);
       return () => scopeSubs.delete(cb);
+    },
+    subscribeError(cb) {
+      errSubs.add(cb);
+      return () => errSubs.delete(cb);
     },
     loadSlot(type) {
       const s = state.slots[type];
@@ -144,6 +152,9 @@ function createJuceBridge(): Bridge {
   const subs = new Set<(s: EngineState) => void>();
   const notify = () => { if (current) subs.forEach((cb) => cb(current as EngineState)); };
 
+  const errSubs = new Set<(m: string) => void>();
+  const emitError = (m: string) => errSubs.forEach((cb) => cb(m));
+
   // Non-null: createJuceBridge only runs when hasRealJuceBackend is true.
   const backend = window.__JUCE__!.backend!;
 
@@ -151,18 +162,27 @@ function createJuceBridge(): Bridge {
   backend.addEventListener("meters", (m: unknown) => {
     if (current) { current = { ...current, ...(m as Partial<EngineState>) }; notify(); }
   });
+  // Phase 1 emits load failures as an "error" event carrying a string message.
+  backend.addEventListener("error", (e: unknown) => emitError(String(e)));
 
   return {
     getState: async () => { current = (await f.getState()) as EngineState; return current; },
     subscribe(cb) {
       subs.add(cb);
       if (current) cb(current);
-      else void f.getState().then((s) => { current = s as EngineState; cb(current); });
+      else void f.getState().then(
+        (s) => { current = s as EngineState; cb(current); },
+        (err) => emitError(`Couldn't reach the audio engine: ${String(err)}`),
+      );
       return () => { subs.delete(cb); };
     },
     subscribeScope(cb) {
       const tok = backend.addEventListener("scope", (v: unknown) => cb(v as number[]));
       return () => backend.removeEventListener?.(tok);
+    },
+    subscribeError(cb) {
+      errSubs.add(cb);
+      return () => { errSubs.delete(cb); };
     },
     loadSlot: (t) => void f.loadSlot(t),
     clearSlot: (t) => void f.clearSlot(t),
