@@ -62,6 +62,8 @@ public:
     const juce::String& getActivePreset() const noexcept { return activePreset; }
 
     juce::String savePreset (const juce::String& name);   // "" on success
+    juce::String renamePreset (const juce::String& from, const juce::String& to);   // "" on success
+    juce::String deletePreset (const juce::String& name);                          // "" on success
     // VST3 slots are handed to `installVst` (the GUI asks for consent first).
     juce::String loadPreset (const juce::String& name,
                              std::function<void (const Preset::VstSlot&)> installVstSlot = {});

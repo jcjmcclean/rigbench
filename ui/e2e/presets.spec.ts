@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { editedMarker, knob, openApp, presetTrigger } from "./helpers.ts";
 
 const listbox = (page: Page) => page.getByRole("listbox", { name: "Presets" });
+// A preset by its exact name (the Rename/Delete items contain the active name too).
+const preset = (page: Page, name: string) => page.getByRole("option", { name, exact: true });
 
 async function makeAnEdit(page: Page) {
   await knob(page, "Master").focus();
@@ -16,9 +18,10 @@ test.describe("preset menu", () => {
     await expect(listbox(page)).toBeVisible();
     await expect(listbox(page).getByRole("option")).toHaveText([
       "Gilmour Clean", "Page Crunch", "Hiwatt Lead", "Bedroom Low-Volume", "+ Save current rig…",
+      "Rename “Hiwatt Lead”…", "Delete “Hiwatt Lead”…",
     ]);
-    await expect(page.getByRole("option", { name: "Hiwatt Lead" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("option", { name: "Hiwatt Lead" })).toBeFocused();
+    await expect(preset(page, "Hiwatt Lead")).toHaveAttribute("aria-selected", "true");
+    await expect(preset(page, "Hiwatt Lead")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(listbox(page)).toHaveCount(0);
     await expect(presetTrigger(page)).toBeFocused();
@@ -46,8 +49,8 @@ test.describe("preset menu", () => {
     await expect(page.getByRole("option", { name: "Bedroom Low-Volume" })).toBeFocused();
     await page.keyboard.press("Home");
     await expect(page.getByRole("option", { name: "Gilmour Clean" })).toBeFocused();
-    await page.keyboard.press("ArrowUp"); // wraps to the save action
-    await expect(page.getByRole("option", { name: "+ Save current rig…" })).toBeFocused();
+    await page.keyboard.press("ArrowUp"); // wraps to the last action
+    await expect(page.getByRole("option", { name: "Delete “Hiwatt Lead”…" })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(presetTrigger(page)).toContainText("Gilmour Clean");
@@ -79,8 +82,8 @@ test.describe("preset menu", () => {
     await expect(presetTrigger(page)).toContainText("Late Night Lead");
     await expect(editedMarker(page)).toHaveCount(0);
     await presetTrigger(page).click();
-    await expect(page.getByRole("option", { name: "Late Night Lead" })).toHaveAttribute("aria-selected", "true");
-    await expect(listbox(page).getByRole("option")).toHaveCount(6);
+    await expect(preset(page, "Late Night Lead")).toHaveAttribute("aria-selected", "true");
+    await expect(listbox(page).getByRole("option")).toHaveCount(8);   // 5 presets + save, rename, delete
   });
 
   test("save dialog: Enter saves; empty names are rejected", async ({ page }) => {
@@ -115,7 +118,7 @@ test.describe("preset menu", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(presetTrigger(page)).toContainText("Hiwatt Lead");
     await presetTrigger(page).click();
-    await expect(listbox(page).getByRole("option")).toHaveCount(5);
+    await expect(listbox(page).getByRole("option")).toHaveCount(7);   // nothing was added
   });
 
   test("saving over the active preset clears 'edited' without duplicating it", async ({ page }) => {
@@ -125,10 +128,11 @@ test.describe("preset menu", () => {
     await page.getByRole("option", { name: "+ Save current rig…" }).click();
     const field = page.getByRole("dialog").getByPlaceholder("Preset name");
     await field.fill("Hiwatt Lead");
+    await expect(page.getByRole("dialog").getByRole("button", { name: "Replace" })).toBeVisible();
     await field.press("Enter");
     await expect(editedMarker(page)).toHaveCount(0);
     await presetTrigger(page).click();
-    await expect(page.getByRole("option", { name: "Hiwatt Lead" })).toHaveCount(1);
+    await expect(preset(page, "Hiwatt Lead")).toHaveCount(1);
   });
 
   test("save dialog keeps focus where the user tabs while the meters stream", async ({ page }) => {
@@ -158,5 +162,25 @@ test.describe("preset menu", () => {
     await expect(dialog.getByRole("button", { name: "Save" })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(field).toBeFocused();
+  });
+});
+
+test.describe("rename and delete", () => {
+  test("rename the active preset, then delete it", async ({ page }) => {
+    await openApp(page);
+    await presetTrigger(page).click();
+    await page.getByRole("option", { name: "Rename “Hiwatt Lead”…" }).click();
+    const field = page.getByRole("textbox", { name: "New name" });
+    await field.fill("Big Lead");
+    await field.press("Enter");
+    await expect(presetTrigger(page)).toContainText("Big Lead");
+
+    await presetTrigger(page).click();
+    await expect(preset(page, "Hiwatt Lead")).toHaveCount(0);
+    await page.getByRole("option", { name: "Delete “Big Lead”…" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+    await expect(presetTrigger(page)).toContainText("Init");
+    await presetTrigger(page).click();
+    await expect(preset(page, "Big Lead")).toHaveCount(0);
   });
 });

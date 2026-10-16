@@ -97,6 +97,8 @@ export interface Bridge {
   openEditor(): void;
   savePreset(name: string): void;
   loadPreset(name: string): void;
+  renamePreset(from: string, to: string): void;
+  deletePreset(name: string): void;   // the rig keeps playing; it's just not saved any more
   getAudioSetup(): Promise<AudioSetup>;
   setAudioSetup(changes: AudioSetupChanges): Promise<AudioSetup>;
   playTestSound(): void;

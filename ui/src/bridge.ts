@@ -224,6 +224,16 @@ function createMockBridge(): Bridge {
       emit();
     },
     loadPreset(name) { state.activePreset = name; emit(); },
+    renamePreset(from, to) {
+      state.presets = state.presets.map((p) => (p === from ? to : p));
+      if (state.activePreset === from) state.activePreset = to;
+      emit();
+    },
+    deletePreset(name) {
+      state.presets = state.presets.filter((p) => p !== name);
+      if (state.activePreset === name) state.activePreset = null;
+      emit();
+    },
   };
 }
 
@@ -254,6 +264,8 @@ function createJuceBridge(): Bridge {
     openEditor: fn("openEditor"),
     savePreset: fn("savePreset"),
     loadPreset: fn("loadPreset"),
+    renamePreset: fn("renamePreset"),
+    deletePreset: fn("deletePreset"),
     getAudioSetup: fn("getAudioSetup"),
     setAudioSetup: fn("setAudioSetup"),
     playTestSound: fn("playTestSound"),
@@ -333,6 +345,8 @@ function createJuceBridge(): Bridge {
     openEditor: () => void f.openEditor(),
     savePreset: (n) => void f.savePreset(n),
     loadPreset: (n) => void f.loadPreset(n),
+    renamePreset: (from, to) => void f.renamePreset(from, to),
+    deletePreset: (n) => void f.deletePreset(n),
     getAudioSetup: async () => (await f.getAudioSetup()) as AudioSetup,
     setAudioSetup: async (c) => (await f.setAudioSetup(c)) as AudioSetup,
     playTestSound: () => void f.playTestSound(),

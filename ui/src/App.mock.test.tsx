@@ -184,6 +184,7 @@ describe("App + mock engine: presets", () => {
     await user.click(presetTrigger());
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
       "Gilmour Clean", "Page Crunch", "Hiwatt Lead", "Bedroom Low-Volume", "Quiet Lead", "+ Save current rig…",
+      "Rename “Quiet Lead”…", "Delete “Quiet Lead”…",
     ]);
     expect(screen.getByRole("option", { name: "Quiet Lead" })).toHaveAttribute("aria-selected", "true");
   });

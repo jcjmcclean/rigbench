@@ -105,6 +105,8 @@ export function createFakeBridge() {
     openEditor: vi.fn(),
     savePreset: vi.fn(),
     loadPreset: vi.fn(),
+    renamePreset: vi.fn(),
+    deletePreset: vi.fn(),
     // Applies the changes to a fake setup, the way the engine would.
     getAudioSetup: vi.fn(async () => ({ ...audio })),
     setAudioSetup: vi.fn(async (c: Parameters<Bridge["setAudioSetup"]>[0]) => {

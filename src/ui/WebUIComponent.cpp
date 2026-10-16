@@ -131,7 +131,9 @@ WebUIComponent::WebUIComponent (Options componentOptions)
         .withNativeFunction ("finishSetup", op ([this] (auto&) { rig.finishSetup(); }))
         .withNativeFunction ("setTuner", op ([this, arg] (auto& a) { rig.setTuner ((bool) arg (a, 0)); }))
         .withNativeFunction ("savePreset", op ([this, arg] (auto& a) { reportError (rig.savePreset (arg (a, 0).toString())); }))
-        .withNativeFunction ("loadPreset", op ([this, arg] (auto& a) { loadPreset (arg (a, 0).toString()); }));
+        .withNativeFunction ("loadPreset", op ([this, arg] (auto& a) { loadPreset (arg (a, 0).toString()); }))
+        .withNativeFunction ("renamePreset", op ([this, arg] (auto& a) { reportError (rig.renamePreset (arg (a, 0).toString(), arg (a, 1).toString())); }))
+        .withNativeFunction ("deletePreset", op ([this, arg] (auto& a) { reportError (rig.deletePreset (arg (a, 0).toString())); }));
 
     web = std::make_unique<LockedWebBrowser> (options);
     addAndMakeVisible (*web);

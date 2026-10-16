@@ -64,7 +64,7 @@ const SUBSCRIPTIONS = [
 type BridgeAction = Exclude<keyof Bridge, (typeof SUBSCRIPTIONS)[number]>;
 const BRIDGE_ACTIONS = [
   "getState", "loadSlot", "clearSlot", "setBypass", "setMix", "setGain", "setInput", "setMaster",
-  "setMonitor", "setGate", "setTuner", "openEditor", "savePreset", "loadPreset",
+  "setMonitor", "setGate", "setTuner", "openEditor", "savePreset", "loadPreset", "renamePreset", "deletePreset",
   "getAudioSetup", "setAudioSetup", "playTestSound", "finishSetup", "openUrl",
 ] as const;
 const bridgeActionsExact: Exact<typeof BRIDGE_ACTIONS, BridgeAction> = true;

@@ -40,18 +40,26 @@ describe("PresetMenu trigger", () => {
 });
 
 describe("PresetMenu open/close", () => {
-  it("opens a Presets listbox with every preset plus the save action", () => {
+  it("opens a Presets listbox with every preset plus save, rename and delete", () => {
     renderMenu();
     fireEvent.click(trigger());
     expect(trigger()).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("listbox", { name: "Presets" })).toBeInTheDocument();
+    expect(options().map((o) => o.textContent)).toEqual([
+      "Clean", "Crunch", "Lead", "+ Save current rig…", "Rename “Crunch”…", "Delete “Crunch”…",
+    ]);
+  });
+
+  it("offers only saving when no preset is active", () => {
+    renderMenu({ active: null });
+    fireEvent.click(trigger());
     expect(options().map((o) => o.textContent)).toEqual(["Clean", "Crunch", "Lead", "+ Save current rig…"]);
   });
 
   it("marks only the active preset as selected", () => {
     renderMenu();
     fireEvent.click(trigger());
-    expect(options().map((o) => o.getAttribute("aria-selected"))).toEqual(["false", "true", "false", "false"]);
+    expect(options().map((o) => o.getAttribute("aria-selected"))).toEqual(["false", "true", "false", "false", "false", "false"]);
   });
 
   it("focuses the active preset on open", () => {
@@ -114,10 +122,12 @@ describe("PresetMenu keyboard", () => {
     expect(screen.getByRole("option", { name: "Lead" })).toHaveFocus();
   });
 
+  const lastItem = () => screen.getByRole("option", { name: /^Delete/ });
+
   it("wraps around at both ends", () => {
     openAt("Clean");
     fireEvent.keyDown(document.activeElement!, { key: "ArrowUp" });
-    expect(saveItem()).toHaveFocus();
+    expect(lastItem()).toHaveFocus();
     fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
     expect(screen.getByRole("option", { name: "Clean" })).toHaveFocus();
   });
@@ -125,7 +135,7 @@ describe("PresetMenu keyboard", () => {
   it("Home and End jump to the first and last option", () => {
     openAt("Crunch");
     fireEvent.keyDown(document.activeElement!, { key: "End" });
-    expect(saveItem()).toHaveFocus();
+    expect(lastItem()).toHaveFocus();
     fireEvent.keyDown(document.activeElement!, { key: "Home" });
     expect(screen.getByRole("option", { name: "Clean" })).toHaveFocus();
   });
@@ -283,5 +293,69 @@ describe("PresetMenu save flow", () => {
     await user.type(nameField(), "  Crunch {Enter}");
     expect(onSaved).toHaveBeenCalledExactlyOnceWith("Crunch");
     expect(fake.bridge.savePreset.mock.invocationCallOrder[0]).toBeLessThan(onSaved.mock.invocationCallOrder[0]);
+  });
+});
+
+describe("PresetMenu rename and delete", () => {
+  async function openAction(label: RegExp) {
+    const user = userEvent.setup();
+    renderMenu({ active: "Crunch" });
+    await user.click(trigger());
+    await user.click(screen.getByRole("option", { name: label }));
+    return user;
+  }
+
+  it("renames the active preset", async () => {
+    const onSaved = vi.fn();
+    const user = userEvent.setup();
+    render(<PresetMenu presets={PRESETS} active="Crunch" onSaved={onSaved} />);
+    await user.click(trigger());
+    await user.click(screen.getByRole("option", { name: /^Rename/ }));
+    const field = screen.getByRole("textbox", { name: "New name" });
+    expect(field).toHaveValue("Crunch");
+    await user.clear(field);
+    await user.type(field, " Big Crunch {Enter}");
+    expect(fake.bridge.renamePreset).toHaveBeenCalledExactlyOnceWith("Crunch", "Big Crunch");
+    expect(onSaved).toHaveBeenCalledWith("Big Crunch");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("won't rename onto another preset's name, but allows a change of case", async () => {
+    const user = await openAction(/^Rename/);
+    const field = screen.getByRole("textbox", { name: "New name" });
+    await user.clear(field);
+    await user.type(field, "lead");
+    expect(screen.getByRole("status")).toHaveTextContent("There’s already a preset called “Lead”.");
+    expect(screen.getByRole("button", { name: "Rename" })).toBeDisabled();
+    await user.keyboard("{Enter}");
+    expect(fake.bridge.renamePreset).not.toHaveBeenCalled();
+
+    await user.clear(field);
+    await user.type(field, "CRUNCH");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Rename" }));
+    expect(fake.bridge.renamePreset).toHaveBeenCalledExactlyOnceWith("Crunch", "CRUNCH");
+  });
+
+  it("renaming to the same name just closes", async () => {
+    const user = await openAction(/^Rename/);
+    await user.click(screen.getByRole("button", { name: "Rename" }));
+    expect(fake.bridge.renamePreset).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("deletes the active preset after asking", async () => {
+    const user = await openAction(/^Delete/);
+    const dialog = screen.getByRole("dialog", { name: "Delete “Crunch”?" });
+    expect(dialog).toHaveTextContent("What you’re playing now stays as it is.");
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(fake.bridge.deletePreset).toHaveBeenCalledExactlyOnceWith("Crunch");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("Cancel keeps it", async () => {
+    const user = await openAction(/^Delete/);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(fake.bridge.deletePreset).not.toHaveBeenCalled();
   });
 });

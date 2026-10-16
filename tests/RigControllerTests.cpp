@@ -300,3 +300,52 @@ TEST_CASE ("Controller: every slot is always present, keyed by its id", "[contro
         REQUIRE (sl["name"] == juce::var (juce::String()));
     }
 }
+
+TEST_CASE ("Controller: renaming a preset moves it, keeps it active, and updates its stored name", "[controller][preset]")
+{
+    Rig r;
+    r.rig.setMaster (0.3);
+    REQUIRE (r.rig.savePreset ("Old").isEmpty());
+    REQUIRE (r.rig.savePreset ("Other").isEmpty());
+    REQUIRE (r.rig.loadPreset ("Old").isEmpty());
+
+    REQUIRE (r.rig.renamePreset ("Old", "New").isEmpty());
+    REQUIRE (r.rig.listPresets() == juce::StringArray { "New", "Other" });
+    REQUIRE (r.rig.getActivePreset() == "New");
+    const auto json = juce::JSON::parse (PresetNames::presetFileFor (r.rig.getPresetsDir(), "New"));
+    REQUIRE (json["name"] == juce::var ("New"));
+
+    r.rig.setMaster (1.0);
+    REQUIRE (r.rig.loadPreset ("New").isEmpty());
+    REQUIRE_THAT (r.rig.getAudio().getMasterGain(), WithinAbs (0.3, 1e-6));   // same contents
+
+    REQUIRE (r.rig.renamePreset ("New", "NEW").isEmpty());   // just the case
+    REQUIRE (r.rig.listPresets().contains ("NEW"));
+}
+
+TEST_CASE ("Controller: renaming refuses to clobber another preset or use a bad name", "[controller][preset]")
+{
+    Rig r;
+    REQUIRE (r.rig.savePreset ("A").isEmpty());
+    REQUIRE (r.rig.savePreset ("B").isEmpty());
+    REQUIRE (r.rig.renamePreset ("A", "b") == "There's already a preset called \"B\".");
+    REQUIRE (r.rig.renamePreset ("A", "../x") == "Invalid preset name.");
+    REQUIRE (r.rig.renamePreset ("Missing", "C") == "There's no preset called \"Missing\".");
+    REQUIRE (r.rig.listPresets() == juce::StringArray { "A", "B" });
+}
+
+TEST_CASE ("Controller: deleting a preset removes the file but leaves the rig playing", "[controller][preset]")
+{
+    Rig r;
+    r.loadIR();
+    REQUIRE (r.rig.savePreset ("Gone").isEmpty());
+    REQUIRE (r.rig.getActivePreset() == "Gone");
+
+    REQUIRE (r.rig.deletePreset ("Gone").isEmpty());
+    REQUIRE (r.rig.listPresets().isEmpty());
+    REQUIRE (r.state()["activePreset"].isVoid());
+    REQUIRE ((bool) r.slot ("ir")["loaded"]);
+
+    REQUIRE (r.rig.deletePreset ("Gone") == "There's no preset called \"Gone\".");
+    REQUIRE (r.rig.deletePreset ("..") == "Invalid preset name.");
+}

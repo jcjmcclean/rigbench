@@ -19,7 +19,9 @@
     "finishSetup",
     "openUrl",
     "setTuner",
-    "setGate"
+    "setGate",
+    "renamePreset",
+    "deletePreset"
   ],
   "events": [
     "state",

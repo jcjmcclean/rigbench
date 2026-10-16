@@ -126,6 +126,54 @@ juce::String RigController::savePreset (const juce::String& name)
     return {};
 }
 
+juce::String RigController::renamePreset (const juce::String& from, const juce::String& to)
+{
+    const auto src = PresetNames::presetFileFor (presetsDir, from);
+    const auto dst = PresetNames::presetFileFor (presetsDir, to);
+    if (src == juce::File() || dst == juce::File())
+        return "Invalid preset name.";
+    if (! src.existsAsFile())
+        return "There's no preset called \"" + from + "\".";
+
+    // A different preset already has that name, ignoring case on every OS so
+    // presets behave the same on Linux as on Mac and Windows. (Changing just the
+    // case of the same preset is fine.)
+    const auto srcName = src.getFileNameWithoutExtension(), dstName = dst.getFileNameWithoutExtension();
+    for (auto& existing : listPresets())
+        if (existing.equalsIgnoreCase (dstName) && ! existing.equalsIgnoreCase (srcName))
+            return "There's already a preset called \"" + existing + "\".";
+
+    // Keep the name stored inside the file in step with the file name.
+    auto json = juce::JSON::parse (src);
+    if (auto* o = json.getDynamicObject())
+        o->setProperty ("name", dst.getFileNameWithoutExtension());
+
+    if (! src.moveFileTo (dst))
+        return "Could not rename \"" + from + "\".";
+    if (json.isObject())
+        dst.replaceWithText (juce::JSON::toString (json, juce::JSON::FormatOptions().withSpacing (juce::JSON::Spacing::multiLine)));
+
+    if (activePreset == src.getFileNameWithoutExtension())
+        activePreset = dst.getFileNameWithoutExtension();
+    return {};
+}
+
+juce::String RigController::deletePreset (const juce::String& name)
+{
+    const auto file = PresetNames::presetFileFor (presetsDir, name);
+    if (file == juce::File())
+        return "Invalid preset name.";
+    if (! file.existsAsFile())
+        return "There's no preset called \"" + name + "\".";
+    if (! file.deleteFile())
+        return "Could not delete \"" + name + "\".";
+
+    // The rig itself stays as it is; it's just no longer a saved preset.
+    if (activePreset == file.getFileNameWithoutExtension())
+        activePreset = {};
+    return {};
+}
+
 juce::String RigController::loadPreset (const juce::String& name,
                                         std::function<void (const Preset::VstSlot&)> installVstSlot)
 {
