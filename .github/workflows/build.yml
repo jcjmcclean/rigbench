@@ -45,6 +45,18 @@ jobs:
             libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev \
             ninja-build
 
+      # Windows: JUCE's NEEDS_WEBVIEW2 requires the Microsoft.Web.WebView2 NuGet
+      # package. JUCE's FindWebView2 globs %LOCALAPPDATA%\PackageManagement\NuGet\
+      # Packages, which is exactly where `Install-Package -Scope CurrentUser` puts
+      # it, so no extra CMake flag is needed. Version pinned to what JUCE 8.0.15 asks for.
+      - name: Install WebView2 SDK (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Install-PackageProvider -Name NuGet -Force -Scope CurrentUser | Out-Null
+          Register-PackageSource -Name nuget.org -ProviderName NuGet -Location https://www.nuget.org/api/v2 -Trusted -Force -ErrorAction SilentlyContinue | Out-Null
+          Install-Package -Name Microsoft.Web.WebView2 -RequiredVersion 1.0.3485.44 -ProviderName NuGet -Source nuget.org -Scope CurrentUser -Force | Out-Null
+
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo ${{ matrix.cmake_args }}
 
