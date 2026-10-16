@@ -1,3 +1,5 @@
+<!doctype html>
+<html lang="en-GB">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Tonebench: play guitar through NAM, IRs, and VST3</title>
@@ -283,7 +285,7 @@
 
     <div class="shot hero-shot">
       <div class="live" data-crop="0 0 1440 805">
-        <iframe src="app/showcase.html" title="Interactive Tonebench preview: a VST3 plugin, a NAM amp model, and an IR cab chained together with a live signal scope"></iframe>
+        <iframe src="app/showcase.html" title="Tonebench running in your browser, without sound: a VST3 plugin, a NAM amp model, and a cab IR"></iframe>
       </div>
     </div>
     <p class="live-hint">This is the real interface running in your browser, just without the sound. Have a go with the knobs and presets.</p>
@@ -294,8 +296,8 @@
 <section id="why">
   <div class="wrap">
     <h2>Why I built this</h2>
-    <p class="lead">A friend of mine built a guitar amp and sent it over as a VST3 plugin. I wanted to play through it properly, alongside the NAM models and cab IRs I already used, and I didn’t want to buy a whole amp-sim app just to try one amp.</p>
-    <p class="lead">I’ve paid for a few of those apps before. The cheap ones run out of features fast, and the expensive ones are fiddly and stuffed with things I’m never going to touch. So Tonebench is small: a plugin, an amp, and a cab, each with an on/off switch. His amp turned out really good and worked a treat.</p>
+    <p class="lead">A friend of mine built a guitar amp and sent it over as a VST3 plugin. I wanted to play through it properly, alongside the NAM models and cab IRs I was already using, and I didn’t want to buy a whole amp-sim app just to try one amp.</p>
+    <p class="lead">I’ve paid for a few of those apps before. The cheap ones run out of features fast, and the expensive ones are fiddly and stuffed with things I’m never going to touch. So Tonebench is small: a plugin, an amp, and a cab, each with an on/off switch.</p>
   </div>
 </section>
 
@@ -307,14 +309,14 @@
       <li>Loads NAM amp models (<code>.nam</code> files). If your interface runs at a different sample rate, Tonebench resamples as you play, so you don’t have to care.</li>
       <li>Loads a cab IR (WAV, AIFF, or FLAC) with no added latency.</li>
       <li>Runs them in that order: plugin, then amp, then cab. You can switch any slot off. The amp has a level knob and the cab has a mix knob.</li>
-      <li>Has a tuner, and a noise gate on the input for high-gain models that hiss. The gate is off until you turn it up.</li>
-      <li>Saves the whole rig as a preset, so you can load it again later.</li>
+      <li>Has a tuner, and a noise gate on the input to cut the hiss between notes with high-gain models. The gate is off until you turn it up.</li>
+      <li>Saves the whole rig as a preset: what’s in each slot, every knob, and the plugin’s own settings.</li>
       <li>Shows your audio device, sample rate, buffer size, and round-trip latency along the top, and the signal on a scope as you play.</li>
     </ul>
 
     <div class="shot" style="margin-top:48px">
       <div class="live" data-crop="304 246 833 336">
-        <iframe src="app/showcase.html?view=chain" title="Interactive Tonebench signal chain: a VST3 plugin, a NAM amp model, and an IR cab" loading="lazy"></iframe>
+        <iframe src="app/showcase.html?view=chain" title="The Tonebench chain: a VST3 plugin, a NAM amp model, and a cab IR" loading="lazy"></iframe>
       </div>
     </div>
     <p class="note">Under the hood it’s a C++ audio engine built on JUCE. The interface runs in a webview on its own thread, so moving knobs and drawing the scope don’t add latency. The source and build steps are on <a href="https://github.com/jcjmcclean/tonebench">GitHub</a>.</p>
@@ -326,10 +328,11 @@
     <h2>What you need</h2>
     <ul class="list">
       <li>A guitar and an audio interface. The first time you open Tonebench, it asks you to play a few notes and finds which input your guitar is on.</li>
-      <li>A NAM amp model, a cab IR, or both. There are free ones to download (see below).</li>
+      <li>A NAM amp model, a cab IR, or both. There are free ones under <a href="#sounds">Where to get sounds</a>.</li>
       <li>A VST3 plugin, if you have one you want to play through. You can leave that slot empty.</li>
     </ul>
-    <p class="body">On a Mac, the first time you open Tonebench, right-click it and choose Open, then Open again. You only have to do that once, because the app is self-signed. Then allow microphone access, which is how macOS lets it hear your guitar. On Windows it needs the WebView2 runtime, which current versions of Windows 10 and 11 already have.</p>
+    <p class="body">On a Mac, macOS won’t open Tonebench the first time, because it’s self-signed rather than notarised by Apple. Try to open it once, then go to System Settings &gt; Privacy &amp; Security, scroll down, and click Open Anyway. You only have to do that once. Then allow microphone access, which is how macOS lets it hear your guitar.</p>
+    <p class="body">On Windows it needs the WebView2 runtime, which current versions of Windows 10 and 11 already have. The first time, SmartScreen may warn you because the app isn’t signed: click More info, then Run anyway.</p>
     <p class="body">Plugins, and presets other people share, run code inside the app, so only load ones you trust.</p>
     <p class="body">It’s early days: this is v0.1.0. If something doesn’t work, or there’s something you’d like it to do, <a href="https://github.com/jcjmcclean/tonebench/issues">open an issue on GitHub</a>.</p>
   </div>
@@ -338,11 +341,11 @@
 <section id="sounds">
   <div class="wrap">
     <h2>Where to get sounds</h2>
-    <p class="body">Amp models and cabs are free to download. Plugins are optional.</p>
+    <p class="body">Plenty of amp models and cab IRs are free. The plugin slot is optional.</p>
     <ul class="list">
       <li>For amp models, <a href="https://www.tone3000.com/search?format=nam">TONE3000</a> is where most people share their NAM captures. Downloads are free; you need an account. The <a href="https://www.reddit.com/r/NeuralAmpModeler/">NAM subreddit</a> is good for recommendations.</li>
       <li>TONE3000 has <a href="https://www.tone3000.com/search?format=ir">cab IRs</a> too. If you just want one to start with, Jester Dyne’s <a href="https://www.jester-dyne-productions.com/emerald-ir-pack/">Emerald pack</a> is a Marshall 4x12 with Greenbacks, free with no sign-up.</li>
-      <li>For the plugin slot, these are free, open source, and run on Mac, Windows, and Linux: <a href="https://chowdsp.com/products.html">ChowDSP</a>’s BYOD for drives and pedals, <a href="https://www.airwindows.com/consolidated/">Airwindows Consolidated</a>, and <a href="https://michaelwillis.github.io/dragonfly-reverb/">Dragonfly Reverb</a>. The <a href="https://github.com/webprofusion/openaudio">openaudio</a> list has plenty more.</li>
+      <li>For the plugin slot, these are free, open source, and run on macOS, Windows, and Linux: <a href="https://chowdsp.com/products.html">ChowDSP</a>’s BYOD for drives and pedals, <a href="https://www.airwindows.com/consolidated/">Airwindows Consolidated</a>, and <a href="https://michaelwillis.github.io/dragonfly-reverb/">Dragonfly Reverb</a>. The <a href="https://github.com/webprofusion/openaudio">openaudio</a> list has plenty more.</li>
     </ul>
   </div>
 </section>
@@ -535,3 +538,4 @@
   if (reduce.matches) draw(0); else start();
 })();
 </script>
+</html>

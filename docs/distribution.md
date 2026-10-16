@@ -1,8 +1,8 @@
 # Distribution & cross-platform builds
 
 How to build Tonebench for each OS and share it with people. Short version:
-**on macOS you can share a DMG today for free** (recipient does a one-time
-right-click-Open); a zero-warning install needs a paid Apple Developer account.
+**on macOS you can share a DMG today for free** (recipient approves it once in
+System Settings > Privacy & Security); a zero-warning install needs a paid Apple Developer account.
 Linux and Windows builds are feasible and wired into CI, but each OS must be
 built on its own machine — you can't cross-compile from the Mac (the WebView,
 VST3, and compiler toolchains are all native-only).
@@ -21,14 +21,17 @@ cmake --build build-rel --target Tonebench
 Send the `.dmg`. Tell the recipient:
 
 1. Open the DMG, drag **Tonebench** to **Applications**.
-2. First launch: **right-click Tonebench → Open → Open** (one-time), or run
+2. First launch: macOS blocks it. Go to **System Settings → Privacy & Security**,
+   scroll down, and click **Open Anyway** (one-time). On macOS 14 and earlier,
+   **right-click → Open → Open** also works. Or run
    `xattr -dr com.apple.quarantine /Applications/Tonebench.app`.
 3. Approve the microphone prompt.
 
 Why the extra step: the app is signed with a local self-signed identity
 ("Tonebench Dev"), which only exists in your keychain, so Gatekeeper treats it as
-"unidentified developer" on any other Mac. This is expected and the right-click
-step is the standard override. (`arm64`-only builds simply won't launch on Intel
+"unidentified developer" on any other Mac. This is expected, and Open Anyway is
+the standard override (since macOS 15 the right-click shortcut no longer works
+for apps that aren't notarised). (`arm64`-only builds simply won't launch on Intel
 Macs — hence `TONEBENCH_UNIVERSAL=ON` for anything you share.)
 
 ### Zero-warning installs (paid: Apple Developer Program, $99/yr)

@@ -1,7 +1,8 @@
 # Tonebench
 
-A small, fast desktop app for macOS, Windows, and Linux for playing guitar through amp sims. Load a VST3 plugin, a Neural Amp
-Modeler model, and an impulse-response cab, chain them up, and play. That's the whole idea.
+A small, fast desktop app for playing guitar through amp sims, on macOS, Windows, and Linux. Load a
+VST3 plugin, a Neural Amp Modeler (NAM) amp model, and a cab impulse response (IR), chain them up, and
+play. That's the whole idea.
 
 <picture>
   <source srcset="site/assets/hero.webp" type="image/webp">
@@ -18,7 +19,7 @@ through it, and I didn't want to buy a whole amp-sim app just to try out the one
 I've paid for a few apps like this before. The cheaper ones tend to run out of features fast. The
 expensive ones go the other way: fiddly, and stuffed with things I'm never going to touch. I wanted
 something in between. Something small and simple where I could drop his VST in next to the NAM models
-and the impulse-response cabs I was already using, and flip each part of the chain on and off.
+and the cab IRs I was already using, and flip each part of the chain on and off.
 
 His plugin turned out really good and worked a treat, and building a little rig around it was a lot
 of fun. I'm happy with where it ended up.
@@ -28,7 +29,7 @@ of fun. I'm happy with where it ended up.
 - Loads VST3 plugins: amps, drives, effects.
 - Loads NAM (Neural Amp Modeler) `.nam` amp models. If a model's sample rate doesn't match your
   interface, it resamples in real time so you don't have to care.
-- Loads impulse responses for cab sims, with no added latency.
+- Loads cab IRs (WAV, AIFF, or FLAC), with no added latency.
 - Runs the three as an ordered chain (plugin, then amp, then cab), and you can bypass any slot.
 - Has a tuner, and a one-knob noise gate on the input (off until you turn it up).
 - Saves and recalls whole rigs as presets.
@@ -91,9 +92,11 @@ Tagged releases publish ready-to-run builds on the
 - **Windows**: a `.zip` (needs the WebView2 runtime, which current Windows 10/11 already has)
 - **Linux**: a `.tar.gz`
 
-The macOS build is self-signed, so the first time you open it, right-click the app and choose Open,
-then Open again. You only do this once. After that, approve the microphone prompt so it can hear your
-guitar. To build a Universal DMG yourself (runs on both Intel and Apple Silicon):
+The macOS build is self-signed, not notarised, so macOS blocks it the first time. Try to open it,
+then go to System Settings > Privacy & Security and click Open Anyway. (On macOS 14 and earlier,
+right-clicking the app and choosing Open also works.) You only do this once. After that, approve the
+microphone prompt so it can hear your guitar. On Windows, SmartScreen may warn you the first time
+because the app isn't signed: click More info, then Run anyway. To build a Universal DMG yourself (runs on both Intel and Apple Silicon):
 
 ```sh
 cmake -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTONEBENCH_UNIVERSAL=ON
@@ -101,21 +104,22 @@ cmake --build build-rel --target Tonebench
 ./packaging/make-dmg.sh      # writes dist/Tonebench-<version>.dmg
 ```
 
-[`docs/distribution.md`](docs/distribution.md) covers signing, notarization, and the Linux and
+[`docs/distribution.md`](docs/distribution.md) covers signing, notarisation, and the Linux and
 Windows specifics.
 
 ## How it works
 
-The audio engine is C++ on JUCE 8: native audio I/O (CoreAudio, WASAPI, ALSA), VST3 hosting, NAM inference, and IR
+The audio engine is C++ on JUCE 8: native audio I/O (CoreAudio, WASAPI, ALSA, and JACK), VST3 hosting, NAM inference, and IR
 convolution, all run as an ordered chain on the realtime audio thread with no allocations or locks in
-the hot path. NAM models run at 48 kHz; a Lagrange resampler handles other device rates around them.
+the hot path. Each NAM model runs at its own sample rate (nearly always 48 kHz), and a Lagrange resampler converts to and from your device's rate around it.
 IR uses `juce::dsp::Convolution` and adds no latency. The UI is React and TypeScript (built with Vite)
 inside a JUCE webview (WebKit on macOS, WebView2 on Windows, WebKitGTK on Linux), talking to the engine over a native JavaScript-to-C++ bridge, on a separate
 thread from audio.
 
 One thing worth knowing up front: loading a VST3, or opening a `.tonebench` preset someone shared with
-you, runs third-party code inside an app that has microphone access. Only load plugins and presets you
-trust, the same as you would with any amp sim.
+you, runs third-party code inside an app that has microphone access. Tonebench asks before it loads a
+plugin named in a preset, but only load plugins and presets you trust, the same as you would with any
+amp sim.
 
 ## Licence
 

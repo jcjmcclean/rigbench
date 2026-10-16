@@ -83,6 +83,10 @@ jobs:
 
       - name: Smoke test (Linux)
         if: runner.os == 'Linux'
+        # WebKitGTK's sandbox can't start on the Ubuntu runner (unprivileged user
+        # namespaces are restricted), so the CI box runs it without one.
+        env:
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
         run: xvfb-run -a ./build/Tonebench_artefacts/RelWithDebInfo/Tonebench --smoke
 
       - name: Smoke test (Windows)
