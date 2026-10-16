@@ -123,6 +123,8 @@ target_include_directories(Tonebench PRIVATE src)
 
 target_compile_definitions(Tonebench PRIVATE
     JUCE_WEB_BROWSER=1          # React UI in a WebView
+    JUCE_USE_WIN_WEBVIEW2=1     # Windows: use the WebView2 backend so the resource
+                                # provider + native integration API exist (no-op elsewhere)
     JUCE_USE_CURL=0
     JUCE_PLUGINHOST_VST3=1      # host VST3 plugins (T4)
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Tonebench,JUCE_PRODUCT_NAME>"
