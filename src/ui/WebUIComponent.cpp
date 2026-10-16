@@ -3,6 +3,7 @@
 #include "app/AudioSetup.h"
 #include "app/ExternalLinks.h"
 #include "app/PluginScanner.h"
+#include "app/UserText.h"
 #include "engine/AppPaths.h"
 #include "engine/SlotTypes.h"
 #include "BinaryData.h"
@@ -139,13 +140,20 @@ WebUIComponent::WebUIComponent (Options componentOptions)
         // Audio device setup (Settings screen + first-run setup). setAudioSetup
         // resolves with the new setup; its "error" says why a change failed.
         .withNativeFunction ("getAudioSetup", [this] (const juce::Array<juce::var>&, Completion done)
-            { done (AudioSetup::describe (deviceManager)); })
+            {
+                auto setup = AudioSetup::describe (deviceManager);
+                if (auto* o = setup.getDynamicObject())
+                    o->setProperty ("error", UserText::typeset (o->getProperty ("error").toString()));
+                done (setup);
+            })
         .withNativeFunction ("setAudioSetup", [this, arg] (const juce::Array<juce::var>& a, Completion done)
             {
                 const auto err = AudioSetup::apply (deviceManager, arg (a, 0));
                 auto setup = AudioSetup::describe (deviceManager);
                 if (err.isNotEmpty())
                     setup.getDynamicObject()->setProperty ("error", err);
+                if (auto* o = setup.getDynamicObject())
+                    o->setProperty ("error", UserText::typeset (o->getProperty ("error").toString()));
                 markDirty();
                 done (setup);
             })
@@ -287,7 +295,11 @@ RigController::DeviceInfo WebUIComponent::currentDeviceInfo() const
         info.name = dev->getName();
         info.sampleRate = sr;
         info.bufferSize = dev->getCurrentBufferSizeSamples();
-        info.roundTripMs = sr > 0 ? (dev->getInputLatencyInSamples() + dev->getOutputLatencyInSamples()) / sr * 1000.0 : 0.0;
+        // Round trip: one buffer in, one buffer out, plus what the device adds
+        // (the same figure Settings shows, AudioSetup::describe).
+        info.roundTripMs = sr > 0 ? (2.0 * dev->getCurrentBufferSizeSamples()
+                                     + dev->getInputLatencyInSamples() + dev->getOutputLatencyInSamples()) / sr * 1000.0
+                                  : 0.0;
     }
     return info;
 }
@@ -347,7 +359,7 @@ void WebUIComponent::reportError (const juce::String& message)
     if (web == nullptr || message.isEmpty())
         return;
     auto* o = new juce::DynamicObject();
-    o->setProperty ("message", message);
+    o->setProperty ("message", UserText::typeset (message));
     web->emitEventIfBrowserIsVisible ("error", juce::var (o));
 }
 
@@ -406,7 +418,8 @@ void WebUIComponent::finishVstLoad (Vst3Node* node, int gen, bool ok, const juce
     else
     {
         dropLater();
-        reportError ("Could not load plugin: " + (err.isNotEmpty() ? err : juce::String ("unknown error")));
+        reportError ("Couldn't load the plugin \"" + node->getSourceFile().getFileName() + "\"."
+                     + (err.isNotEmpty() ? " " + err : juce::String()));
     }
     markDirty();
 }
@@ -428,7 +441,8 @@ void WebUIComponent::startVstFromPreset (const Preset::VstSlot& v)
     // dlopen/instantiate it. Decline => skip the slot.
     if (! v.path.exists())
     {
-        reportError ("Preset references a missing plugin:\n" + v.path.getFullPathName());
+        reportError ("This preset uses a plugin that isn't on this computer, so the plugin slot is empty: "
+                     + v.path.getFullPathName());
         return;
     }
 
@@ -453,13 +467,13 @@ void WebUIComponent::startVstFromPreset (const Preset::VstSlot& v)
             });
     };
 
-    const auto message = "This preset wants to load a VST3 plugin, which runs "
-                         "third-party code inside Tonebench:\n\n"
+    const auto message = UserText::typeset ("This preset uses a VST3 plugin:\n\n"
                          + v.path.getFullPathName()
-                         + "\n\nOnly continue if you trust the source of this preset.";
+                         + "\n\nA plugin is a program, and it runs inside Tonebench. Only load it if "
+                           "you trust whoever made this preset. The rest of the preset has already loaded.");
     juce::AlertWindow::showOkCancelBox (
-        juce::MessageBoxIconType::WarningIcon, "Load plugin from preset?", message,
-        "Load plugin", "Cancel", nullptr,
+        juce::MessageBoxIconType::WarningIcon, "Load the plugin in this preset?", message,
+        "Load plugin", "Skip plugin", nullptr,
         juce::ModalCallbackFunction::create ([startLoad] (int result)
         {
             if (result == 1) startLoad();   // 1 == first button ("Load plugin")

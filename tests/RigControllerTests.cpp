@@ -15,6 +15,8 @@ using Catch::Matchers::ContainsSubstring;
 
 namespace
 {
+const juce::String badName = "That name won't work as a file name. Leave out / \\ and :, and try again.";
+
 struct Rig
 {
     TempDir tmp;
@@ -50,11 +52,11 @@ TEST_CASE ("Controller: a file that won't load says why and leaves the slot alon
     r.loadNam();
 
     const auto err = r.rig.loadNam (r.tmp.file ("missing.nam"));
-    REQUIRE_THAT (err.toStdString(), ContainsSubstring ("Could not load NAM model"));
+    REQUIRE_THAT (err.toStdString(), ContainsSubstring ("Couldn't load the amp model \"missing.nam\". The file isn't there any more."));
     REQUIRE (r.slot ("nam")["name"] == juce::var ("minimal.nam"));   // the old model is still there
 
     REQUIRE_THAT (r.rig.loadIR (r.tmp.file ("missing.wav")).toStdString(),
-                  ContainsSubstring ("Could not load impulse response: missing.wav"));
+                  ContainsSubstring ("Couldn't load the cab IR \"missing.wav\". It needs to be a WAV, AIFF, or FLAC file under 16 MB."));
 }
 
 //== bridge operations =========================================================
@@ -216,8 +218,8 @@ TEST_CASE ("Controller: bad preset names are refused and touch nothing on disk (
     for (auto bad : { "", "   ", ".", "..", "../escape", "a/b", "a\\b", "C:evil" })
     {
         CAPTURE (bad);
-        REQUIRE (r.rig.savePreset (bad) == "Invalid preset name.");
-        REQUIRE (r.rig.loadPreset (bad) == "Invalid preset name.");
+        REQUIRE (r.rig.savePreset (bad) == badName);
+        REQUIRE (r.rig.loadPreset (bad) == badName);
     }
     REQUIRE (r.rig.listPresets().isEmpty());
     REQUIRE_FALSE (r.tmp.file ("escape.tonebench").exists());
@@ -227,7 +229,7 @@ TEST_CASE ("Controller: loading a preset that doesn't exist reports it and keeps
 {
     Rig r;
     r.loadIR();
-    REQUIRE_THAT (r.rig.loadPreset ("Nope").toStdString(), ContainsSubstring ("Could not load preset"));
+    REQUIRE_THAT (r.rig.loadPreset ("Nope").toStdString(), ContainsSubstring ("Couldn't load the preset \"Nope\". The file may be damaged"));
     REQUIRE ((bool) r.slot ("ir")["loaded"]);
     REQUIRE (r.state()["activePreset"].isVoid());
 }
@@ -241,7 +243,7 @@ TEST_CASE ("Controller: a preset with missing files still loads, and says what's
     r.tmp.file ("cab.wav").deleteFile();
 
     const auto msg = r.rig.loadPreset ("Moved");
-    REQUIRE (msg == "Loaded \"Moved\", but the cab IR \"cab.wav\" wasn't found.");
+    REQUIRE (msg == "Loaded \"Moved\". The cab IR \"cab.wav\" wasn't found, so that slot is empty.");
     REQUIRE ((bool) r.slot ("nam")["loaded"]);
     REQUIRE_FALSE ((bool) r.slot ("ir")["loaded"]);
     REQUIRE (r.rig.getActivePreset() == "Moved");
@@ -328,9 +330,9 @@ TEST_CASE ("Controller: renaming refuses to clobber another preset or use a bad 
     Rig r;
     REQUIRE (r.rig.savePreset ("A").isEmpty());
     REQUIRE (r.rig.savePreset ("B").isEmpty());
-    REQUIRE (r.rig.renamePreset ("A", "b") == "There's already a preset called \"B\".");
-    REQUIRE (r.rig.renamePreset ("A", "../x") == "Invalid preset name.");
-    REQUIRE (r.rig.renamePreset ("Missing", "C") == "There's no preset called \"Missing\".");
+    REQUIRE (r.rig.renamePreset ("A", "b") == "There's already a preset called \"B\". Pick another name.");
+    REQUIRE (r.rig.renamePreset ("A", "../x") == badName);
+    REQUIRE (r.rig.renamePreset ("Missing", "C") == "There's no preset called \"Missing\" any more. It may have been renamed or deleted outside Tonebench.");
     REQUIRE (r.rig.listPresets() == juce::StringArray { "A", "B" });
 }
 
@@ -346,6 +348,6 @@ TEST_CASE ("Controller: deleting a preset removes the file but leaves the rig pl
     REQUIRE (r.state()["activePreset"].isVoid());
     REQUIRE ((bool) r.slot ("ir")["loaded"]);
 
-    REQUIRE (r.rig.deletePreset ("Gone") == "There's no preset called \"Gone\".");
-    REQUIRE (r.rig.deletePreset ("..") == "Invalid preset name.");
+    REQUIRE (r.rig.deletePreset ("Gone") == "There's no preset called \"Gone\" any more. It may have been renamed or deleted outside Tonebench.");
+    REQUIRE (r.rig.deletePreset ("..") == badName);
 }

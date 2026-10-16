@@ -286,10 +286,20 @@ juce::AudioBuffer<float> synthIRBuffer()
     return ir;
 }
 
+// Scratch files the self-test writes. Under the user's app-data folder, not the
+// temp dir: on Linux that's the shared /tmp, which presets may not load from (SEC-3).
+juce::File scratchDir()
+{
+    auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                 .getChildFile ("tonebench-selftest");
+    d.createDirectory();
+    return d;
+}
+
 juce::File makeSyntheticIR (double sr)
 {
     auto ir = synthIRBuffer();
-    auto f = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("tonebench_test_ir.wav");
+    auto f = scratchDir().getChildFile ("tonebench_test_ir.wav");
     io::saveMono (f, ir, sr);
     return f;
 }
@@ -665,11 +675,10 @@ int runSelfTest (bool strict)
         }
         else
         {
-            // Copy the model under the per-user temp dir so Preset's SEC-3
-            // allow-list accepts the referenced path on any machine (incl. CI,
-            // where the checkout may live outside the user's home).
-            const juce::File namFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                           .getChildFile ("tonebench_test_model.nam");
+            // Copy the model into the scratch dir so Preset's SEC-3 allow-list
+            // accepts the referenced path on any machine (incl. CI, where the
+            // checkout may live outside the user's home).
+            const juce::File namFile = scratchDir().getChildFile ("tonebench_test_model.nam");
             model.copyFileTo (namFile);
             const juce::File irFile = makeSyntheticIR (sr);
 

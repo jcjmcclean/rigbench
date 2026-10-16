@@ -26,8 +26,8 @@ namespace SlotTypes
     {
         static const std::array<Desc, (size_t) AudioEngine::numSlots> t { {
             { AudioEngine::vst3Slot, "vst3", "Load a VST3 plugin",      "*.vst3",                     true  },
-            { AudioEngine::namSlot,  "nam",  "Load a NAM model",        "*.nam",                      false },
-            { AudioEngine::irSlot,   "ir",   "Load an impulse response", "*.wav;*.aiff;*.aif;*.flac", false },
+            { AudioEngine::namSlot,  "nam",  "Load an amp model",        "*.nam",                      false },
+            { AudioEngine::irSlot,   "ir",   "Load a cab IR", "*.wav;*.aiff;*.aif;*.flac", false },
         } };
         return t;
     }

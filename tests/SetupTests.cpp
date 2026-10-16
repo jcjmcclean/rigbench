@@ -173,5 +173,5 @@ TEST_CASE ("AudioSetup: bad changes are refused with a reason", "[setup]")
     REQUIRE (AudioSetup::apply (dm, juce::JSON::parse (R"({"bufferSize": 0})")) == "That buffer size isn't valid.");
     REQUIRE (AudioSetup::apply (dm, juce::JSON::parse (R"({"input": -2})")) == "That input isn't valid.");
     REQUIRE (AudioSetup::apply (dm, juce::JSON::parse (R"({"inputDevice": "No Such Interface 9000"})"))
-                 .startsWith ("That device isn't available"));
+                 == "\"No Such Interface 9000\" isn't available. Check it's plugged in, then pick it again.");
 }

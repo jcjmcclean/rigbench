@@ -237,7 +237,7 @@ TEST_CASE ("Preset: content outside the user's own folders is refused (SEC-3)", 
     REQUIRE (engine.getNode (AudioEngine::irSlot) == nullptr);
     REQUIRE (engine.getNode (AudioEngine::namSlot) == nullptr);
     REQUIRE (info.problems.size() == 2);
-    REQUIRE (info.problems[0].contains ("outside your own folders"));
+    REQUIRE (info.problems[0].contains ("only loads a preset's files from your home folder or an external drive"));
 }
 #endif
 
@@ -298,8 +298,8 @@ TEST_CASE ("Preset: every slot that can't be restored is explained", "[preset]")
     Preset::RigInfo info;
     REQUIRE (Preset::load (file, engine, 48000.0, 256, info));
     REQUIRE (info.problems.size() == 3);
-    REQUIRE (info.problems[0] == "The amp model \"gone.nam\" wasn't found.");
-    REQUIRE (info.problems[1] == "The cab IR \"gone.wav\" wasn't found.");
+    REQUIRE (info.problems[0] == "The amp model \"gone.nam\" wasn't found, so that slot is empty.");
+    REQUIRE (info.problems[1] == "The cab IR \"gone.wav\" wasn't found, so that slot is empty.");
     REQUIRE (info.problems[2].contains ("chorus"));
 }
 

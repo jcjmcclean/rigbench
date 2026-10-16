@@ -173,7 +173,7 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
         const auto* desc = SlotTypes::byId (type);
         if (desc == nullptr)
         {
-            info.problems.add ("Skipped a slot of a type Tonebench doesn't know (\"" + type + "\").");
+            info.problems.add ("Skipped a \"" + type + "\" slot, which this version of Tonebench doesn't know about.");
             continue;
         }
         const int slot = desc->index;
@@ -189,12 +189,12 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
         {
             if (! path.existsAsFile())
             {
-                info.problems.add (what.substring (0, 1).toUpperCase() + what.substring (1) + " wasn't found.");
+                info.problems.add (what.substring (0, 1).toUpperCase() + what.substring (1) + " wasn't found, so that slot is empty.");
                 continue;
             }
             if (! isAllowedContentPath (path))   // SEC-3
             {
-                info.problems.add ("Skipped " + what + ": it's outside your own folders.");
+                info.problems.add ("Skipped " + what + ": Tonebench only loads a preset's files from your home folder or an external drive.");
                 continue;
             }
         }
@@ -217,7 +217,7 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
             juce::String err;
             if (! nam->loadFile (path, err))
             {
-                info.problems.add ("Couldn't load " + what + (err.isNotEmpty() ? ": " + err : juce::String()) + ".");
+                info.problems.add ("Couldn't load " + what + "." + (err.isNotEmpty() ? " " + err : juce::String()));
                 continue;
             }
             nam->setUiGain (unit (s.getProperty ("level", {}), 0.5));

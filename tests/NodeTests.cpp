@@ -188,7 +188,7 @@ TEST_CASE ("NAM: bad files fail with a message, not a crash", "[nam]")
     {
         NamNode nam;
         REQUIRE_FALSE (nam.loadFile (tmp.file ("missing.nam"), err));
-        REQUIRE_THAT (err.toStdString(), ContainsSubstring ("not found"));
+        REQUIRE_THAT (err.toStdString(), ContainsSubstring ("isn't there any more"));
     }
 
     SECTION ("not JSON")
@@ -220,7 +220,7 @@ TEST_CASE ("NAM: bad files fail with a message, not a crash", "[nam]")
                 os.write (chunk.getData(), 1 << 20);
         }
         REQUIRE_FALSE (nam.loadFile (f, err));
-        REQUIRE_THAT (err.toStdString(), ContainsSubstring ("too large"));
+        REQUIRE_THAT (err.toStdString(), ContainsSubstring ("over 64 MB"));
     }
 }
 
@@ -386,7 +386,7 @@ TEST_CASE ("VST3: a missing plugin fails straight away with a message", "[vst3]"
 
     REQUIRE (called);
     REQUIRE_FALSE (ok);
-    REQUIRE_THAT (err.toStdString(), ContainsSubstring ("not found"));
+    REQUIRE_THAT (err.toStdString(), ContainsSubstring ("isn't there any more"));
 }
 
 TEST_CASE ("VST3: a file that isn't a plugin fails with a message", "[vst3]")

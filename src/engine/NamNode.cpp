@@ -6,7 +6,7 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
 {
     if (! file.existsAsFile())
     {
-        error = "File not found: " + file.getFullPathName();
+        error = "The file isn't there any more.";
         return false;
     }
 
@@ -16,7 +16,7 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
     constexpr juce::int64 maxBytes = 64ll * 1024 * 1024; // 64 MB
     if (file.getSize() > maxBytes)
     {
-        error = "Model file too large (over 64 MB): " + file.getFileName();
+        error = "It's over 64 MB, far bigger than a NAM model should be.";
         return false;
     }
 
@@ -28,7 +28,7 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
         auto fresh = nam::get_dsp (path, opt);
         if (fresh == nullptr)
         {
-            error = "Failed to load model";
+            error = "It may be damaged, or not a NAM model.";
             return false;
         }
 
@@ -46,7 +46,7 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
     }
     catch (const std::exception& e)
     {
-        error = e.what();
+        error = "It may be damaged, or made with a newer version of NAM. (Details: " + juce::String (e.what()) + ")";
         model.reset();
         return false;
     }

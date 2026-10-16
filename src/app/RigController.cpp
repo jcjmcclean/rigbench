@@ -6,6 +6,11 @@
 #include "engine/Vst3Node.h"
 #include <cmath>
 
+namespace
+{
+const char* const badNameMessage = "That name won't work as a file name. Leave out / \\ and :, and try again.";
+}
+
 RigController::RigController (juce::File presetsDirectory, juce::File settingsFile)
     : presetsDir (std::move (presetsDirectory)),
       settings (std::move (settingsFile))
@@ -78,7 +83,7 @@ juce::String RigController::loadNam (const juce::File& file)
     auto nam = std::make_unique<NamNode>();
     juce::String err;
     if (! nam->loadFile (file, err))
-        return "Could not load NAM model: " + (err.isNotEmpty() ? err : juce::String ("unknown error"));
+        return "Couldn't load the amp model \"" + file.getFileName() + "\". " + (err.isNotEmpty() ? err : juce::String ("It may be damaged, or not a NAM model."));
 
     engine.setNode (AudioEngine::namSlot, std::move (nam));
     return {};
@@ -88,7 +93,7 @@ juce::String RigController::loadIR (const juce::File& file)
 {
     auto ir = std::make_unique<IRNode>();
     if (! ir->loadFile (file))
-        return "Could not load impulse response: " + file.getFileName();
+        return "Couldn't load the cab IR \"" + file.getFileName() + "\". It needs to be a WAV, AIFF, or FLAC file under 16 MB.";
 
     engine.setNode (AudioEngine::irSlot, std::move (ir));
     return {};
@@ -109,7 +114,7 @@ juce::String RigController::savePreset (const juce::String& name)
 {
     const auto file = PresetNames::presetFileFor (presetsDir, name);   // SEC-2
     if (file == juce::File())
-        return "Invalid preset name.";
+        return badNameMessage;
 
     Preset::RigInfo info;
     info.inputGain  = audio.getInputGain();
@@ -119,7 +124,7 @@ juce::String RigController::savePreset (const juce::String& name)
     info.name = name;
 
     if (! Preset::save (file, engine, info))
-        return "Could not save preset \"" + name + "\".";
+        return "Couldn't save the preset \"" + name + "\". Check your disk isn't full, then try again.";
 
     // The name the preset list will show (characters a file name can't hold are dropped).
     activePreset = file.getFileNameWithoutExtension();
@@ -131,9 +136,9 @@ juce::String RigController::renamePreset (const juce::String& from, const juce::
     const auto src = PresetNames::presetFileFor (presetsDir, from);
     const auto dst = PresetNames::presetFileFor (presetsDir, to);
     if (src == juce::File() || dst == juce::File())
-        return "Invalid preset name.";
+        return badNameMessage;
     if (! src.existsAsFile())
-        return "There's no preset called \"" + from + "\".";
+        return "There's no preset called \"" + from + "\" any more. It may have been renamed or deleted outside Tonebench.";
 
     // A different preset already has that name, ignoring case on every OS so
     // presets behave the same on Linux as on Mac and Windows. (Changing just the
@@ -141,7 +146,7 @@ juce::String RigController::renamePreset (const juce::String& from, const juce::
     const auto srcName = src.getFileNameWithoutExtension(), dstName = dst.getFileNameWithoutExtension();
     for (auto& existing : listPresets())
         if (existing.equalsIgnoreCase (dstName) && ! existing.equalsIgnoreCase (srcName))
-            return "There's already a preset called \"" + existing + "\".";
+            return "There's already a preset called \"" + existing + "\". Pick another name.";
 
     // Keep the name stored inside the file in step with the file name.
     auto json = juce::JSON::parse (src);
@@ -149,7 +154,7 @@ juce::String RigController::renamePreset (const juce::String& from, const juce::
         o->setProperty ("name", dst.getFileNameWithoutExtension());
 
     if (! src.moveFileTo (dst))
-        return "Could not rename \"" + from + "\".";
+        return "Couldn't rename \"" + from + "\".";
     if (json.isObject())
         dst.replaceWithText (juce::JSON::toString (json, juce::JSON::FormatOptions().withSpacing (juce::JSON::Spacing::multiLine)));
 
@@ -162,11 +167,11 @@ juce::String RigController::deletePreset (const juce::String& name)
 {
     const auto file = PresetNames::presetFileFor (presetsDir, name);
     if (file == juce::File())
-        return "Invalid preset name.";
+        return badNameMessage;
     if (! file.existsAsFile())
-        return "There's no preset called \"" + name + "\".";
+        return "There's no preset called \"" + name + "\" any more. It may have been renamed or deleted outside Tonebench.";
     if (! file.deleteFile())
-        return "Could not delete \"" + name + "\".";
+        return "Couldn't delete \"" + name + "\".";
 
     // The rig itself stays as it is; it's just no longer a saved preset.
     if (activePreset == file.getFileNameWithoutExtension())
@@ -179,12 +184,12 @@ juce::String RigController::loadPreset (const juce::String& name,
 {
     const auto file = PresetNames::presetFileFor (presetsDir, name);   // SEC-2
     if (file == juce::File())
-        return "Invalid preset name.";
+        return badNameMessage;
 
     Preset::RigInfo info;
     if (! Preset::load (file, engine, engine.getSampleRate(), engine.getMaxBlockSize(), info,
                         std::move (installVstSlot)))
-        return "Could not load preset \"" + name + "\".";
+        return "Couldn't load the preset \"" + name + "\". The file may be damaged, or saved by a newer version of Tonebench.";
 
     audio.setInputGain (info.inputGain);
     audio.setMasterGain (info.masterGain);
@@ -193,7 +198,7 @@ juce::String RigController::loadPreset (const juce::String& name,
 
     if (info.problems.isEmpty())
         return {};
-    return "Loaded \"" + name + "\", but " + info.problems.joinIntoString (" ").replaceFirstOccurrenceOf ("The ", "the ");
+    return "Loaded \"" + activePreset + "\". " + info.problems.joinIntoString (" ");
 }
 
 //==============================================================================

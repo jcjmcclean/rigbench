@@ -93,7 +93,7 @@ juce::var describe (juce::AudioDeviceManager& dm)
     o->setProperty ("bufferSizes", toVar (buffers));
     o->setProperty ("latencyMs", latencyMs);
     o->setProperty ("error", dm.getCurrentAudioDevice() == nullptr && ! inputDevices.isEmpty()
-                                 ? juce::String ("The audio device couldn't be opened.") : juce::String());
+                                 ? juce::String ("Couldn't open the audio device. Check it's plugged in and no other app is using it, then pick it again.") : juce::String());
     return result;
 }
 
@@ -123,7 +123,7 @@ juce::String apply (juce::AudioDeviceManager& dm, const juce::var& changes)
     {
         const auto name = v.toString();
         if (type != nullptr && name.isNotEmpty() && ! type->getDeviceNames (isInput).contains (name))
-            return "That device isn't available: " + name;
+            return "\"" + name + "\" isn't available. Check it's plugged in, then pick it again.";
         into = name;
         return {};
     };
@@ -172,7 +172,8 @@ juce::String apply (juce::AudioDeviceManager& dm, const juce::var& changes)
     setup.outputChannels.setRange (0, 2, true);
     setup.useDefaultOutputChannels = false;
 
-    return dm.setAudioDeviceSetup (setup, true);
+    const auto err = dm.setAudioDeviceSetup (setup, true);
+    return err.isEmpty() ? err : "Couldn't use that setting: " + err;
 }
 
 } // namespace AudioSetup

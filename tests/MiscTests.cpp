@@ -76,8 +76,8 @@ TEST_CASE ("SlotTypes: the VST3 folders are this platform's standard ones", "[sl
 {
     const auto folders = SlotTypes::vst3Folders();
     REQUIRE_FALSE (folders.isEmpty());
-    for (auto& f : folders)
-        REQUIRE (f.getFileName().equalsIgnoreCase ("vst3"));
+    for (auto& f : folders)   // "VST3", or ".vst3" in a Linux home folder
+        REQUIRE (f.getFileName().trimCharactersAtStart (".").equalsIgnoreCase ("vst3"));
 
    #if JUCE_MAC
     REQUIRE (folders[0].getFullPathName() == "/Library/Audio/Plug-Ins/VST3");
@@ -197,4 +197,16 @@ TEST_CASE ("PresetNames: Windows device names are refused on every OS", "[preset
     }
     REQUIRE (PresetNames::presetFileFor (tmp.dir, "Console") != juce::File());
     REQUIRE (PresetNames::presetFileFor (tmp.dir, "COM10") != juce::File());
+}
+
+//== UserText ==================================================================
+#include "app/UserText.h"
+
+TEST_CASE ("UserText: messages get curly quotes, apostrophes and a real ellipsis", "[text]")
+{
+    const auto t = UserText::typeset ("Couldn't load the amp model \"Lead.nam\". Try again...");
+    REQUIRE (t == juce::String::fromUTF8 ("Couldn\xe2\x80\x99t load the amp model \xe2\x80\x9cLead.nam\xe2\x80\x9d. Try again\xe2\x80\xa6"));
+    REQUIRE (UserText::typeset ("'quoted' word") == juce::String::fromUTF8 ("\xe2\x80\x98quoted\xe2\x80\x99 word"));
+    REQUIRE (UserText::typeset ("") == "");
+    REQUIRE (UserText::typeset ("plain") == "plain");
 }

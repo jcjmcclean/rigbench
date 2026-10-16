@@ -18,9 +18,11 @@ Vst3Node::~Vst3Node()
 void Vst3Node::loadAsync (const juce::File& file, double sr, int maxBlockSize,
                           std::function<void (bool, juce::String)> onDone)
 {
+    sourceFile = file;   // set first, so a failure can still name the file
+
     if (! file.exists())
     {
-        onDone (false, "File not found: " + file.getFullPathName());
+        onDone (false, "The file isn't there any more.");
         return;
     }
 
@@ -29,13 +31,12 @@ void Vst3Node::loadAsync (const juce::File& file, double sr, int maxBlockSize,
     fmt.findAllTypesForFile (found, file.getFullPathName());
     if (found.isEmpty())
     {
-        onDone (false, "No VST3 types found in " + file.getFileName());
+        onDone (false, "It may be damaged, or not built for this computer (an Intel-only plugin on an Apple Silicon Mac, for example).");
         return;
     }
 
     sampleRate = sr;
     maxBlock   = maxBlockSize;
-    sourceFile = file;
     identifier = found[0]->createIdentifierString();
 
     formatManager.createPluginInstanceAsync (*found[0], sr, maxBlockSize,
@@ -44,7 +45,7 @@ void Vst3Node::loadAsync (const juce::File& file, double sr, int maxBlockSize,
         {
             if (inst == nullptr)
             {
-                cb (false, err.isNotEmpty() ? err : juce::String ("Failed to create plugin"));
+                cb (false, err.isNotEmpty() ? "The plugin wouldn't start (" + err + ")." : juce::String ("The plugin wouldn't start."));
                 return;
             }
 

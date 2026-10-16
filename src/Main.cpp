@@ -36,7 +36,7 @@ public:
 
        #if JUCE_MAC
         juce::PopupMenu appleExtras;
-        appleExtras.addItem (menuSettings, "Settings...");
+        appleExtras.addItem (menuSettings, juce::String::fromUTF8 ("Settings\xe2\x80\xa6"));
         setMacMainMenu (this, &appleExtras);
        #endif
     }
@@ -53,21 +53,13 @@ public:
     void systemRequestedQuit() override { quit(); }
 
     //== MenuBarModel ==========================================================
-    enum MenuIDs { menuSettings = 1, menuSavePreset, menuQuit };
+    enum MenuIDs { menuSettings = 1 };
 
-    juce::StringArray getMenuBarNames() override { return { "File" }; }
+    // Settings and Quit live in the app menu (setMacMainMenu's extras), as on any
+    // Mac app, so there's no File menu.
+    juce::StringArray getMenuBarNames() override { return {}; }
 
-    juce::PopupMenu getMenuForIndex (int, const juce::String& name) override
-    {
-        juce::PopupMenu menu;
-        if (name == "File")
-        {
-            menu.addItem (menuSettings, "Audio Settings...");
-            menu.addSeparator();
-            menu.addItem (menuQuit, "Quit Tonebench");
-        }
-        return menu;
-    }
+    juce::PopupMenu getMenuForIndex (int, const juce::String&) override { return {}; }
 
     void menuItemSelected (int menuItemID, int) override
     {
@@ -77,9 +69,6 @@ public:
                 if (mainWindow != nullptr)
                     if (auto* ui = mainWindow->getWebUI())
                         ui->openAudioSettings();
-                break;
-            case menuQuit:
-                quit();
                 break;
             default: break;
         }

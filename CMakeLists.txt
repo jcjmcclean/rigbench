@@ -64,7 +64,7 @@ juce_add_gui_app(Tonebench
     PRODUCT_NAME "Tonebench"
     BUNDLE_ID    com.tonebench.app
     MICROPHONE_PERMISSION_ENABLED TRUE
-    MICROPHONE_PERMISSION_TEXT "Tonebench needs audio input to process your guitar."
+    MICROPHONE_PERMISSION_TEXT "Tonebench uses this to hear your guitar through your audio interface."
     NEEDS_WEB_BROWSER TRUE
     NEEDS_WEBVIEW2 TRUE          # Windows: WebView2 backs the UI bridge (ignored off-Windows)
 )
