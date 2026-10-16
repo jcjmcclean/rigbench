@@ -168,3 +168,21 @@ TEST_CASE ("Contract: the C++ side emits exactly the contract's events", "[contr
     }
     REQUIRE (sorted (emitted) == sorted (strings (contract()["events"])));
 }
+
+//== External links ============================================================
+#include "app/ExternalLinks.h"
+
+TEST_CASE ("ExternalLinks: only plain https links open in the browser", "[links][security]")
+{
+    REQUIRE (ExternalLinks::isOpenable ("https://www.tone3000.com/search?format=nam"));
+    REQUIRE (ExternalLinks::isOpenable ("https://github.com/jcjmcclean/tonebench/issues"));
+
+    for (auto bad : { "", "http://example.com", "file:///etc/passwd", "javascript:alert(1)",
+                      "https://", "https:///nohost", "ftp://x.com", "tonebench://open",
+                      "https://example.com/a b", "https://example.com/\"onload", "HTTPS:/x.com",
+                      "https://example.com/\nSet-Cookie" })
+    {
+        CAPTURE (bad);
+        REQUIRE_FALSE (ExternalLinks::isOpenable (bad));
+    }
+}

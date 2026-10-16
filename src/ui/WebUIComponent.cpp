@@ -1,6 +1,7 @@
 #include "WebUIComponent.h"
 #include "PluginEditorWindow.h"
 #include "app/AudioSetup.h"
+#include "app/ExternalLinks.h"
 #include "engine/AppPaths.h"
 #include "engine/SlotTypes.h"
 #include "BinaryData.h"
@@ -122,6 +123,9 @@ WebUIComponent::WebUIComponent (Options componentOptions)
                 markDirty();
                 done (setup);
             })
+        // Links (e.g. where to download models) open in the system browser; the
+        // WebView itself never navigates away (SEC-5). https only.
+        .withNativeFunction ("openUrl", op ([this, arg] (auto& a) { openExternalUrl (arg (a, 0).toString()); }))
         .withNativeFunction ("playTestSound", op ([this] (auto&) { rig.playTestSound(); }))
         .withNativeFunction ("finishSetup", op ([this] (auto&) { rig.finishSetup(); }))
         .withNativeFunction ("savePreset", op ([this, arg] (auto& a) { reportError (rig.savePreset (arg (a, 0).toString())); }))
@@ -333,6 +337,12 @@ void WebUIComponent::openVstEditorWindow()
     editorWindow = std::make_unique<PluginEditorWindow> (*vst->getInstance(),
                                                          juce::Colour (0xff141210),
                                                          [this] { editorWindow = nullptr; });
+}
+
+void WebUIComponent::openExternalUrl (const juce::String& url)
+{
+    if (ExternalLinks::isOpenable (url))
+        juce::URL (url).launchInDefaultBrowser();
 }
 
 void WebUIComponent::openAudioSettings()

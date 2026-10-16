@@ -16,7 +16,8 @@
     "getAudioSetup",
     "setAudioSetup",
     "playTestSound",
-    "finishSetup"
+    "finishSetup",
+    "openUrl"
   ],
   "events": [
     "state",

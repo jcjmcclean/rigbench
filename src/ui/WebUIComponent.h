@@ -46,6 +46,7 @@ private:
     void doLoadVst (const juce::File&);
     void loadFile (int slot, const juce::File&);
     void openVstEditorWindow();
+    void openExternalUrl (const juce::String& url);
     void loadPreset (const juce::String& name);
     void startVstFromPreset (const Preset::VstSlot&);
 
