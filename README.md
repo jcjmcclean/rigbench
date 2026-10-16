@@ -30,6 +30,7 @@ of fun. I'm happy with where it ended up.
   interface, it resamples in real time so you don't have to care.
 - Loads impulse responses for cab sims, with no added latency.
 - Runs the three as an ordered chain (plugin, then amp, then cab), and you can bypass any slot.
+- Has a tuner, and a one-knob noise gate on the input (off until you turn it up).
 - Saves and recalls whole rigs as presets.
 - Shows the live signal moving through the chain while you play.
 - Walks you through setup the first time: pick your interface, play a few notes so it can find

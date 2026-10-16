@@ -33,6 +33,9 @@ permission, feedback, or no idea where to get a model. These fix that.
 
 ## Next: the things every guitarist reaches for
 
+*Done on the `overnight` branch: the tuner, the noise gate, meters in dB with peak hold, and
+smooth knobs. Still to do: input gain that can boost, starter sounds, drag and drop.*
+
 - **Tuner.** There's no good free cross-platform tuner plugin, and you shouldn't need one. A
   button in the top bar; mutes the output while it's open.
 - **Noise gate** on the input, one knob, off by default. High-gain NAM models hiss without one.

@@ -104,7 +104,9 @@ function createMockBridge(): Bridge {
     const phase = (t % 2.2) / 2.2;
     const env = phase < 0.04 ? phase / 0.04 : Math.exp(-(phase - 0.04) * 3.1);
     const strum = state.playing ? Math.max(0, env) * (0.7 + 0.3 * Math.sin(t * 9)) : 0;
-    state.inputLevel = Math.min(1, (strum * 0.9 + (state.playing ? 0.04 : 0)) * state.inputGain);
+    // Peak levels like a real guitar DI: about -14 dBFS on the pick, -40 between notes.
+    const drive = (strum * 0.9 + (state.playing ? 0.04 : 0)) * state.inputGain;
+    state.inputLevel = Math.min(1, drive * 0.25 + (state.playing ? 0.01 : 0));
     const chainGain = anyLoaded ? 1.15 : 1;
     state.outputLevel = Math.min(1, state.inputLevel * chainGain * state.masterGain);
     emit();
@@ -127,7 +129,8 @@ function createMockBridge(): Bridge {
     }
 
     if (scopeSubs.size) {
-      const amp = state.inputLevel > 0.02 ? state.outputLevel : 0; // gate on input
+      // The scope is drawn on its own (compressed) scale, so feed it the strum.
+      const amp = drive > 0.02 ? Math.min(1, drive * chainGain * state.masterGain) : 0; // gate on input
       const pts: number[] = [];
       for (let i = 0; i < 48; i++) {
         scopePhase += 0.42;
