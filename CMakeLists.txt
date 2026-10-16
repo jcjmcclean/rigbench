@@ -72,7 +72,6 @@ set(TONESTACK_ENGINE_SOURCES
 
 target_sources(ToneStack PRIVATE
     src/Main.cpp
-    src/ui/MainComponent.cpp
     src/ui/WebUIComponent.cpp
     ${TONESTACK_ENGINE_SOURCES}
 )

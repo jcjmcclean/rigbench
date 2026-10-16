@@ -43,6 +43,7 @@ private:
     // State push
     juce::var buildStateVar();
     void markDirty() { stateDirty = true; }
+    void emitError (const juce::String& message);   // C++ -> JS "error" event
 
     // Resource provider (serves the embedded React build)
     std::optional<juce::WebBrowserComponent::Resource> provideResource (const juce::String& path);
@@ -70,9 +71,11 @@ private:
     std::unique_ptr<juce::WebBrowserComponent> web;
     bool stateDirty = true;
 
-    void devAutoLoad();   // loads /tmp/tonestack_autoload.txt if present (dev only)
+   #if JUCE_DEBUG
+    void devAutoLoad();   // DEBUG-ONLY: loads an app-private sentinel file if present (SEC-1)
     bool didAutoLoad = false;
     int  ticks = 0;
+   #endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WebUIComponent)
 };

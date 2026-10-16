@@ -4,6 +4,11 @@
 #include <array>
 #include <memory>
 
+// Minimum buffer the audio components allocate for, so a host that reports a tiny
+// (or zero) expected block size still has headroom. Shared by every audio front
+// end (WebUIComponent, the offline bench, ...) — single source of truth.
+inline constexpr int kMinBlockAlloc = 4096;
+
 //==============================================================================
 // Owns the ordered signal chain and runs it on the audio thread.
 //
