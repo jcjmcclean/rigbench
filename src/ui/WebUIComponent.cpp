@@ -1,5 +1,7 @@
 #include "WebUIComponent.h"
 #include "PluginEditorWindow.h"
+#include "app/AudioSetup.h"
+#include "engine/AppPaths.h"
 #include "engine/SlotTypes.h"
 #include "BinaryData.h"
 
@@ -76,8 +78,7 @@ WebUIComponent::WebUIComponent (Options componentOptions)
     // resource provider nor the native bridge, so ask for WebView2 explicitly. Its
     // default user-data folder sits next to the exe (unwritable under Program
     // Files), so keep it in the app's data folder. Both are ignored elsewhere.
-    const auto webViewData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                                 .getChildFile ("Tonebench").getChildFile ("WebView2");
+    const auto webViewData = AppPaths::dataDir().getChildFile ("WebView2");
 
     BrowserOptions options = BrowserOptions{}
         .withBackend (BrowserOptions::Backend::webview2)
@@ -108,7 +109,21 @@ WebUIComponent::WebUIComponent (Options componentOptions)
         .withNativeFunction ("setMaster", op ([this, arg] (auto& a) { rig.setMaster (arg (a, 0)); }))
         .withNativeFunction ("setMonitor", op ([this, arg] (auto& a) { rig.setMonitor ((bool) arg (a, 0)); }))
         .withNativeFunction ("openEditor", op ([this] (auto&) { openVstEditorWindow(); }))
-        .withNativeFunction ("openAudioSettings", op ([this] (auto&) { openAudioSettings(); }))
+        // Audio device setup (Settings screen + first-run setup). setAudioSetup
+        // resolves with the new setup; its "error" says why a change failed.
+        .withNativeFunction ("getAudioSetup", [this] (const juce::Array<juce::var>&, Completion done)
+            { done (AudioSetup::describe (deviceManager)); })
+        .withNativeFunction ("setAudioSetup", [this, arg] (const juce::Array<juce::var>& a, Completion done)
+            {
+                const auto err = AudioSetup::apply (deviceManager, arg (a, 0));
+                auto setup = AudioSetup::describe (deviceManager);
+                if (err.isNotEmpty())
+                    setup.getDynamicObject()->setProperty ("error", err);
+                markDirty();
+                done (setup);
+            })
+        .withNativeFunction ("playTestSound", op ([this] (auto&) { rig.playTestSound(); }))
+        .withNativeFunction ("finishSetup", op ([this] (auto&) { rig.finishSetup(); }))
         .withNativeFunction ("savePreset", op ([this, arg] (auto& a) { reportError (rig.savePreset (arg (a, 0).toString())); }))
         .withNativeFunction ("loadPreset", op ([this, arg] (auto& a) { loadPreset (arg (a, 0).toString()); }));
 
@@ -140,10 +155,7 @@ WebUIComponent::~WebUIComponent()
 
 juce::File WebUIComponent::audioSettingsFile() const
 {
-    auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("Tonebench");
-    dir.createDirectory();
-    return dir.getChildFile ("audio-settings.xml");
+    return AppPaths::dataDir().getChildFile ("audio-settings.xml");
 }
 
 void WebUIComponent::changeListenerCallback (juce::ChangeBroadcaster*)
@@ -186,8 +198,8 @@ void WebUIComponent::timerCallback()
         s = target > s ? target : s * 0.80f + target * 0.20f;
     };
     auto& audio = rig.getAudio();
-    smooth (smoothedIn, audio.getInputPeak());
-    smooth (smoothedOut, audio.getOutputPeak());
+    smooth (smoothedIn, audio.takeInputPeak());
+    smooth (smoothedOut, audio.takeOutputPeak());
 
    #if JUCE_DEBUG
     if (! didAutoLoad && ++ticks >= 4)
@@ -204,6 +216,13 @@ void WebUIComponent::timerCallback()
     mo->setProperty ("inputLevel", smoothedIn);
     mo->setProperty ("outputLevel", smoothedOut);
     mo->setProperty ("playing", audio.isMonitoring());
+
+    // Raw level of each input the device has open, for first-run setup.
+    juce::Array<juce::var> inputPeaks;
+    if (auto* dev = deviceManager.getCurrentAudioDevice())
+        for (int ch = 0; ch < juce::jmin (dev->getActiveInputChannels().countNumberOfSetBits(), AudioPath::maxChannelMeters); ++ch)
+            inputPeaks.add (audio.takeChannelPeak (ch));
+    mo->setProperty ("inputPeaks", inputPeaks);
     web->emitEventIfBrowserIsVisible ("meters", juce::var (mo));
 
     // Drain the scope feed and push the live waveform to the UI.
@@ -318,18 +337,9 @@ void WebUIComponent::openVstEditorWindow()
 
 void WebUIComponent::openAudioSettings()
 {
-    auto selector = std::make_unique<juce::AudioDeviceSelectorComponent> (
-        deviceManager, 1, 2, 1, 2, false, false, true, false);
-    selector->setSize (460, 360);
-
-    juce::DialogWindow::LaunchOptions o;
-    o.content.setOwned (selector.release());
-    o.dialogTitle = "Audio Settings";
-    o.dialogBackgroundColour = juce::Colour (0xff141210);
-    o.escapeKeyTriggersCloseButton = true;
-    o.useNativeTitleBar = true;
-    o.resizable = false;
-    o.launchAsync();
+    // The Settings screen is part of the React UI; ask it to open.
+    if (web != nullptr)
+        web->emitEventIfBrowserIsVisible ("showSettings", juce::var());
 }
 
 void WebUIComponent::loadPreset (const juce::String& name)
@@ -358,7 +368,9 @@ void WebUIComponent::startVstFromPreset (const Preset::VstSlot& v)
         auto* raw = node.get();
         pendingVst = std::move (node);
         auto& engine = rig.getEngine();
-        raw->loadAsync (v.path, engine.getSampleRate(), engine.getMaxBlockSize(),
+        const double sr = engine.isPrepared() ? engine.getSampleRate() : 48000.0;   // M3: never 0/0
+        const int block = engine.isPrepared() ? engine.getMaxBlockSize() : 512;
+        raw->loadAsync (v.path, sr, block,
             [this, raw, state = v.stateBase64, enabled = v.enabled] (bool loaded, juce::String err)
             {
                 if (loaded)
@@ -397,8 +409,7 @@ void WebUIComponent::devAutoLoad()
     // executes) whatever paths the sentinel names, so it must NEVER exist in a
     // release build, and the sentinel lives in the app-private data dir — not
     // world-writable /tmp, where any local process could plant a malicious entry.
-    const auto sentinel = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                              .getChildFile ("Tonebench").getChildFile ("tonebench_autoload.txt");
+    const auto sentinel = AppPaths::dataDir().getChildFile ("tonebench_autoload.txt");
     if (! sentinel.existsAsFile())
         return;
 

@@ -6,10 +6,18 @@
 #include "engine/Vst3Node.h"
 #include <cmath>
 
-RigController::RigController (juce::File presetsDirectory)
-    : presetsDir (std::move (presetsDirectory))
+RigController::RigController (juce::File presetsDirectory, juce::File settingsFile)
+    : presetsDir (std::move (presetsDirectory)),
+      settings (std::move (settingsFile))
 {
     presetsDir.createDirectory();
+    audio.setMonitoring (settings.isSetupComplete());
+}
+
+void RigController::finishSetup()
+{
+    settings.setSetupComplete (true);
+    audio.setMonitoring (true);
 }
 
 RigController::~RigController() = default;
@@ -117,7 +125,10 @@ juce::String RigController::loadPreset (const juce::String& name,
     audio.setInputGain (info.inputGain);
     audio.setMasterGain (info.masterGain);
     activePreset = name;
-    return {};
+
+    if (info.problems.isEmpty())
+        return {};
+    return "Loaded \"" + name + "\", but " + info.problems.joinIntoString (" ").replaceFirstOccurrenceOf ("The ", "the ");
 }
 
 //==============================================================================
@@ -148,6 +159,7 @@ juce::var RigController::buildState (const DeviceInfo& device, float inputLevel,
     o->setProperty ("bufferSize", device.bufferSize);
     o->setProperty ("roundTripMs", device.roundTripMs);
 
+    o->setProperty ("setupComplete", settings.isSetupComplete());
     o->setProperty ("monitoring", audio.isMonitoring());
     o->setProperty ("playing", audio.isMonitoring());
     o->setProperty ("inputGain", (double) audio.getInputGain());

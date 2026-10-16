@@ -1,4 +1,5 @@
 #include "IRNode.h"
+#include <juce_audio_formats/juce_audio_formats.h>
 
 IRNode::IRNode() = default;
 
@@ -29,6 +30,17 @@ bool IRNode::loadFile (const juce::File& file)
     constexpr juce::int64 maxBytes = 16ll * 1024 * 1024; // 16 MB
     if (file.getSize() > maxBytes)
         return false;
+
+    // Convolution loads in the background and can't report failure, so check
+    // the file really is audio we can read first (M6: a renamed text file used
+    // to show up as a "loaded" cab).
+    {
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (file));
+        if (reader == nullptr || reader->lengthInSamples <= 0 || reader->sampleRate <= 0)
+            return false;
+    }
 
     // Load as mono, trim silence, keep full length, normalise.
     // This loads on a background thread inside Convolution and swaps in safely

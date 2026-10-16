@@ -219,6 +219,21 @@ TEST_CASE ("Controller: loading a preset that doesn't exist reports it and keeps
     REQUIRE (r.state()["activePreset"].isVoid());
 }
 
+TEST_CASE ("Controller: a preset with missing files still loads, and says what's missing", "[controller][preset]")
+{
+    Rig r;
+    r.loadIR();
+    r.loadNam();
+    REQUIRE (r.rig.savePreset ("Moved").isEmpty());
+    r.tmp.file ("cab.wav").deleteFile();
+
+    const auto msg = r.rig.loadPreset ("Moved");
+    REQUIRE (msg == "Loaded \"Moved\", but the cab IR \"cab.wav\" wasn't found.");
+    REQUIRE ((bool) r.slot ("nam")["loaded"]);
+    REQUIRE_FALSE ((bool) r.slot ("ir")["loaded"]);
+    REQUIRE (r.rig.getActivePreset() == "Moved");
+}
+
 TEST_CASE ("Controller: a preset's VST3 slot is passed out for consent", "[controller][preset]")
 {
     Rig r;

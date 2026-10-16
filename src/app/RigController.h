@@ -1,6 +1,8 @@
 #pragma once
 
+#include "AppSettings.h"
 #include "AudioPath.h"
+#include "engine/AppPaths.h"
 #include "engine/AudioEngine.h"
 #include "engine/Preset.h"
 #include <functional>
@@ -18,7 +20,9 @@ class Vst3Node;
 class RigController
 {
 public:
-    explicit RigController (juce::File presetsDirectory = Preset::presetsDir());
+    // Until first-run setup is finished, monitoring starts off.
+    explicit RigController (juce::File presetsDirectory = Preset::presetsDir(),
+                            juce::File settingsFile = AppPaths::dataDir().getChildFile ("settings.json"));
     ~RigController();
 
     AudioEngine& getEngine() noexcept { return engine; }
@@ -34,6 +38,11 @@ public:
     void setInput  (const juce::var& value);
     void setMaster (const juce::var& value);
     void setMonitor (bool on);
+
+    //== first-run setup =======================================================
+    bool isSetupComplete() const noexcept { return settings.isSetupComplete(); }
+    void finishSetup();          // remembers it, and turns monitoring on
+    void playTestSound()         { audio.playTestSound(); }
 
     //== loading content (synchronous for NAM/IR) ==============================
     // Each returns an empty string on success, or a message for the user.
@@ -70,6 +79,7 @@ private:
     AudioEngine engine;
     AudioPath   audio { engine };
     juce::File  presetsDir;
+    AppSettings settings;
     juce::String activePreset;
 
     juce::var slotState (int index, const char* id) const;

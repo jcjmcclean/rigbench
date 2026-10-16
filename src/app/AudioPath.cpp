@@ -1,10 +1,25 @@
 #include "AudioPath.h"
 
-void AudioPath::prepare (int samplesPerBlockExpected, double sampleRate)
+void AudioPath::prepare (int samplesPerBlockExpected, double newSampleRate)
 {
     const int alloc = juce::jmax (samplesPerBlockExpected, kMinBlockAlloc);
     monoBuffer.setSize (1, alloc, false, false, true);
+    sampleRate = newSampleRate > 0 ? newSampleRate : 48000.0;
+    testToneLength = (int) (sampleRate * 0.8);
     engine.prepare (sampleRate, alloc);
+}
+
+void AudioPath::holdMax (std::atomic<float>& peak, float value) noexcept
+{
+    float prev = peak.load (std::memory_order_relaxed);
+    while (value > prev && ! peak.compare_exchange_weak (prev, value, std::memory_order_relaxed)) {}
+}
+
+float AudioPath::takeChannelPeak (int channel) noexcept
+{
+    if (! juce::isPositiveAndBelow (channel, maxChannelMeters))
+        return 0.0f;
+    return channelPeaks[(size_t) channel].exchange (0.0f, std::memory_order_relaxed);
 }
 
 void AudioPath::release()
@@ -16,12 +31,17 @@ void AudioPath::process (juce::AudioBuffer<float>& io, int start, int num) noexc
 {
     const int numChans = io.getNumChannels();
 
+    // Raw input levels per channel, before anything else touches the buffer.
+    for (int ch = 0; ch < juce::jmin (numChans, maxChannelMeters); ++ch)
+        holdMax (channelPeaks[(size_t) ch], io.getMagnitude (ch, start, num));
+
     if (! isMonitoring() || num > monoBuffer.getNumSamples() || numChans == 0)
     {
         for (int ch = 0; ch < numChans; ++ch)
             io.clear (ch, start, num);
         inPeak.store (0.0f, std::memory_order_relaxed);
         outPeak.store (0.0f, std::memory_order_relaxed);
+        addTestTone (io, start, num);
         return;
     }
 
@@ -30,7 +50,7 @@ void AudioPath::process (juce::AudioBuffer<float>& io, int start, int num) noexc
     if (ig != 1.0f)
         monoBuffer.applyGain (0, 0, num, ig);
     const float inLevel = monoBuffer.getMagnitude (0, 0, num);
-    inPeak.store (inLevel, std::memory_order_relaxed);
+    holdMax (inPeak, inLevel);
 
     float* chans[1] = { monoBuffer.getWritePointer (0) };
     juce::AudioBuffer<float> work (chans, 1, num);
@@ -42,9 +62,33 @@ void AudioPath::process (juce::AudioBuffer<float>& io, int start, int num) noexc
         io.copyFrom (ch, start, work, 0, 0, num);
         io.applyGain (ch, start, num, g);
     }
-    outPeak.store (work.getMagnitude (0, 0, num) * g, std::memory_order_relaxed);
+    holdMax (outPeak, work.getMagnitude (0, 0, num) * g);
 
     pushScope (work.getReadPointer (0), num, g, inLevel > scopeGate);
+    addTestTone (io, start, num);
+}
+
+void AudioPath::addTestTone (juce::AudioBuffer<float>& io, int start, int num) noexcept
+{
+    int remaining = testToneRemaining.load (std::memory_order_relaxed);
+    if (remaining <= 0)
+        return;
+
+    // A soft 440 Hz tone with a short fade in and out, about -18 dBFS.
+    const double step = juce::MathConstants<double>::twoPi * 440.0 / sampleRate;
+    const int fade = juce::jmax (1, (int) (sampleRate * 0.02));
+    const int n = juce::jmin (num, remaining);
+    for (int i = 0; i < n; ++i)
+    {
+        const int pos = testToneLength - remaining + i;
+        const float env = (float) juce::jmin (1.0, juce::jmin ((double) pos / fade, (double) (testToneLength - pos) / fade));
+        const float v = 0.125f * env * (float) std::sin (testTonePhase);
+        testTonePhase += step;
+        for (int ch = 0; ch < io.getNumChannels(); ++ch)
+            io.addSample (ch, start + i, v);
+    }
+    testTonePhase = std::fmod (testTonePhase, juce::MathConstants<double>::twoPi);
+    testToneRemaining.store (remaining - n, std::memory_order_relaxed);
 }
 
 void AudioPath::pushScope (const float* data, int num, float gain, bool gateOpen) noexcept

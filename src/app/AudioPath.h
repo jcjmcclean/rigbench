@@ -38,9 +38,24 @@ public:
     float getMasterGain() const noexcept       { return masterGain.load (std::memory_order_relaxed); }
 
     //== meters + scope (message thread) =======================================
-    // Latest block peaks (input after trim; output after master).
+    // Peaks held since the last take (input after trim; output after master), so a
+    // 30 Hz meter still sees a pick attack that lasted one block. take*() resets.
     float getInputPeak() const noexcept  { return inPeak.load (std::memory_order_relaxed); }
     float getOutputPeak() const noexcept { return outPeak.load (std::memory_order_relaxed); }
+    float takeInputPeak() noexcept       { return inPeak.exchange (0.0f, std::memory_order_relaxed); }
+    float takeOutputPeak() noexcept      { return outPeak.exchange (0.0f, std::memory_order_relaxed); }
+
+    // Raw peak of each device input channel (before trim), held like the above.
+    // Lets first-run setup see which input the guitar is on. Channels the device
+    // doesn't have read 0.
+    static constexpr int maxChannelMeters = 16;
+    float takeChannelPeak (int channel) noexcept;
+
+    //== test sound ============================================================
+    // A short, quiet tone on every output, played even with monitoring off (it's
+    // how setup checks you can hear the output). Safe from any thread.
+    void playTestSound() noexcept { testToneRemaining.store (testToneLength, std::memory_order_relaxed); }
+    bool isPlayingTestSound() const noexcept { return testToneRemaining.load (std::memory_order_relaxed) > 0; }
 
     // Input peak above which the scope shows signal (below it the scope is flat,
     // so nothing appears to flow when you're not playing).
@@ -60,6 +75,12 @@ private:
     std::atomic<float> masterGain { 0.8f };
     std::atomic<float> inPeak  { 0.0f };
     std::atomic<float> outPeak { 0.0f };
+    std::array<std::atomic<float>, maxChannelMeters> channelPeaks {};
+
+    double sampleRate = 48000.0;
+    int testToneLength = 0;                     // samples (set in prepare)
+    std::atomic<int> testToneRemaining { 0 };
+    double testTonePhase = 0.0;
 
     // Lock-free SPSC: the audio thread writes decimated signed peaks, the
     // message thread drains them.
@@ -67,6 +88,8 @@ private:
     std::array<float, scopeCapacity> scopeRing {};
 
     void pushScope (const float* data, int num, float gain, bool gateOpen) noexcept;
+    void addTestTone (juce::AudioBuffer<float>& io, int start, int num) noexcept;
+    static void holdMax (std::atomic<float>& peak, float value) noexcept;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPath)
 };

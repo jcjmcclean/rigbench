@@ -19,6 +19,10 @@ namespace Preset
         float  masterGain = 0.8f;
         double sampleRateAtSave = 48000.0;
         juce::String name;
+
+        // load(): why any slot in the preset couldn't be restored, in words for
+        // the user ("The cab IR \"x.wav\" wasn't found."). Empty if all went well.
+        juce::StringArray problems;
     };
 
     // Describes a VST3 slot found in a preset, to be installed asynchronously.

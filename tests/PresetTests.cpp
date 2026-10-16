@@ -236,6 +236,8 @@ TEST_CASE ("Preset: content outside the user's own folders is refused (SEC-3)", 
     REQUIRE (Preset::load (file, engine, 48000.0, 256, info));
     REQUIRE (engine.getNode (AudioEngine::irSlot) == nullptr);
     REQUIRE (engine.getNode (AudioEngine::namSlot) == nullptr);
+    REQUIRE (info.problems.size() == 2);
+    REQUIRE (info.problems[0].contains ("outside your own folders"));
 }
 #endif
 
@@ -276,4 +278,41 @@ TEST_CASE ("Preset: presets live in the app's data folder", "[preset]")
     REQUIRE (dir.isDirectory());
     REQUIRE (dir.getFileName() == "Presets");
     REQUIRE (dir.getParentDirectory().getFileName() == "Tonebench");
+   #if JUCE_MAC
+    REQUIRE (dir.getParentDirectory().getParentDirectory().getFileName() == "Application Support");
+   #endif
+}
+
+TEST_CASE ("Preset: every slot that can't be restored is explained", "[preset]")
+{
+    TempDir tmp;
+    const auto file = tmp.file ("broken.tonebench");
+    file.replaceWithText (presetJson ("["
+        R"({"slot": 1, "type": "nam", "path": )" + jsonPath (tmp.file ("gone.nam")) + "},"
+        R"({"slot": 2, "type": "ir", "path": )" + jsonPath (tmp.file ("gone.wav")) + "},"
+        R"({"slot": 2, "type": "chorus", "path": "x"})"
+        "]"));
+
+    AudioEngine engine;
+    engine.prepare (48000.0, 256);
+    Preset::RigInfo info;
+    REQUIRE (Preset::load (file, engine, 48000.0, 256, info));
+    REQUIRE (info.problems.size() == 3);
+    REQUIRE (info.problems[0] == "The amp model \"gone.nam\" wasn't found.");
+    REQUIRE (info.problems[1] == "The cab IR \"gone.wav\" wasn't found.");
+    REQUIRE (info.problems[2].contains ("chorus"));
+}
+
+TEST_CASE ("Preset: the type decides the slot, so an amp model can't land in the cab slot", "[preset]")
+{
+    TempDir tmp;
+    const auto file = tmp.file ("mislabelled.tonebench");
+    file.replaceWithText (presetJson (R"([{"slot": 2, "type": "nam", "path": )" + jsonPath (namFixture()) + "}]"));
+
+    AudioEngine engine;
+    engine.prepare (48000.0, 256);
+    Preset::RigInfo info;
+    REQUIRE (Preset::load (file, engine, 48000.0, 256, info));
+    REQUIRE (dynamic_cast<NamNode*> (engine.getNode (AudioEngine::namSlot)) != nullptr);
+    REQUIRE (engine.getNode (AudioEngine::irSlot) == nullptr);
 }

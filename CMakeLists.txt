@@ -116,7 +116,9 @@ set(TONEBENCH_ENGINE_SOURCES
 # App logic that doesn't need the GUI (bridge operations, audio path, presets).
 # Shared by the app and the tests.
 set(TONEBENCH_APP_SOURCES
+    src/app/AppSettings.cpp
     src/app/AudioPath.cpp
+    src/app/AudioSetup.cpp
     src/app/PresetNames.cpp
     src/app/RigController.cpp
 )
@@ -136,6 +138,7 @@ target_compile_definitions(Tonebench PRIVATE
                                 # provider + native integration API exist (no-op elsewhere)
     JUCE_USE_CURL=0
     JUCE_PLUGINHOST_VST3=1      # host VST3 plugins (T4)
+    $<$<PLATFORM_ID:Linux>:JUCE_JACK=1>   # Linux: JACK (and PipeWire's JACK), alongside ALSA
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Tonebench,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Tonebench,JUCE_VERSION>"
 )
@@ -261,6 +264,7 @@ if(TONEBENCH_BUILD_TESTS)
     target_link_libraries(tonebench_tests PRIVATE
         "$<LINK_LIBRARY:WHOLE_ARCHIVE,namcore>"
         Catch2::Catch2WithMain
+        juce::juce_audio_devices
         juce::juce_audio_processors
         juce::juce_audio_formats
         juce::juce_dsp

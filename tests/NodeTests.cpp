@@ -125,6 +125,20 @@ TEST_CASE ("IR: refuses missing and oversized files", "[ir][security]")
     REQUIRE_FALSE (ir.loadFile (big));
 }
 
+TEST_CASE ("IR: a file that isn't audio is refused, whatever it's called", "[ir]")
+{
+    TempDir tmp;
+    IRNode ir;
+    auto fake = tmp.file ("cab.wav");
+    fake.replaceWithText ("RIFF but not really");
+    REQUIRE_FALSE (ir.loadFile (fake));
+    REQUIRE (ir.getSourceName().isEmpty());
+
+    auto empty = tmp.file ("empty.wav");
+    writeWav (empty, juce::AudioBuffer<float> (1, 0), 48000.0);
+    REQUIRE_FALSE (ir.loadFile (empty));
+}
+
 TEST_CASE ("IR: a block bigger than prepared is left alone", "[ir]")
 {
     TempDir tmp;

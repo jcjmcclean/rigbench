@@ -34,7 +34,7 @@ public:
     void releaseResources() override;
     void resized() override;
 
-    void openAudioSettings();   // also invoked from the native menu bar
+    void openAudioSettings();   // from the native menu bar: opens the React Settings screen
 
 private:
     void timerCallback() override;

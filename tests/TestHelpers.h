@@ -17,13 +17,21 @@ struct TempDir
 {
     juce::File dir;
 
+    // Under the user's app-data folder rather than the temp dir: on Linux the
+    // temp dir is the shared /tmp, which presets aren't allowed to load from.
     TempDir()
-        : dir (juce::File::getSpecialLocation (juce::File::tempDirectory)
-                   .getNonexistentChildFile ("tonebench-test", {}, false))
+        : dir (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                   .getChildFile ("tonebench-tests")
+                   .getNonexistentChildFile ("run", {}, false))
     {
         dir.createDirectory();
     }
-    ~TempDir() { dir.deleteRecursively(); }
+    ~TempDir()
+    {
+        dir.deleteRecursively();
+        if (dir.getParentDirectory().getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0)
+            dir.getParentDirectory().deleteFile();
+    }
 
     juce::File file (const juce::String& name) const { return dir.getChildFile (name); }
 };

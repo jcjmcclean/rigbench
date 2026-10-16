@@ -1,5 +1,5 @@
 {
-  "_comment": "The JS <-> C++ bridge contract. ui/src/bridge.test.ts and tests/ContractTests.cpp both check their side against this file, so the two can't drift apart silently. Change it deliberately, together with both sides.",
+  "_comment": "The JS <-> C++ bridge contract. ui/src/contract.test.ts and tests/MiscTests.cpp both check their side against this file, so the two can't drift apart silently. Change it deliberately, together with both sides.",
   "nativeFunctions": [
     "getState",
     "loadSlot",
@@ -11,16 +11,26 @@
     "setMaster",
     "setMonitor",
     "openEditor",
-    "openAudioSettings",
     "savePreset",
-    "loadPreset"
+    "loadPreset",
+    "getAudioSetup",
+    "setAudioSetup",
+    "playTestSound",
+    "finishSetup"
   ],
-  "events": ["state", "meters", "scope", "error"],
+  "events": [
+    "state",
+    "meters",
+    "scope",
+    "error",
+    "showSettings"
+  ],
   "stateKeys": [
     "device",
     "sampleRate",
     "bufferSize",
     "roundTripMs",
+    "setupComplete",
     "monitoring",
     "inputGain",
     "masterGain",
@@ -31,13 +41,62 @@
     "presets",
     "activePreset"
   ],
-  "slotIds": ["vst3", "nam", "ir"],
+  "slotIds": [
+    "vst3",
+    "nam",
+    "ir"
+  ],
   "slotKeys": {
-    "common": ["type", "loaded", "name", "bypassed"],
-    "vst3": ["hasEditor"],
-    "nam": ["gain"],
-    "ir": ["mix"]
+    "common": [
+      "type",
+      "loaded",
+      "name",
+      "bypassed"
+    ],
+    "vst3": [
+      "hasEditor"
+    ],
+    "nam": [
+      "gain"
+    ],
+    "ir": [
+      "mix"
+    ]
   },
-  "meterKeys": ["inputLevel", "outputLevel", "playing"],
-  "errorKeys": ["message"]
+  "meterKeys": [
+    "inputLevel",
+    "outputLevel",
+    "playing",
+    "inputPeaks"
+  ],
+  "errorKeys": [
+    "message"
+  ],
+  "audioSetupKeys": [
+    "driver",
+    "drivers",
+    "inputDevice",
+    "inputDevices",
+    "outputDevice",
+    "outputDevices",
+    "inputs",
+    "input",
+    "listeningToAll",
+    "sampleRate",
+    "sampleRates",
+    "bufferSize",
+    "bufferSizes",
+    "latencyMs",
+    "builtInInput",
+    "error"
+  ],
+  "audioSetupChanges": [
+    "driver",
+    "inputDevice",
+    "outputDevice",
+    "input",
+    "listenToAllInputs",
+    "sampleRate",
+    "bufferSize"
+  ]
 }

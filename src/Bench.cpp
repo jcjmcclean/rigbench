@@ -61,6 +61,8 @@ void operator delete (void* p, const std::nothrow_t&) noexcept   { std::free (p)
 void operator delete[] (void* p, const std::nothrow_t&) noexcept { std::free (p); }
 
 //==============================================================================
+namespace
+{
 namespace sig
 {
 juce::AudioBuffer<float> impulse (double, int len)
@@ -159,14 +161,13 @@ bool saveMono (const juce::File& f, const juce::AudioBuffer<float>& b, double sr
 {
     f.deleteFile();
     juce::WavAudioFormat fmt;
-    if (auto out = std::unique_ptr<juce::FileOutputStream> (f.createOutputStream()))
-    {
-        std::unique_ptr<juce::AudioFormatWriter> w (fmt.createWriterFor (out.get(), sr, 1, 24, {}, 0));
-        if (w == nullptr) return false;
-        out.release();
-        return w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
-    }
-    return false;
+    std::unique_ptr<juce::OutputStream> out (f.createOutputStream().release());
+    if (out == nullptr)
+        return false;
+    auto w = fmt.createWriterFor (out, juce::AudioFormatWriterOptions{}.withSampleRate (sr)
+                                                                      .withNumChannels (1)
+                                                                      .withBitsPerSample (24));
+    return w != nullptr && w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
 }
 } // namespace io
 
@@ -248,8 +249,6 @@ juce::AudioBuffer<float> renderThroughEngine (AudioEngine& engine,
 }
 
 //==============================================================================
-namespace
-{
 std::map<juce::String, juce::String> parseArgs (int argc, char** argv, int from)
 {
     std::map<juce::String, juce::String> m;
@@ -921,7 +920,7 @@ int runRender (int argc, char** argv)
     if (args.count ("in"))
     {
         input = io::loadMono (juce::File (args["in"]), inSr);
-        if (inSr != sr) std::cout << "note: input file is " << inSr << " Hz, bench running at " << sr << " Hz\n";
+        if (! juce::approximatelyEqual (inSr, sr)) std::cout << "note: input file is " << inSr << " Hz, bench running at " << sr << " Hz\n";
     }
     else
     {
