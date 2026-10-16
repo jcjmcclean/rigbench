@@ -32,6 +32,8 @@ of fun. I'm happy with where it ended up.
 - Runs the three as an ordered chain (plugin, then amp, then cab), and you can bypass any slot.
 - Saves and recalls whole rigs as presets.
 - Shows the live signal moving through the chain while you play.
+- Walks you through setup the first time: pick your interface, play a few notes so it can find
+  which input your guitar is on, and check you can hear it.
 
 Under the hood it's a C++/JUCE audio engine with a React interface in a webview. The interface runs
 on its own thread, so it never costs you any latency.
@@ -61,8 +63,11 @@ generated at build time, not committed), so the embedded UI can't drift out of d
 ## Test
 
 ```sh
-ctest --test-dir build --output-on-failure   # C++ engine suite: DSP checks, realtime safety, presets
-cd ui && npm test                             # UI unit tests: bridge logic, Knob, Meter
+ctest --test-dir build --output-on-failure   # C++: unit tests (Catch2) + the offline self-test
+cd ui && npm test                             # UI unit tests (Vitest)
+cd ui && npm run test:e2e                     # UI end-to-end in Chromium, against the mock engine
+./build/Tonebench_artefacts/RelWithDebInfo/Tonebench.app/Contents/MacOS/Tonebench --smoke
+                                              # boots the real app and checks the UI reaches the engine
 ```
 
 `tonebench_cli` also renders audio offline, through a simulated interface, so no device is needed:
@@ -73,7 +78,8 @@ cmake --build build --target tonebench_cli
     --gen pluck --nam model.nam --ir cab.wav --out out.wav
 ```
 
-See [`docs/testing.md`](docs/testing.md) for what's covered. CI runs both suites on every push.
+See [`docs/testing.md`](docs/testing.md) for what's covered. CI runs all of it on macOS, Linux, and
+Windows on every push and pull request.
 
 ## Download
 

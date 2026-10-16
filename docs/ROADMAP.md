@@ -9,6 +9,9 @@ at the end.
 
 ## Now: get anyone from download to playing
 
+*Done on the `overnight` branch: first-run setup, the new Settings screen, any input, and the
+download links on empty slots. Still to do in this section: clearer errors for every failure.*
+
 Most people who try an amp sim and give up do so before they hear anything: wrong input, no
 permission, feedback, or no idea where to get a model. These fix that.
 

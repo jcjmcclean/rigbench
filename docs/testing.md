@@ -1,122 +1,111 @@
 # Testing
 
-Tonebench has two automated test suites: a C++ offline self-test that drives the
-real audio engine, and a React/Vitest suite for the WebView UI. Both run in CI
-(`.github/workflows/ci.yml`) on every push and pull request.
+Five layers, all run by CI (`.github/workflows/ci.yml`) on every push to `main` and every pull
+request, on macOS, Linux, and Windows:
 
-## C++ self-test (offline bench + CTest)
+| Layer | What | Run it |
+|---|---|---|
+| C++ unit tests | Catch2, `tests/*.cpp`: engine, nodes, presets, audio path, setup, bridge contract | `ctest --test-dir build` |
+| C++ self-test | `src/Bench.cpp`: renders real audio through the engine (DSP oracles, realtime safety) | `ctest --test-dir build` |
+| App smoke test | Boots the real app and checks the WebView UI reaches the engine | `Tonebench --smoke` |
+| UI unit tests | Vitest + Testing Library, `ui/src/**/*.test.ts(x)` | `cd ui && npm test` |
+| UI end-to-end | Playwright in Chromium against the mock engine, `ui/e2e/*.spec.ts` | `cd ui && npm run test:e2e` |
 
-The self-test lives in `src/Bench.cpp` (the `tonebench_cli` console target). It
-feeds known signals through the **real** `AudioEngine`, block-by-block, exactly
-like the live audio callback — no audio device or GUI required.
+## C++
 
-### Run it
+Build once, then `ctest` runs every Catch2 case (registered individually) plus the self-test:
 
 ```sh
-# Build the bench (shares the engine sources with the app; needs no Node/WebUI).
-cmake --build build --target tonebench_cli
-
-# Run directly:
-./build/tonebench_cli_artefacts/RelWithDebInfo/tonebench_cli selftest
-./build/tonebench_cli_artefacts/RelWithDebInfo/tonebench_cli selftest --strict
-
-# ...or via CTest (registered in CMakeLists.txt):
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build --target tonebench_tests tonebench_cli
 ctest --test-dir build --output-on-failure
+
+# or run the Catch2 binary directly, e.g. one tag, in random order:
+./build/tonebench_tests_artefacts/RelWithDebInfo/tonebench_tests "[preset]" --order rand
 ```
 
-CTest registers two cases:
+The app logic that doesn't need a window lives in `src/app/` (`RigController` for the bridge
+operations, presets and state; `AudioPath` for the audio callback; `AudioSetup` for device
+choices; `AppSettings`; `PresetNames`; `ExternalLinks`), so the tests drive it directly.
+`WebUIComponent` is left with only the WebView, file choosers, plugin windows and consent prompts.
 
-| Test              | Command                      | Purpose                                   |
-| ----------------- | ---------------------------- | ----------------------------------------- |
-| `selftest`        | `tonebench_cli selftest`          | Human-facing run; skips are allowed.      |
-| `selftest_strict` | `tonebench_cli selftest --strict` | CI gate: a skipped **core** suite fails.  |
+What the unit tests cover, by file:
 
-The summary line reports suite counts, e.g. `=== ALL PASS (12 run, 0 skipped) ===`.
-A nonzero exit code (any `FAIL`) fails the gate.
+- **EngineTests**: empty chain is bit-exact passthrough; slot order is plugin → amp → cab (fake
+  nodes with order-sensitive maths); bypass and clear; nodes prepared at the engine's rate and block
+  size whenever they're added or the device changes; swapping nodes while another thread processes
+  audio never tears a block.
+- **AudioPathTests**: first input in, every output out, through input and master gain; monitoring
+  off is silence; only the requested region is touched; oversized blocks are muted, not overrun;
+  meters; scope points and its gate.
+- **NodeTests**: an impulse through the IR reproduces the cab's shape; mix; no added latency;
+  oversized or non-audio IR files refused. NAM: loads the fixture, bad files fail with a message,
+  level knob maps 0..1 to ±24 dB, deterministic, resampled at 44.1/88.2/96 kHz. Resampler ratio,
+  identity, and bounds. VST3 failure paths.
+- **PresetTests**: the saved format; everything the UI counts as the rig survives a round trip;
+  defaults for older presets; clamping of hostile values; malformed files refused; every slot that
+  can't be restored is explained; the type decides the slot; SEC-3 path rules; VST3 slots handed
+  to the caller for consent, never loaded directly.
+- **RigControllerTests**: each bridge operation hits the right slot and ignores unknown ones; gains
+  from the UI are clamped and NaN-proof; save/load brings the whole rig back; preset names
+  validated (SEC-2); state carries device info and every slot.
+- **SetupTests**: settings file; monitoring stays off until setup is finished; per-input meters;
+  peak hold; the test sound; `AudioSetup` describe/apply validation.
+- **MiscTests**: preset names, slot types, per-platform VST3 folders, which links may open in the
+  browser, and the bridge contract (below).
 
-### `--strict` mode
+### Fixtures
 
-Normally a suite that can't run (no model, no VST) prints `SKIP` and the run can
-still be `ALL PASS`. Under `--strict`, skipping a **core** suite — the preset
-round-trip or the resampler — is a hard failure. This prevents the classic
-green-but-skipped lie where CI stays green because the code under test never ran.
-CI uses `--strict`.
+`assets/test-fixtures/minimal.nam` is a tiny, valid NAM model (a bias-free 2-tap `Linear` model at
+48 kHz). It isn't a real amp, it just keeps the NAM tests deterministic on any machine. Cab IRs are
+generated by the tests. Test files go in a temporary folder under the user's app-data directory
+(not `/tmp`, which presets aren't allowed to load from on Linux) and are deleted afterwards.
 
-### What's covered
+### Self-test
 
-- **IR node** — loads a synthetic cab IR; output is finite and non-trivial.
-- **IR correctness oracle** — an impulse through the convolver reproduces the IR
-  itself (least-squares scale recovery vs. the source samples; max abs err < 1e-5).
-- **RT-safety: zero allocations** — a global `operator new`/`delete` counter is
-  armed around 128 `processBlock` calls with IR + a resampling NAM active, and
-  asserts zero heap growth on the audio thread.
-- **Engine identities** — empty chain is bit-exact passthrough; a bypassed slot
-  is identical to an absent slot; a cleared slot (`setNode(nullptr)`) is a clean
-  dry passthrough.
-- **Preset (IR-only) round-trip** — hermetic (no model): save → reload → render,
-  bit-for-bit match. Always runs, so preset serialization is never skipped.
-- **Preset malformed input** — truncated JSON, garbage, wrong `schemaVersion`,
-  wrong `format`, and a missing file all return `false` without crashing.
-- **NAM** — loads the committed fixture (below); determinism oracle (same pluck
-  rendered twice is bit-identical) plus a louder-in → louder-out gain check.
-- **Preset (NAM+IR) round-trip** — full chain save/reload, both slots restored.
-- **RealtimeResampler** — 44.1↔48k round-trip (pitch < 2%, level within 0.5 dB),
-  identity ratio (transparent), pure downsample (96→48k), and the FIFO
-  safety-clamp branch (feeding more than capacity never overruns/corrupts).
-- **IR latency** — zero-latency convolution: impulse peak at sample 0.
+`tonebench_cli selftest [--strict]` feeds signals through the real engine block by block, like the
+audio callback: the IR correctness oracle, a zero-allocation check on the audio thread (a global
+`operator new` counter around 128 blocks with IR and a resampling NAM), preset round trips rendered
+bit for bit, and resampler pitch and level checks. Under `--strict` (what CI runs) a skipped core
+suite fails. VST3 hosting is opt-in (`TONEBENCH_TEST_VST=1` and `TONEBENCH_VST_PATH`) because loading
+a signed plugin from a headless process isn't reliable.
 
-### Test fixtures
+## The bridge contract
 
-`assets/test-fixtures/minimal.nam` is a tiny, committed, **valid** NAM model (a
-bias-free 2-tap `Linear` architecture at 48 kHz). It is NOT a real amp capture —
-it exists purely so the NAM and preset suites are deterministic and never
-silently skip on a clean checkout or CI box. The bench finds it via the
-`TONEBENCH_FIXTURES_DIR` compile definition and falls back to the user's
-`~/Documents/NAMs` library if the fixture is ever absent.
+`tests/contract/bridge.json` lists the native function names, event names, state keys, slot keys,
+meter keys and audio-setup keys shared by the C++ engine and the React UI. Both sides test against
+it: `tests/MiscTests.cpp` and `tests/SetupTests.cpp` read the C++ registrations and the state the
+engine builds; `ui/src/contract.test.ts` reads `bridge.ts`, `types.ts` and the mock. Changing one
+side without the file (and the other side) fails a test.
 
-### Still skipped / not covered
+## Smoke test
 
-- **VST3 hosting** — opt-in only (`TONEBENCH_TEST_VST=1` plus `TONEBENCH_VST_PATH`
-  pointing at a `.vst3` bundle). Hosting a code-signed plugin reliably needs a
-  GUI/login session — `dlopen` blocks under AMFI in a headless CLI process — and
-  there is no hermetic `.vst3` fixture to commit, so this is a non-core suite
-  whose skip never fails `--strict`. Verify VST3 in the GUI app instead.
-- **Concurrent `setNode` / dry-passthrough swap** — the lock-free swap path
-  (`AudioEngine.cpp` `ScopedTryLock`) is not yet exercised under thread
-  contention; the bench is single-threaded.
+`Tonebench --smoke` opens the window without an audio device, waits for the React UI to call
+`getState` over the bridge, and exits 0, or 1 after 30 seconds. It's the only test that runs the
+real WebView, so it's what catches a UI that can't load on one OS (WKWebView, WebView2, WebKitGTK).
+CI runs it on all three; Linux under `xvfb-run`.
 
-## UI tests (Vitest + Testing Library)
-
-The UI suite lives alongside the source in `ui/src/**/*.test.ts(x)` and runs in
-jsdom via Vitest (config in `ui/vitest.config.ts`).
-
-### Run it
+## UI
 
 ```sh
 cd ui
-npm install          # first time (adds vitest, Testing Library, jsdom)
-npm test             # vitest run (one-shot, used by CI)
-npx vitest           # watch mode for development
+npm install
+npm test                 # Vitest, once
+npx vitest               # watch mode
+npm run coverage         # with v8 coverage
+npx playwright install chromium   # once
+npm run test:e2e         # Playwright; set E2E_PORT if 5173 is taken
 ```
 
-CI additionally runs `npm run lint` and `npm run build` before `npm test`.
+Component tests mock the bridge with `src/test/fakeBridge.ts` (a controllable fake: push state,
+errors, scope and input levels; assert calls). `App.mock.test.tsx` runs the whole app against the
+real mock engine instead. The end-to-end specs drive Chromium against the dev server: knobs by
+mouse, wheel and keyboard; slots; presets and the "edited" marker; first-run setup and Settings;
+focus handling; and the website's embedded preview. Open the dev server with `?setup` to see
+first-run setup in the browser.
 
-### What's covered
+## Not covered yet
 
-- **`juceDetect.ts`** — the "real backend vs. stub" detection and the ordering
-  contract (the module imports nothing, so it can capture the genuine
-  `window.__JUCE__` state *before* the Juce import installs its placeholder).
-- **`bridge.ts`** — mock-vs-real selection, native-function wiring,
-  subscribe/replay/unsubscribe, the meter state-merge (`{...current, ...m}`), and
-  the documented null-current hazard (a meters event before the first state event
-  is silently dropped).
-- **`Knob`** — keyboard value math (coarse/fine arrow steps, range mapping, clamp
-  at both ends, disabled no-op).
-- **`Meter`** — level → lit-segment geometry (`round(clamp01(value) * segments)`),
-  clamping, and orientation independence.
-
-### Not yet covered
-
-`ScopeWaveform` (points → SVG path), `SignalChain` (slot state), and the pointer-
-drag path of `Knob` (jsdom lacks full Pointer Events / `setPointerCapture`) are
-still untested.
+- Hosting a real VST3 in CI (no redistributable test plugin yet).
+- Audio devices themselves: `AudioSetup::apply` is tested for validation, not against real hardware.
+- Pixels: the scope's canvas and the overall look are checked by eye, not by screenshot diffing.
