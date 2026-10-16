@@ -338,3 +338,26 @@
      aside with scale + desaturate instead */
   .is-bypassed .module__panel { transform: scale(0.97); }
 }
+
+/* Where to get something for an empty slot. Quiet: the load button stays the
+   main thing to click. */
+.module__links {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--sp-3);
+  font-size: var(--t-sm);
+  text-align: center;
+}
+.module__links-label { color: var(--ink-muted); margin-bottom: 2px; }
+.module__link {
+  color: var(--ember-bright);
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--ember-rgb), 0.4);
+  text-underline-offset: 3px;
+  padding: 2px 4px;
+}
+.module__link:hover { color: var(--ink-0); text-decoration-color: currentColor; }

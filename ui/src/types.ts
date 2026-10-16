@@ -15,6 +15,7 @@ export interface EngineState {
   sampleRate: number;   // Hz
   bufferSize: number;   // samples
   roundTripMs: number;
+  setupComplete: boolean; // first-run setup done (until then monitoring starts off)
   monitoring: boolean;
   inputGain: number;    // 0..1 (trim into the chain)
   masterGain: number;   // 0..1
@@ -24,6 +25,37 @@ export interface EngineState {
   slots: Record<SlotType, SlotState>;
   presets: string[];
   activePreset: string | null;
+}
+
+// The audio device choices (C++ AudioSetup::describe). Settings and first-run
+// setup read this and send AudioSetupChanges back.
+export interface AudioSetup {
+  driver: string;          // "CoreAudio", "Windows Audio", "ASIO", "ALSA", ...
+  drivers: string[];
+  inputDevice: string;     // where the guitar comes in
+  inputDevices: string[];
+  outputDevice: string;    // where you hear it
+  outputDevices: string[];
+  inputs: string[];        // the input device's channel names
+  input: number;           // which of those the guitar is on, -1 if none
+  listeningToAll: boolean; // every input open (setup's "play a few notes" step)
+  sampleRate: number;
+  sampleRates: number[];
+  bufferSize: number;
+  bufferSizes: number[];
+  latencyMs: number;       // round trip
+  builtInInput: boolean;   // looks like the computer's own mic
+  error: string;           // why the device couldn't be opened / a change failed, or ""
+}
+
+export interface AudioSetupChanges {
+  driver?: string;
+  inputDevice?: string;
+  outputDevice?: string;
+  input?: number;
+  listenToAllInputs?: boolean;
+  sampleRate?: number;
+  bufferSize?: number;
 }
 
 export interface Bridge {
@@ -36,6 +68,11 @@ export interface Bridge {
   // engine emits an "error" event with a human-readable message; the UI surfaces
   // it as a toast. In a plain browser the mock wires a no-op.
   subscribeError(cb: (message: string) => void): () => void;
+  // Raw level (0..1 peak) of each input the device has open, ~30 Hz. First-run
+  // setup uses it to find which input the guitar is on.
+  subscribeInputPeaks(cb: (peaks: number[]) => void): () => void;
+  // The native menu's "Settings..." asks the UI to open its Settings screen.
+  subscribeShowSettings(cb: () => void): () => void;
   loadSlot(type: SlotType): void;
   clearSlot(type: SlotType): void;
   setBypass(type: SlotType, bypassed: boolean): void;
@@ -45,7 +82,11 @@ export interface Bridge {
   setMaster(value: number): void;
   setMonitor(on: boolean): void;
   openEditor(): void;
-  openAudioSettings(): void;
   savePreset(name: string): void;
   loadPreset(name: string): void;
+  getAudioSetup(): Promise<AudioSetup>;
+  setAudioSetup(changes: AudioSetupChanges): Promise<AudioSetup>;
+  playTestSound(): void;
+  finishSetup(): void;
+  openUrl(url: string): void;   // in the system browser (https only)
 }

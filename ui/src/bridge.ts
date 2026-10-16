@@ -3,7 +3,7 @@
 // real state first (it imports nothing).
 import { hasRealJuceBackend } from "./juceDetect";
 import * as Juce from "juce-framework-frontend";
-import type { Bridge, EngineState, SlotType } from "./types";
+import type { AudioSetup, AudioSetupChanges, Bridge, EngineState, SlotType } from "./types";
 
 // ---------------------------------------------------------------------------
 // The real engine exposes native functions + state/meter events through JUCE's
@@ -21,12 +21,50 @@ function createMockBridge(): Bridge {
   let namIdx = 1;
   let irIdx = 1;
 
+  // `?setup` in the URL starts as a fresh install, so first-run setup shows
+  // (for the e2e tests and for working on it in the browser).
+  const freshInstall = typeof location !== "undefined" && new URLSearchParams(location.search).has("setup");
+
+  // Pretend devices: the laptop's own mic and speakers, and a two-input
+  // interface with the guitar on input 2.
+  const devices: Record<string, { inputs: string[]; guitarOn: number }> = {
+    "MacBook Pro Microphone": { inputs: ["Microphone"], guitarOn: -1 },
+    "Scarlett 2i2 USB": { inputs: ["Input 1", "Input 2"], guitarOn: 1 },
+  };
+  const audio: AudioSetup = {
+    driver: "CoreAudio",
+    drivers: ["CoreAudio"],
+    inputDevice: freshInstall ? "MacBook Pro Microphone" : "Scarlett 2i2 USB",
+    inputDevices: Object.keys(devices),
+    outputDevice: freshInstall ? "MacBook Pro Speakers" : "Scarlett 2i2 USB",
+    outputDevices: ["MacBook Pro Speakers", "Scarlett 2i2 USB"],
+    inputs: [],
+    input: 0,
+    listeningToAll: false,
+    sampleRate: 48000,
+    sampleRates: [44100, 48000, 96000],
+    bufferSize: 128,
+    bufferSizes: [32, 64, 128, 256, 512, 1024],
+    latencyMs: 0,
+    builtInInput: false,
+    error: "",
+  };
+  const syncAudio = () => {
+    audio.inputs = devices[audio.inputDevice]?.inputs ?? [];
+    audio.builtInInput = audio.inputDevice.startsWith("MacBook");
+    if (audio.input >= audio.inputs.length) audio.input = 0;
+    audio.latencyMs = (2 * audio.bufferSize) / audio.sampleRate * 1000 + 1.4;
+  };
+  if (!freshInstall) audio.input = 1;
+  syncAudio();
+
   const state: EngineState = {
     device: "Universal Audio Apollo",
     sampleRate: 48000,
     bufferSize: 128,
     roundTripMs: 7.4,
-    monitoring: true,
+    setupComplete: !freshInstall,
+    monitoring: !freshInstall,
     inputGain: 0.8,
     masterGain: 0.8,
     playing: true,
@@ -50,6 +88,8 @@ function createMockBridge(): Bridge {
 
   const scopeSubs = new Set<(s: number[]) => void>();
   let scopePhase = 0;
+  const peakSubs = new Set<(p: number[]) => void>();
+  const showSettingsSubs = new Set<() => void>();
 
   // Animate meters so the UI feels alive. A slow "playing" cycle with a
   // strummed envelope; levels only reach the output meter through un-bypassed slots.
@@ -65,6 +105,16 @@ function createMockBridge(): Bridge {
     const chainGain = anyLoaded ? 1.15 : 1;
     state.outputLevel = Math.min(1, state.inputLevel * chainGain * state.masterGain);
     emit();
+
+    // Raw input levels: the guitar strums on its input, the others just hiss.
+    if (peakSubs.size) {
+      const guitar = devices[audio.inputDevice]?.guitarOn ?? -1;
+      const playing = Math.max(0, env) * 0.6 + 0.01;
+      const peaks = audio.listeningToAll
+        ? audio.inputs.map((_, i) => (i === guitar ? playing : 0.004))
+        : [audio.input === guitar ? playing : 0.004];
+      peakSubs.forEach((cb) => cb(peaks));
+    }
 
     if (scopeSubs.size) {
       const amp = state.inputLevel > 0.02 ? state.outputLevel : 0; // gate on input
@@ -99,6 +149,14 @@ function createMockBridge(): Bridge {
       errSubs.add(cb);
       return () => errSubs.delete(cb);
     },
+    subscribeInputPeaks(cb) {
+      peakSubs.add(cb);
+      return () => peakSubs.delete(cb);
+    },
+    subscribeShowSettings(cb) {
+      showSettingsSubs.add(cb);
+      return () => showSettingsSubs.delete(cb);
+    },
     loadSlot(type) {
       const s = state.slots[type];
       s.loaded = true;
@@ -120,7 +178,27 @@ function createMockBridge(): Bridge {
     setMaster(value) { state.masterGain = value; emit(); },
     setMonitor(on) { state.monitoring = on; state.playing = on; emit(); },
     openEditor() { /* native-only */ },
-    openAudioSettings() { /* native-only */ },
+    async getAudioSetup() { return { ...audio }; },
+    async setAudioSetup(c: AudioSetupChanges) {
+      audio.error = "";
+      if (c.inputDevice !== undefined) { audio.inputDevice = c.inputDevice; audio.input = 0; }
+      if (c.outputDevice !== undefined) audio.outputDevice = c.outputDevice;
+      if (c.sampleRate !== undefined) audio.sampleRate = c.sampleRate;
+      if (c.bufferSize !== undefined) audio.bufferSize = c.bufferSize;
+      audio.listeningToAll = !!c.listenToAllInputs;
+      if (c.input !== undefined) audio.input = c.input;
+      if (audio.listeningToAll) audio.input = -1;
+      syncAudio();
+      state.device = audio.inputDevice;
+      state.sampleRate = audio.sampleRate;
+      state.bufferSize = audio.bufferSize;
+      state.roundTripMs = audio.latencyMs;
+      emit();
+      return { ...audio };
+    },
+    playTestSound() { /* no sound in the browser */ },
+    finishSetup() { state.setupComplete = true; state.monitoring = true; state.playing = true; emit(); },
+    openUrl(url) { window.open(url, "_blank", "noopener"); },
     savePreset(name) {
       if (!state.presets.includes(name)) state.presets.push(name);
       state.activePreset = name;
@@ -153,9 +231,13 @@ function createJuceBridge(): Bridge {
     setMaster: fn("setMaster"),
     setMonitor: fn("setMonitor"),
     openEditor: fn("openEditor"),
-    openAudioSettings: fn("openAudioSettings"),
     savePreset: fn("savePreset"),
     loadPreset: fn("loadPreset"),
+    getAudioSetup: fn("getAudioSetup"),
+    setAudioSetup: fn("setAudioSetup"),
+    playTestSound: fn("playTestSound"),
+    finishSetup: fn("finishSetup"),
+    openUrl: fn("openUrl"),
   };
 
   let current: EngineState | null = null;
@@ -164,13 +246,18 @@ function createJuceBridge(): Bridge {
 
   const errSubs = new Set<(m: string) => void>();
   const emitError = (m: string) => errSubs.forEach((cb) => cb(m));
+  const peakSubs = new Set<(p: number[]) => void>();
 
   // Non-null: createJuceBridge only runs when hasRealJuceBackend is true.
   const backend = window.__JUCE__!.backend!;
 
   backend.addEventListener("state", (s: unknown) => { current = s as EngineState; notify(); });
+  // Meters carry the main levels (merged into the state) and each input's raw
+  // level (passed to setup on its own channel).
   backend.addEventListener("meters", (m: unknown) => {
-    if (current) { current = { ...current, ...(m as Partial<EngineState>) }; notify(); }
+    const { inputPeaks, ...levels } = m as Partial<EngineState> & { inputPeaks?: number[] };
+    if (inputPeaks) peakSubs.forEach((cb) => cb(inputPeaks));
+    if (current) { current = { ...current, ...levels }; notify(); }
   });
   // The engine emits failures (a model or plugin that wouldn't load, a bad preset
   // name) as an "error" event carrying { message }.
@@ -195,6 +282,14 @@ function createJuceBridge(): Bridge {
       errSubs.add(cb);
       return () => { errSubs.delete(cb); };
     },
+    subscribeInputPeaks(cb) {
+      peakSubs.add(cb);
+      return () => { peakSubs.delete(cb); };
+    },
+    subscribeShowSettings(cb) {
+      const tok = backend.addEventListener("showSettings", () => cb());
+      return () => backend.removeEventListener?.(tok);
+    },
     loadSlot: (t) => void f.loadSlot(t),
     clearSlot: (t) => void f.clearSlot(t),
     setBypass: (t, b) => void f.setBypass(t, b),
@@ -204,9 +299,13 @@ function createJuceBridge(): Bridge {
     setMaster: (v) => void f.setMaster(v),
     setMonitor: (b) => void f.setMonitor(b),
     openEditor: () => void f.openEditor(),
-    openAudioSettings: () => void f.openAudioSettings(),
     savePreset: (n) => void f.savePreset(n),
     loadPreset: (n) => void f.loadPreset(n),
+    getAudioSetup: async () => (await f.getAudioSetup()) as AudioSetup,
+    setAudioSetup: async (c) => (await f.setAudioSetup(c)) as AudioSetup,
+    playTestSound: () => void f.playTestSound(),
+    finishSetup: () => void f.finishSetup(),
+    openUrl: (u) => void f.openUrl(u),
   };
 }
 

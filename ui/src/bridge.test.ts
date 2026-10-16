@@ -48,6 +48,7 @@ function makeState(over: Partial<EngineState> = {}): EngineState {
     sampleRate: 48000,
     bufferSize: 128,
     roundTripMs: 7,
+    setupComplete: true,
     monitoring: true,
     inputGain: 0.8,
     masterGain: 0.8,
@@ -289,9 +290,13 @@ describe("real bridge: initial state + native calls", () => {
     bridge.setMaster(0.9);
     bridge.setMonitor(false);
     bridge.openEditor();
-    bridge.openAudioSettings();
     bridge.savePreset("My Rig");
     bridge.loadPreset("Other Rig");
+    bridge.playTestSound();
+    bridge.finishSetup();
+    bridge.openUrl("https://example.com/");
+    void bridge.getAudioSetup();
+    void bridge.setAudioSetup({ input: 1 });
     expect(native("loadSlot")).toHaveBeenCalledExactlyOnceWith("nam");
     expect(native("clearSlot")).toHaveBeenCalledExactlyOnceWith("ir");
     expect(native("setBypass")).toHaveBeenCalledExactlyOnceWith("vst3", true);
@@ -301,7 +306,11 @@ describe("real bridge: initial state + native calls", () => {
     expect(native("setMaster")).toHaveBeenCalledExactlyOnceWith(0.9);
     expect(native("setMonitor")).toHaveBeenCalledExactlyOnceWith(false);
     expect(native("openEditor")).toHaveBeenCalledExactlyOnceWith();
-    expect(native("openAudioSettings")).toHaveBeenCalledExactlyOnceWith();
+    expect(native("playTestSound")).toHaveBeenCalledExactlyOnceWith();
+    expect(native("finishSetup")).toHaveBeenCalledExactlyOnceWith();
+    expect(native("openUrl")).toHaveBeenCalledExactlyOnceWith("https://example.com/");
+    expect(native("getAudioSetup")).toHaveBeenCalledExactlyOnceWith();
+    expect(native("setAudioSetup")).toHaveBeenCalledExactlyOnceWith({ input: 1 });
     expect(native("savePreset")).toHaveBeenCalledExactlyOnceWith("My Rig");
     expect(native("loadPreset")).toHaveBeenCalledExactlyOnceWith("Other Rig");
   });

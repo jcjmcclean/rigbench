@@ -5,10 +5,12 @@ export function Modal({
   title,
   children,
   onClose,
+  wide = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  wide?: boolean;   // for content with labelled rows (Settings)
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -72,7 +74,7 @@ export function Modal({
     <div className="modal__scrim" onMouseDown={onClose}>
       <div
         ref={dialogRef}
-        className="modal"
+        className={`modal${wide ? " modal--wide" : ""}`}
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

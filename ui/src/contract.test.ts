@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Bridge, EngineState, SlotState, SlotType } from "./types";
 
 // The JS <-> C++ bridge contract lives in tests/contract/bridge.json; the C++
-// side (tests/ContractTests.cpp) checks itself against the same file. This test
+// side (tests/MiscTests.cpp) checks itself against the same file. This test
 // pins the JS side: bridge.ts's native function names and event ids, the mock
 // engine's state shape, and the EngineState/SlotState types. Changing any one of
 // them without the contract (and C++) fails here.
@@ -47,7 +47,7 @@ type Exact<List extends readonly PropertyKey[], Keys extends PropertyKey> =
   [Exclude<Keys, List[number]>] extends [never] ? ([Exclude<List[number], Keys>] extends [never] ? true : never) : never;
 
 const ENGINE_STATE_KEYS = [
-  "device", "sampleRate", "bufferSize", "roundTripMs", "monitoring", "inputGain", "masterGain",
+  "device", "sampleRate", "bufferSize", "roundTripMs", "setupComplete", "monitoring", "inputGain", "masterGain",
   "playing", "inputLevel", "outputLevel", "slots", "presets", "activePreset",
 ] as const;
 const engineStateExact: Exact<typeof ENGINE_STATE_KEYS, keyof EngineState> = true;
@@ -58,11 +58,14 @@ const slotStateExact: Exact<typeof SLOT_STATE_KEYS, keyof SlotState> = true;
 const SLOT_TYPES = ["vst3", "nam", "ir"] as const;
 const slotTypesExact: Exact<typeof SLOT_TYPES, SlotType> = true;
 
-const SUBSCRIPTIONS = ["subscribe", "subscribeScope", "subscribeError"] as const;
+const SUBSCRIPTIONS = [
+  "subscribe", "subscribeScope", "subscribeError", "subscribeInputPeaks", "subscribeShowSettings",
+] as const;
 type BridgeAction = Exclude<keyof Bridge, (typeof SUBSCRIPTIONS)[number]>;
 const BRIDGE_ACTIONS = [
   "getState", "loadSlot", "clearSlot", "setBypass", "setMix", "setGain", "setInput", "setMaster",
-  "setMonitor", "openEditor", "openAudioSettings", "savePreset", "loadPreset",
+  "setMonitor", "openEditor", "savePreset", "loadPreset",
+  "getAudioSetup", "setAudioSetup", "playTestSound", "finishSetup", "openUrl",
 ] as const;
 const bridgeActionsExact: Exact<typeof BRIDGE_ACTIONS, BridgeAction> = true;
 
@@ -163,7 +166,8 @@ describe("events", () => {
 
   it("at runtime the real bridge subscribes to exactly those events", async () => {
     const { bridge, events } = await loadRealBridge();
-    bridge.subscribeScope(() => {}); // the scope listener is attached on demand
+    bridge.subscribeScope(() => {});        // these listeners are attached on demand
+    bridge.subscribeShowSettings(() => {});
     expectSameSet(events, contract.events, "backend listeners vs contract.events");
   });
 

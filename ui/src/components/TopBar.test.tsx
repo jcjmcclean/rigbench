@@ -65,12 +65,22 @@ describe("TopBar monitoring (LIVE) toggle", () => {
   });
 });
 
-describe("TopBar audio settings", () => {
-  it("opens the native audio settings", () => {
-    render(<TopBar state={makeState()} dirty={false} />);
-    fireEvent.click(screen.getByRole("button", { name: "Audio settings" }));
-    expect(fake.bridge.openAudioSettings).toHaveBeenCalledTimes(1);
+describe("TopBar settings", () => {
+  it("asks its owner to open Settings", () => {
+    const onOpenSettings = vi.fn();
+    render(<TopBar state={makeState()} dirty={false} onOpenSettings={onOpenSettings} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
     expect(fake.bridge.setMonitor).not.toHaveBeenCalled();
+  });
+});
+
+describe("TopBar with no audio device", () => {
+  it("says so instead of showing zeros", () => {
+    render(<TopBar state={makeState({ sampleRate: 0, bufferSize: 0, roundTripMs: 0, device: "No device" })} dirty={false} />);
+    expect(screen.getByText("No audio device")).toBeInTheDocument();
+    expect(screen.queryByText(/0\.0 kHz/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ms ·/)).not.toBeInTheDocument();
   });
 });
 

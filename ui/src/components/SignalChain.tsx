@@ -84,6 +84,7 @@ export function SignalChain({ state }: { state: EngineState }) {
             onMix={(v) => bridge.setMix(type, v)}
             onGain={(v) => bridge.setGain(type, v)}
             onEditor={() => bridge.openEditor()}
+            onOpenUrl={(url) => bridge.openUrl(url)}
           />
           <Connector live={live} />
         </Fragment>

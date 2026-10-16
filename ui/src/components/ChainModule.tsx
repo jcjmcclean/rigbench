@@ -1,6 +1,7 @@
 import { Knob } from "./Knob";
 import type { SlotState, SlotType } from "../types";
 import { percent, dbFromUnit } from "../format";
+import { soundLinks } from "../links";
 import "./ChainModule.css";
 
 const META: Record<SlotType, { kind: string; role: string; empty: string }> = {
@@ -18,9 +19,10 @@ interface Props {
   onMix: (v: number) => void;
   onGain: (v: number) => void;
   onEditor: () => void;
+  onOpenUrl?: (url: string) => void;   // "where to get one" links on an empty slot
 }
 
-export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onGain, onEditor }: Props) {
+export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onGain, onEditor, onOpenUrl }: Props) {
   const m = META[slot.type];
   const active = slot.loaded && !slot.bypassed;
   const cls = [
@@ -79,10 +81,20 @@ export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onG
             <button className="module__clear" onClick={onClear} title="Remove">✕</button>
           </>
         ) : (
-          <button className="module__load" onClick={onLoad}>
-            <span className="module__plus" aria-hidden>+</span>
-            <span className="module__load-text">{m.empty}</span>
-          </button>
+          <>
+            <button className="module__load" onClick={onLoad}>
+              <span className="module__plus" aria-hidden>+</span>
+              <span className="module__load-text">{m.empty}</span>
+            </button>
+            {onOpenUrl && (
+              <div className="module__links">
+                <span className="module__links-label">Don’t have one?</span>
+                {soundLinks[slot.type].map((l) => (
+                  <button key={l.url} className="module__link" onClick={() => onOpenUrl(l.url)}>{l.label}</button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
       </div>

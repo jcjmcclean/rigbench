@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { TopBar } from "./components/TopBar";
 import { SignalChain } from "./components/SignalChain";
 import { Toasts, type ToastItem } from "./components/Toast";
+import { Settings } from "./components/Settings";
+import { Setup } from "./components/Setup";
 import { bridge, isMock } from "./bridge";
 import type { EngineState } from "./types";
 import "./App.css";
@@ -15,6 +17,11 @@ function rigSignature(s: EngineState): string {
   return `${s.inputGain}|${s.masterGain}|${slots.join("|")}`;
 }
 
+// How long to wait for the engine's first state before saying it can't be
+// reached (JUCE never rejects a native call, so a broken bridge would otherwise
+// leave "Connecting…" up for ever).
+export const CONNECT_TIMEOUT_MS = 8000;
+
 export default function App() {
   const [state, setState] = useState<EngineState | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
@@ -22,6 +29,23 @@ export default function App() {
   const toastId = useRef(0);
 
   useEffect(() => bridge.subscribe(setState), []);
+
+  // Settings screen, and first-run setup (shown until the engine says it's done,
+  // or again when asked for from Settings).
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [setupAgain, setSetupAgain] = useState(false);
+  const showSetup = !!state && (!state.setupComplete || setupAgain);
+  useEffect(() => bridge.subscribeShowSettings(() => setSettingsOpen(true)), []);
+
+
+  useEffect(() => {
+    if (state) return;
+    const t = setTimeout(
+      () => setFatal("Tonebench’s window opened, but it couldn’t talk to the audio engine. Try restarting the app."),
+      CONNECT_TIMEOUT_MS,
+    );
+    return () => clearTimeout(t);
+  }, [state]);
 
   // Track presence of engine state in a ref so the error handler can branch on it
   // without reading state through a setState updater (an updater must stay pure —
@@ -96,7 +120,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar state={state} dirty={dirty} onPresetSaved={onPresetSaved} />
+      <TopBar state={state} dirty={dirty} onPresetSaved={onPresetSaved} onOpenSettings={() => setSettingsOpen(true)} />
 
       <main className="stage">
         <SignalChain state={state} />
@@ -113,6 +137,14 @@ export default function App() {
       </footer>
 
       <Toasts items={toasts} onDismiss={dismissToast} />
+
+      {settingsOpen && !showSetup && (
+        <Settings
+          onClose={() => setSettingsOpen(false)}
+          onRunSetup={() => { setSettingsOpen(false); setSetupAgain(true); }}
+        />
+      )}
+      {showSetup && <Setup onDone={() => setSetupAgain(false)} />}
     </div>
   );
 }
