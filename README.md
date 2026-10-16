@@ -1,6 +1,6 @@
 # Tonebench
 
-A small, fast macOS app for playing guitar through amp sims. Load a VST3 plugin, a Neural Amp
+A small, fast desktop app for macOS, Windows, and Linux for playing guitar through amp sims. Load a VST3 plugin, a Neural Amp
 Modeler model, and an impulse-response cab, chain them up, and play. That's the whole idea.
 
 <picture>
@@ -8,7 +8,7 @@ Modeler model, and an impulse-response cab, chain them up, and play. That's the 
   <img src="site/assets/hero.png" alt="The Tonebench signal chain: a VST3 plugin, a NAM amp model, and an IR cab, with the live signal threading through them">
 </picture>
 
-Early days: this is v0.1.0. macOS builds now, and Linux and Windows build in CI (details below).
+Early days: this is v0.1.0. It runs on macOS (Apple Silicon and Intel), Windows, and Linux.
 
 ## Why I built this
 
@@ -38,7 +38,9 @@ on its own thread, so it never costs you any latency.
 
 ## Build
 
-You'll need CMake, Ninja, Node/npm, and the Xcode command-line tools (macOS, Apple Silicon or Intel).
+You'll need CMake, Ninja, and Node/npm, plus your platform's toolchain: the Xcode command-line tools
+on macOS, MSVC on Windows, or GCC/Clang and the GTK/WebKit dev packages on Linux (see
+[`docs/distribution.md`](docs/distribution.md) for the exact Linux packages).
 
 ```sh
 # Install the UI deps once. CMake builds and embeds the React UI on every build after that.
@@ -48,8 +50,10 @@ cd ui && npm install && cd ..
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build --target Tonebench
 
-open build/Tonebench_artefacts/RelWithDebInfo/Tonebench.app
+open build/Tonebench_artefacts/RelWithDebInfo/Tonebench.app   # macOS
 ```
+
+On Windows and Linux the app lands in the same `build/Tonebench_artefacts/` folder.
 
 The `tonebench_ui` target runs `npm run build` and packs the UI into `assets/webui.zip` for you (it's
 generated at build time, not committed), so the embedded UI can't drift out of date.
@@ -73,8 +77,12 @@ See [`docs/testing.md`](docs/testing.md) for what's covered. CI runs both suites
 
 ## Download
 
-Tagged releases publish ready-to-run builds for macOS, Linux, and Windows on the
-[Releases](https://github.com/jcjmcclean/tonebench/releases) page.
+Tagged releases publish ready-to-run builds on the
+[Releases](https://github.com/jcjmcclean/tonebench/releases) page:
+
+- **macOS**: a Universal `.dmg` (Apple Silicon and Intel)
+- **Windows**: a `.zip` (needs the WebView2 runtime, which current Windows 10/11 already has)
+- **Linux**: a `.tar.gz`
 
 The macOS build is self-signed, so the first time you open it, right-click the app and choose Open,
 then Open again. You only do this once. After that, approve the microphone prompt so it can hear your
@@ -91,11 +99,11 @@ Windows specifics.
 
 ## How it works
 
-The audio engine is C++ on JUCE 8: CoreAudio in and out, VST3 hosting, NAM inference, and IR
+The audio engine is C++ on JUCE 8: native audio I/O (CoreAudio, WASAPI, ALSA), VST3 hosting, NAM inference, and IR
 convolution, all run as an ordered chain on the realtime audio thread with no allocations or locks in
 the hot path. NAM models run at 48 kHz; a Lagrange resampler handles other device rates around them.
 IR uses `juce::dsp::Convolution` and adds no latency. The UI is React and TypeScript (built with Vite)
-inside a JUCE webview, talking to the engine over a native JavaScript-to-C++ bridge, on a separate
+inside a JUCE webview (WebKit on macOS, WebView2 on Windows, WebKitGTK on Linux), talking to the engine over a native JavaScript-to-C++ bridge, on a separate
 thread from audio.
 
 One thing worth knowing up front: loading a VST3, or opening a `.tonebench` preset someone shared with
