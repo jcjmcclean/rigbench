@@ -93,9 +93,9 @@ IR uses `juce::dsp::Convolution` and adds no latency. The UI is React and TypeSc
 inside a JUCE webview, talking to the engine over a native JavaScript-to-C++ bridge, on a separate
 thread from audio.
 
-Integration notes are in [`docs/research/`](docs/research/). One thing worth knowing up front: loading
-a VST3, or opening a `.tonebench` preset someone shared with you, runs third-party code inside an app
-that has microphone access. [`docs/SECURITY.md`](docs/SECURITY.md) explains the trust model.
+One thing worth knowing up front: loading a VST3, or opening a `.tonebench` preset someone shared with
+you, runs third-party code inside an app that has microphone access. Only load plugins and presets you
+trust, the same as you would with any amp sim.
 
 ## Licence
 
