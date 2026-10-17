@@ -24,7 +24,7 @@ function rigSignature(s: EngineState): string {
 // leave "Connecting…" up for ever).
 export const CONNECT_TIMEOUT_MS = 8000;
 
-export const VERSION = "0.2.0"; // x-release-please-version
+export const VERSION = "0.3.0"; // x-release-please-version
 
 // What the status bar says about the knobs. The website demo turns the scroll
 // wheel off (it scrolls the page there), so it leaves the wheel out.
