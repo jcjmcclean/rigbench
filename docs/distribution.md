@@ -95,14 +95,27 @@ installer (bundle the WebView2 bootstrapper).
 `windows-latest` (native runners only — no cross-compilation). A **`v*` tag
 publishes a GitHub Release** with all three binaries attached (DMG / tarball /
 zip); a manual **Actions → build → Run workflow** leaves them as run artifacts.
-`.github/workflows/ci.yml` runs the C++ selftest and the UI tests on every push.
+`.github/workflows/ci.yml` runs the tests on every push and pull request.
 
-Cut a release:
+### Releases and the changelog
 
-```sh
-git tag v0.1.0
-git push origin v0.1.0      # runs the matrix and creates the GitHub Release
-```
+Releases come from the commit messages. Every PR title is a
+[conventional commit](https://www.conventionalcommits.org/) (`feat: …`, `fix: …`,
+`docs: …`; `pr-title.yml` checks it), and PRs are squash-merged, so each one is
+a single conventional commit on `main`.
+
+`release.yml` runs [release-please](https://github.com/googleapis/release-please)
+on every push to `main`. It keeps a release PR open that:
+
+- bumps the version (`feat` → minor, `fix` → patch; while we're on 0.x, a
+  breaking change bumps the minor version too) in `version.txt`, `CMakeLists.txt`,
+  the app's version string, the site and the README (lines marked
+  `x-release-please-version`);
+- adds the changes to `CHANGELOG.md`.
+
+Merging the release PR tags `vX.Y.Z`, publishes the GitHub Release with the
+changelog as its notes, and runs `build.yml` to attach the macOS, Windows and
+Linux binaries.
 
 Prerequisite: the repo must be on GitHub (push it + enable Actions) — a local-only
 repo won't run CI.
