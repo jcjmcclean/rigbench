@@ -321,11 +321,6 @@
       <li>Shows your audio device, sample rate, buffer size, and round-trip latency along the top, and the signal on a scope as you play.</li>
     </ul>
 
-    <div class="shot" style="margin-top:48px">
-      <div class="live" data-crop="304 201 833 426" data-crop-to="article.module">
-        <iframe src="app/showcase.html?view=chain" title="The Rigbench chain: a VST3 plugin, a NAM amp model, and a cab IR" loading="lazy"></iframe>
-      </div>
-    </div>
     <p class="note">Under the hood it’s a C++ audio engine built on JUCE. The interface runs in a webview on its own thread, so moving knobs and drawing the scope don’t add latency. The source and build steps are on <a href="https://github.com/jcjmcclean/rigbench">GitHub</a>.</p>
   </div>
 </section>
@@ -397,19 +392,13 @@
 <script>
 /* Fit each live app preview: scale the 1440x805 app so its crop rect fills the
    frame. Below half size the controls are too small to use (and dragging would
-   fight page scrolling on touch), so it becomes a look-only picture there.
-   data-crop-to="selector" re-measures the crop from the app itself once it has
-   loaded (the box around those elements, plus a margin), so a layout change in
-   the app can't cut them off; data-crop is the starting guess. */
+   fight page scrolling on touch), so it becomes a look-only picture there. */
 (function () {
   document.querySelectorAll(".live").forEach(function (box) {
     var c = box.dataset.crop.split(" ").map(Number);
     var frame = box.querySelector("iframe");
-    function setCrop() {
-      box.style.setProperty("--crop-w", c[2]);
-      box.style.setProperty("--crop-h", c[3]);
-    }
-    setCrop();
+    box.style.setProperty("--crop-w", c[2]);
+    box.style.setProperty("--crop-h", c[3]);
     function fit() {
       var s = box.clientWidth / c[2];
       frame.style.transform = "scale(" + s + ") translate(" + -c[0] + "px," + -c[1] + "px)";
@@ -422,43 +411,9 @@
     }
     fit();
     new ResizeObserver(fit).observe(box);
-    function reveal() { frame.classList.add("ready"); }
-
-    // Measure what the crop should hold, once the app has drawn it and its
-    // entrance animations have finished.
-    function measure(tries) {
-      var doc = frame.contentDocument;
-      var els = doc ? doc.querySelectorAll(box.dataset.cropTo) : [];
-      if (!els.length) {
-        if (tries > 0) return setTimeout(function () { measure(tries - 1); }, 100);
-        return reveal();
-      }
-      // Only the one-off entrance animations: the looping ones never finish.
-      var settling = doc.getAnimations().filter(function (a) {
-        return a.effect && a.effect.getTiming().iterations !== Infinity;
-      }).map(function (a) { return a.finished; });
-      var settled = Promise.race([
-        Promise.all(settling),
-        new Promise(function (done) { setTimeout(done, 2500); }),
-      ]);
-      settled.catch(function () {}).then(function () {
-        var pad = 12, l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
-        els.forEach(function (el) {
-          var rc = el.getBoundingClientRect();
-          l = Math.min(l, rc.left); t = Math.min(t, rc.top);
-          r = Math.max(r, rc.right); b = Math.max(b, rc.bottom);
-        });
-        c = [Math.max(0, l - pad), Math.max(0, t - pad), r - l + 2 * pad, b - t + 2 * pad].map(Math.round);
-        setCrop();
-        fit();
-        reveal();
-      });
-    }
-
     frame.addEventListener("load", function () {
       // Let React mount past the "Connecting…" splash before revealing.
-      if (box.dataset.cropTo) measure(30);
-      else setTimeout(reveal, 150);
+      setTimeout(function () { frame.classList.add("ready"); }, 150);
     });
   });
 })();
