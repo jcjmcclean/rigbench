@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(Rigbench VERSION 0.1.0 LANGUAGES C CXX)
+project(Rigbench VERSION 0.1.0 LANGUAGES C CXX) # x-release-please-version
 
 set(CMAKE_CXX_STANDARD 20)        # NAM core requires C++20
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

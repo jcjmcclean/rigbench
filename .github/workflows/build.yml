@@ -3,11 +3,17 @@ name: build
 # Produce a per-OS Rigbench artifact. The Mac can only build Mac, so each
 # platform builds on its own native runner (WebKitGTK / WebView2 / WKWebView and
 # the VST3 + MSVC/clang toolchains are all native-only — no cross-compiling).
-# Triggered manually or on a version tag.
+# Run by the release workflow when release-please publishes a release (it passes
+# the tag, and the binaries are attached to that release), or by hand from the
+# Actions tab (the binaries stay as run artifacts).
 on:
   workflow_dispatch:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag to build and attach binaries to
+        required: true
+        type: string
 
 jobs:
   build:
@@ -22,6 +28,8 @@ jobs:
           - { os: windows-latest, name: Windows, cmake_args: "" }
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -99,7 +107,7 @@ jobs:
   release:
     name: Publish release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: inputs.tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -107,13 +115,11 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Create GitHub Release
+      # release-please has already created the release (with the changelog as
+      # its notes); attach the binaries to it.
+      - name: Attach binaries to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           files=$(find artifacts -type f \( -name '*.dmg' -o -name '*.tar.gz' -o -name '*.zip' \))
-          gh release create "${{ github.ref_name }}" \
-            --repo "${{ github.repository }}" \
-            --title "Rigbench ${{ github.ref_name }}" \
-            --generate-notes \
-            $files
+          gh release upload "${{ inputs.tag }}" --repo "${{ github.repository }}" --clobber $files

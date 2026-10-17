@@ -9,7 +9,9 @@ play. That's the whole idea.
   <img src="site/assets/hero.png" alt="The Rigbench signal chain: a VST3 plugin, a NAM amp model, and an IR cab, with the live signal threading through them">
 </picture>
 
+<!-- x-release-please-start-version -->
 Early days: this is v0.1.0. It runs on macOS (Apple Silicon and Intel), Windows, and Linux.
+<!-- x-release-please-end -->
 
 ## Why I built this
 
