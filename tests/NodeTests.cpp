@@ -389,6 +389,10 @@ TEST_CASE ("VST3: a missing plugin fails straight away with a message", "[vst3]"
     REQUIRE_THAT (err.toStdString(), ContainsSubstring ("isn't there any more"));
 }
 
+// Not on Windows: there JUCE hands the file to LoadLibrary, which can put up a
+// "not a valid application" box that nobody can dismiss on a headless CI runner
+// (the test hung there). Worth checking by hand in the app on Windows.
+#if ! JUCE_WINDOWS
 TEST_CASE ("VST3: a file that isn't a plugin fails with a message", "[vst3]")
 {
     TempDir tmp;
@@ -401,6 +405,7 @@ TEST_CASE ("VST3: a file that isn't a plugin fails with a message", "[vst3]")
     REQUIRE (called);
     REQUIRE_FALSE (ok);
 }
+#endif
 
 TEST_CASE ("VST3: an empty node passes audio through", "[vst3]")
 {
