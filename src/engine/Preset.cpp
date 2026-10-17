@@ -11,7 +11,7 @@ namespace Preset
 
 namespace
 {
-// SEC-3: a .tonebench preset is shared freely and can name arbitrary absolute
+// SEC-3: a .rigbench preset is shared freely and can name arbitrary absolute
 // paths. Loading NAM/IR content from an attacker-chosen location is a DoS /
 // information-disclosure vector (VST3 is full arbitrary-code-execution and is
 // gated separately with a consent prompt in the UI layer). Constrain preset-
@@ -72,17 +72,30 @@ juce::String describeSlot (int index)
 }
 } // namespace
 
+void migrateOldPresets (const juce::File& dir)
+{
+    // Presets from before the rename end in .tonebench; give them the new
+    // extension (unless a .rigbench of the same name is already there).
+    for (const auto& old : dir.findChildFiles (juce::File::findFiles, false, juce::String ("*") + oldFileExtension))
+    {
+        const auto renamed = old.withFileExtension (fileExtension);
+        if (! renamed.exists())
+            old.moveFileTo (renamed);
+    }
+}
+
 juce::File presetsDir()
 {
     auto d = AppPaths::dataDir().getChildFile ("Presets");
     d.createDirectory();
+    migrateOldPresets (d);
     return d;
 }
 
 bool save (const juce::File& file, const AudioEngine& engine, const RigInfo& info)
 {
     auto root = std::make_unique<juce::DynamicObject>();
-    root->setProperty ("format", "tonebench-preset");
+    root->setProperty ("format", "rigbench-preset");
     root->setProperty ("schemaVersion", 1);
     root->setProperty ("name", info.name.isNotEmpty() ? info.name : file.getFileNameWithoutExtension());
 
@@ -137,7 +150,9 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
     juce::ignoreUnused (maxBlock);
 
     const auto root = juce::JSON::parse (file);
-    if (! root.isObject() || root.getProperty ("format", {}) != juce::var ("tonebench-preset"))
+    // Presets saved before the rename say "tonebench-preset"; they're the same format.
+    const auto format = root.getProperty ("format", {}).toString();
+    if (! root.isObject() || (format != "rigbench-preset" && format != "tonebench-preset"))
         return false;
 
     // Refuse unknown/future schema versions rather than mis-parsing (or crashing) on
@@ -182,7 +197,7 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
         const auto* desc = SlotTypes::byId (type);
         if (desc == nullptr)
         {
-            info.problems.add ("Skipped a \"" + type + "\" slot, which this version of Tonebench doesn't know about.");
+            info.problems.add ("Skipped a \"" + type + "\" slot, which this version of Rigbench doesn't know about.");
             continue;
         }
         const int slot = desc->index;
@@ -203,7 +218,7 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
             }
             if (! isAllowedContentPath (path))   // SEC-3
             {
-                info.problems.add ("Skipped " + what + ": Tonebench only loads a preset's files from your home folder or an external drive.");
+                info.problems.add ("Skipped " + what + ": Rigbench only loads a preset's files from your home folder or an external drive.");
                 continue;
             }
         }

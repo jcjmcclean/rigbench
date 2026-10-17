@@ -403,7 +403,7 @@ describe("Setup step 3: the output", () => {
     await toOutputStep(user);
     expect(screen.getByText("Pick headphones or speakers, then click Play test sound.")).toBeInTheDocument();
     expect(screen.getByText(/that’s direct monitoring on your interface/)).toHaveTextContent(
-      "If you can hear your plain, dry guitar, that’s direct monitoring on your interface. Turn it off, or you’ll hear it under Tonebench.",
+      "If you can hear your plain, dry guitar, that’s direct monitoring on your interface. Turn it off, or you’ll hear it under Rigbench.",
     );
   });
 

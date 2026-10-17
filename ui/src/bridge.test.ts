@@ -248,7 +248,7 @@ describe("real bridge: error events go through errorMessage", () => {
     const states: EngineState[] = [];
     bridge.subscribe((s) => states.push(s));
     await vi.waitFor(() => expect(errors).toHaveLength(1));
-    expect(errors[0]).toBe("The audio engine didn’t answer (Error: timeout). Click Retry. If that doesn’t help, quit Tonebench and open it again.");
+    expect(errors[0]).toBe("The audio engine didn’t answer (Error: timeout). Click Retry. If that doesn’t help, quit Rigbench and open it again.");
     expect(states).toHaveLength(0);
   });
 });

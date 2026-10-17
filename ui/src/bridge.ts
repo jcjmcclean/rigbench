@@ -329,7 +329,7 @@ function createJuceBridge(): Bridge {
       if (current) cb(current);
       else void f.getState().then(
         (s) => { current = s as EngineState; cb(current); },
-        (err) => emitError(`The audio engine didn’t answer (${String(err)}). Click Retry. If that doesn’t help, quit Tonebench and open it again.`),
+        (err) => emitError(`The audio engine didn’t answer (${String(err)}). Click Retry. If that doesn’t help, quit Rigbench and open it again.`),
       );
       return () => { subs.delete(cb); };
     },

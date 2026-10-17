@@ -23,7 +23,7 @@ export const soundLinks: Record<SlotType, SoundLink[]> = {
 };
 
 // The website's list of all of the above, for "more".
-export const moreSoundsUrl = "https://jcjmcclean.github.io/tonebench/#sounds";
+export const moreSoundsUrl = "https://jcjmcclean.github.io/rigbench/#sounds";
 
 // The one link an empty slot shows. Amp models and cab IRs go straight to
 // TONE3000; plugins go to the site, which lists a few to choose from.

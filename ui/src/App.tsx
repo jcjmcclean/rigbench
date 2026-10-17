@@ -64,7 +64,7 @@ export default function App({ wheel = true }: { wheel?: boolean } = {}) {
   useEffect(() => {
     if (state) return;
     const t = setTimeout(
-      () => setFatal("The window opened, but the audio engine didn’t answer. Click Retry. If that doesn’t help, quit Tonebench and open it again."),
+      () => setFatal("The window opened, but the audio engine didn’t answer. Click Retry. If that doesn’t help, quit Rigbench and open it again."),
       CONNECT_TIMEOUT_MS,
     );
     return () => clearTimeout(t);
@@ -148,7 +148,7 @@ export default function App({ wheel = true }: { wheel?: boolean } = {}) {
     return (
       <div className="splash" role="status" aria-live="polite">
         <span className="splash__mark splash__mark--pulse" aria-hidden />
-        <span className="splash__word">Tone<em>bench</em></span>
+        <span className="splash__word">Rig<em>bench</em></span>
         <span className="splash__hint mono">Connecting to the audio engine…</span>
       </div>
     );

@@ -14,7 +14,7 @@ TEST_CASE ("PresetNames: ordinary names map into the presets folder", "[presetna
     TempDir tmp;
     const auto f = PresetNames::presetFileFor (tmp.dir, "Hiwatt Lead");
     REQUIRE (f.getParentDirectory() == tmp.dir);
-    REQUIRE (f.getFileName() == "Hiwatt Lead.tonebench");
+    REQUIRE (f.getFileName() == "Hiwatt Lead.rigbench");
 
     // Characters that are legal in a name but not in a file name are made safe.
     const auto odd = PresetNames::presetFileFor (tmp.dir, "Gilmour? \"Clean\"*");
@@ -35,7 +35,7 @@ TEST_CASE ("PresetNames: traversal and empty names are rejected (SEC-2)", "[pres
 TEST_CASE ("PresetNames: a preset copied in with characters a new name couldn't have still opens", "[presetnames]")
 {
     TempDir tmp;
-    const auto hand = tmp.file ("Lead #1, live.tonebench");
+    const auto hand = tmp.file ("Lead #1, live.rigbench");
     hand.replaceWithText ("{}");
     REQUIRE (PresetNames::list (tmp.dir).contains ("Lead #1, live"));
     REQUIRE (PresetNames::presetFileFor (tmp.dir, "Lead #1, live") == hand);
@@ -45,10 +45,10 @@ TEST_CASE ("PresetNames: a preset copied in with characters a new name couldn't 
 TEST_CASE ("PresetNames: list ignores other files and folders", "[presetnames]")
 {
     TempDir tmp;
-    tmp.file ("Zed.tonebench").replaceWithText ("{}");
-    tmp.file ("alpha.tonebench").replaceWithText ("{}");
+    tmp.file ("Zed.rigbench").replaceWithText ("{}");
+    tmp.file ("alpha.rigbench").replaceWithText ("{}");
     tmp.file ("notes.txt").replaceWithText ("x");
-    tmp.file ("Folder.tonebench").createDirectory();
+    tmp.file ("Folder.rigbench").createDirectory();
 
     REQUIRE (PresetNames::list (tmp.dir) == juce::StringArray { "alpha", "Zed" });
 }
@@ -105,7 +105,7 @@ namespace
 {
 juce::var contract()
 {
-    return juce::JSON::parse (juce::File (TONEBENCH_SOURCE_DIR).getChildFile ("tests/contract/bridge.json"));
+    return juce::JSON::parse (juce::File (RIGBENCH_SOURCE_DIR).getChildFile ("tests/contract/bridge.json"));
 }
 
 juce::StringArray strings (const juce::var& arr)
@@ -133,7 +133,7 @@ juce::StringArray sorted (juce::StringArray a) { a.sort (false); return a; }
 TEST_CASE ("Contract: the C++ side registers exactly the contract's native functions", "[contract]")
 {
     // WebUIComponent needs a WebView, so read its registrations from the source.
-    const auto src = juce::File (TONEBENCH_SOURCE_DIR).getChildFile ("src/ui/WebUIComponent.cpp").loadFileAsString();
+    const auto src = juce::File (RIGBENCH_SOURCE_DIR).getChildFile ("src/ui/WebUIComponent.cpp").loadFileAsString();
     juce::StringArray registered;
     for (int pos = src.indexOf (".withNativeFunction (\""); pos >= 0; pos = src.indexOf (pos + 1, ".withNativeFunction (\""))
     {
@@ -169,7 +169,7 @@ TEST_CASE ("Contract: the state the C++ side sends has exactly the contract's ke
 
 TEST_CASE ("Contract: the C++ side emits exactly the contract's events", "[contract]")
 {
-    const auto src = juce::File (TONEBENCH_SOURCE_DIR).getChildFile ("src/ui/WebUIComponent.cpp").loadFileAsString();
+    const auto src = juce::File (RIGBENCH_SOURCE_DIR).getChildFile ("src/ui/WebUIComponent.cpp").loadFileAsString();
     juce::StringArray emitted;
     for (int pos = src.indexOf ("emitEventIfBrowserIsVisible (\""); pos >= 0; pos = src.indexOf (pos + 1, "emitEventIfBrowserIsVisible (\""))
     {
@@ -185,10 +185,10 @@ TEST_CASE ("Contract: the C++ side emits exactly the contract's events", "[contr
 TEST_CASE ("ExternalLinks: only plain https links open in the browser", "[links][security]")
 {
     REQUIRE (ExternalLinks::isOpenable ("https://www.tone3000.com/search?format=nam"));
-    REQUIRE (ExternalLinks::isOpenable ("https://github.com/jcjmcclean/tonebench/issues"));
+    REQUIRE (ExternalLinks::isOpenable ("https://github.com/jcjmcclean/rigbench/issues"));
 
     for (auto bad : { "", "http://example.com", "file:///etc/passwd", "javascript:alert(1)",
-                      "https://", "https:///nohost", "ftp://x.com", "tonebench://open",
+                      "https://", "https:///nohost", "ftp://x.com", "rigbench://open",
                       "https://example.com/a b", "https://example.com/\"onload", "HTTPS:/x.com",
                       "https://example.com/\nSet-Cookie", "https://x.com/$(touch${IFS}pwned)",
                       "https://x.com/`id`", "https://x.com/a\\b", "https://x.com/'q'", "https://x.com/(a)" })

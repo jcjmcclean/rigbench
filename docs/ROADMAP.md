@@ -1,6 +1,6 @@
 # Roadmap
 
-What's next for Tonebench, roughly in order. The rule for all of it: the main window stays a
+What's next for Rigbench, roughly in order. The rule for all of it: the main window stays a
 plugin, an amp, and a cab. New things go where they don't get in the way of playing (setup,
 settings, the empty-slot states), or they don't go in.
 
@@ -18,7 +18,7 @@ permission, feedback, or no idea where to get a model. These fix that.
 - **First-run setup.** Three short steps the first time you open the app, and again from Settings:
   1. *What's your guitar plugged into?* Pick the interface. If it's the computer's built-in mic,
      say to use headphones.
-  2. *Play a few notes.* A live meter per input; Tonebench picks the one that lights up and says
+  2. *Play a few notes.* A live meter per input; Rigbench picks the one that lights up and says
      whether the level's too low, good, or clipping.
   3. *Where do you want to hear it?* Pick the output, with a short test sound.
   Monitoring stays off until this is done, so a laptop's mic and speakers can't howl on first launch.
@@ -61,7 +61,7 @@ smooth knobs. Still to do: input gain that can boost, starter sounds, drag and d
 
 ## Not planned
 
-Things other amp-sim apps do that would make Tonebench into the fiddly kind of app it was built
+Things other amp-sim apps do that would make Rigbench into the fiddly kind of app it was built
 to avoid: a pedalboard with unlimited slots, a looper, backing tracks, a DAW-style recorder, MIDI
 mapping. If one of these turns out to matter to a lot of people, it can be revisited.
 
@@ -69,13 +69,13 @@ mapping. If one of these turns out to matter to a lot of people, it can be revis
 
 - **Windows:** ASIO (needs Steinberg's SDK licence; WASAPI works meanwhile).
 - **Linux:** JACK and PipeWire-JACK support, and an AppImage that bundles WebKitGTK.
-- **All:** CI builds and boots the real app on every OS (`Tonebench --smoke`) on every pull request.
+- **All:** CI builds and boots the real app on every OS (`Rigbench --smoke`) on every pull request.
 
 ## Background
 
 - **No competitor has a setup wizard.** The closest are AmpliTube opening its audio window on first
   launch and Tonocracy showing a "Show Audio Settings" button until audio works. Neural DSP's
-  standalones use the same stock dialog Tonebench has, and their help pages keep repeating "pick
+  standalones use the same stock dialog Rigbench has, and their help pages keep repeating "pick
   ASIO, enable one input, match the sample rate".
 - **Most common beginner problems** (from support pages and forums): guitar on the wrong input;
   microphone permission denied; Windows driver confusion; buffer size and latency; hearing the dry

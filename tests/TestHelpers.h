@@ -21,7 +21,7 @@ struct TempDir
     // temp dir is the shared /tmp, which presets aren't allowed to load from.
     TempDir()
         : dir (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("tonebench-tests")
+                   .getChildFile ("rigbench-tests")
                    .getNonexistentChildFile ("run", {}, false))
     {
         dir.createDirectory();
@@ -129,7 +129,7 @@ inline juce::File writeSyntheticIR (const TempDir& tmp, double sr = 48000.0, con
 // The committed, valid NAM model (a 2-tap linear model at 48 kHz).
 inline juce::File namFixture()
 {
-    return juce::File (TONEBENCH_FIXTURES_DIR).getChildFile ("minimal.nam");
+    return juce::File (RIGBENCH_FIXTURES_DIR).getChildFile ("minimal.nam");
 }
 
 // Convolution loads its IR on a background thread and swaps it in during

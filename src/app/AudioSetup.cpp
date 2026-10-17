@@ -193,7 +193,7 @@ juce::String apply (juce::AudioDeviceManager& dm, const juce::var& changes)
     if (hadDevice)
     {
         dm.setAudioDeviceSetup (previous, true);
-        return "Couldn't use that setting, so Tonebench went back to the previous one. (" + err + ")";
+        return "Couldn't use that setting, so Rigbench went back to the previous one. (" + err + ")";
     }
     return "Couldn't use that setting: " + err;
 }

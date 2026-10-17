@@ -42,7 +42,7 @@ describe("TopBar telemetry", () => {
 
   it("shows the brand", () => {
     render(<TopBar state={makeState()} dirty={false} />);
-    expect(screen.getByRole("banner")).toHaveTextContent(/^Tonebench/);
+    expect(screen.getByRole("banner")).toHaveTextContent(/^Rigbench/);
   });
 });
 

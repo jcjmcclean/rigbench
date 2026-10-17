@@ -1,11 +1,11 @@
-// Tonebench offline bench — a simulated audio interface for deterministic
+// Rigbench offline bench — a simulated audio interface for deterministic
 // testing. It feeds known signals through the REAL engine, block-by-block, just
 // like the live audio callback, then writes a WAV you can listen to and prints
 // metrics (level, peak, clipping, NaN, measured latency).
 //
 // Usage:
-//   tonebench_cli selftest
-//   tonebench_cli render [input] [chain] [--sr N] [--block N] --out file.wav
+//   rigbench_cli selftest
+//   rigbench_cli render [input] [chain] [--sr N] [--block N] --out file.wav
 //     input:  --gen sine|sweep|impulse|noise|pluck [--secs S]  |  --in file.wav
 //     chain:  --ir file.wav [--mix 0..1]
 //             (--nam / --vst added as those nodes land)
@@ -291,7 +291,7 @@ juce::AudioBuffer<float> synthIRBuffer()
 juce::File scratchDir()
 {
     auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                 .getChildFile ("tonebench-selftest");
+                 .getChildFile ("rigbench-selftest");
     d.createDirectory();
     return d;
 }
@@ -299,7 +299,7 @@ juce::File scratchDir()
 juce::File makeSyntheticIR (double sr)
 {
     auto ir = synthIRBuffer();
-    auto f = scratchDir().getChildFile ("tonebench_test_ir.wav");
+    auto f = scratchDir().getChildFile ("rigbench_test_ir.wav");
     io::saveMono (f, ir, sr);
     return f;
 }
@@ -309,8 +309,8 @@ juce::File makeSyntheticIR (double sr)
 // developer with ~/Documents/NAMs still exercises a real capture.
 juce::File findNamModel()
 {
-   #ifdef TONEBENCH_FIXTURES_DIR
-    const juce::File fixture = juce::File (TONEBENCH_FIXTURES_DIR).getChildFile ("minimal.nam");
+   #ifdef RIGBENCH_FIXTURES_DIR
+    const juce::File fixture = juce::File (RIGBENCH_FIXTURES_DIR).getChildFile ("minimal.nam");
     if (fixture.existsAsFile())
         return fixture;
    #endif
@@ -356,7 +356,7 @@ int runSelfTest (bool strict)
     const double sr = 48000.0; const int block = 128;
     int fails = 0;
     int suitesRun = 0, suitesSkipped = 0;
-    std::cout << "=== Tonebench self-test" << (strict ? " (--strict)" : "") << " ===\n";
+    std::cout << "=== Rigbench self-test" << (strict ? " (--strict)" : "") << " ===\n";
 
     // Record a skipped suite. In --strict mode, skipping a CORE suite (the ones
     // CI must always exercise: preset round-trip, resampler) is a HARD FAILURE
@@ -548,7 +548,7 @@ int runSelfTest (bool strict)
         juce::Thread::sleep (300);
 
         const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                          .getChildFile ("tonebench_test_ir_preset.tonebench");
+                                          .getChildFile ("rigbench_test_ir_preset.rigbench");
         Preset::RigInfo saveInfo; saveInfo.masterGain = 0.65f; saveInfo.sampleRateAtSave = sr; saveInfo.name = "IR Only";
         const bool saved = Preset::save (presetFile, original, saveInfo);
 
@@ -579,23 +579,23 @@ int runSelfTest (bool strict)
         Preset::RigInfo info;
         const auto temp = juce::File::getSpecialLocation (juce::File::tempDirectory);
 
-        const juce::File f1 = temp.getChildFile ("tonebench_bad_truncated.tonebench");
-        f1.replaceWithText ("{ \"format\": \"tonebench-preset\", \"schemaVersion\": 1, \"chain\": [");
+        const juce::File f1 = temp.getChildFile ("rigbench_bad_truncated.rigbench");
+        f1.replaceWithText ("{ \"format\": \"rigbench-preset\", \"schemaVersion\": 1, \"chain\": [");
         const bool r1 = Preset::load (f1, engine, sr, block, info);
 
-        const juce::File f2 = temp.getChildFile ("tonebench_bad_garbage.tonebench");
+        const juce::File f2 = temp.getChildFile ("rigbench_bad_garbage.rigbench");
         f2.replaceWithText ("not json at all %%%");
         const bool r2 = Preset::load (f2, engine, sr, block, info);
 
-        const juce::File f3 = temp.getChildFile ("tonebench_bad_schema.tonebench");
-        f3.replaceWithText ("{ \"format\": \"tonebench-preset\", \"schemaVersion\": 99, \"chain\": [] }");
+        const juce::File f3 = temp.getChildFile ("rigbench_bad_schema.rigbench");
+        f3.replaceWithText ("{ \"format\": \"rigbench-preset\", \"schemaVersion\": 99, \"chain\": [] }");
         const bool r3 = Preset::load (f3, engine, sr, block, info);
 
-        const juce::File f4 = temp.getChildFile ("tonebench_bad_wrongformat.tonebench");
+        const juce::File f4 = temp.getChildFile ("rigbench_bad_wrongformat.rigbench");
         f4.replaceWithText ("{ \"hello\": 123 }");
         const bool r4 = Preset::load (f4, engine, sr, block, info);
 
-        const bool r5 = Preset::load (temp.getChildFile ("tonebench_nonexistent.tonebench"),
+        const bool r5 = Preset::load (temp.getChildFile ("rigbench_nonexistent.rigbench"),
                                       engine, sr, block, info);
 
         fails += report ("Preset malformed", ! r1 && ! r2 && ! r3 && ! r4 && ! r5,
@@ -678,7 +678,7 @@ int runSelfTest (bool strict)
             // Copy the model into the scratch dir so Preset's SEC-3 allow-list
             // accepts the referenced path on any machine (incl. CI, where the
             // checkout may live outside the user's home).
-            const juce::File namFile = scratchDir().getChildFile ("tonebench_test_model.nam");
+            const juce::File namFile = scratchDir().getChildFile ("rigbench_test_model.nam");
             model.copyFileTo (namFile);
             const juce::File irFile = makeSyntheticIR (sr);
 
@@ -697,7 +697,7 @@ int runSelfTest (bool strict)
             juce::Thread::sleep (300);
 
             const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                              .getChildFile ("tonebench_test_preset.tonebench");
+                                              .getChildFile ("rigbench_test_preset.rigbench");
             Preset::RigInfo saveInfo; saveInfo.masterGain = 0.7f; saveInfo.sampleRateAtSave = sr; saveInfo.name = "Test Rig";
             const bool saved = Preset::save (presetFile, original, saveInfo);
 
@@ -849,20 +849,20 @@ int runSelfTest (bool strict)
         }
     }
 
-    // VST3 node: only when TONEBENCH_TEST_VST is set (dlopen blocks under AMFI in
+    // VST3 node: only when RIGBENCH_TEST_VST is set (dlopen blocks under AMFI in
     // a sandboxed/CLI process — run this from a normal login shell).
     // VST3: hosting a real plugin reliably needs a GUI/login session (dlopen of a
     // code-signed bundle blocks under AMFI in a CLI process), and there is no
     // hermetic .vst3 fixture to commit, so this stays opt-in + env-gated and is
-    // NOT a core suite (its skip never fails --strict). Point TONEBENCH_TEST_VST
-    // at a bundle via TONEBENCH_VST_PATH to exercise it locally.
-    if (std::getenv ("TONEBENCH_TEST_VST") != nullptr)
+    // NOT a core suite (its skip never fails --strict). Point RIGBENCH_TEST_VST
+    // at a bundle via RIGBENCH_VST_PATH to exercise it locally.
+    if (std::getenv ("RIGBENCH_TEST_VST") != nullptr)
     {
-        const char* envPath = std::getenv ("TONEBENCH_VST_PATH");
+        const char* envPath = std::getenv ("RIGBENCH_VST_PATH");
         juce::File vstFile (envPath != nullptr ? juce::String (envPath) : juce::String());
         if (! vstFile.exists())
         {
-            skipSuite ("VST3", "set TONEBENCH_VST_PATH to a .vst3 bundle to run", /*core*/ false);
+            skipSuite ("VST3", "set RIGBENCH_VST_PATH to a .vst3 bundle to run", /*core*/ false);
         }
         else
         {
@@ -1026,8 +1026,8 @@ int main (int argc, char** argv)
     }
 
     std::cout << "usage:\n"
-              << "  tonebench_cli selftest [--strict]   (--strict: a skipped CORE suite fails; used by CI)\n"
-              << "  tonebench_cli render [--gen sine|sweep|impulse|noise|pluck [--secs S] | --in f.wav]"
+              << "  rigbench_cli selftest [--strict]   (--strict: a skipped CORE suite fails; used by CI)\n"
+              << "  rigbench_cli render [--gen sine|sweep|impulse|noise|pluck [--secs S] | --in f.wav]"
                  " [--ir f.wav [--mix 0..1]] [--sr N] [--block N] --out out.wav\n";
     return 0;
 }

@@ -3,11 +3,11 @@
 #include <iostream>
 
 //==============================================================================
-class TonebenchApplication : public juce::JUCEApplication,
+class RigbenchApplication : public juce::JUCEApplication,
                              public juce::MenuBarModel
 {
 public:
-    const juce::String getApplicationName() override    { return "Tonebench"; }
+    const juce::String getApplicationName() override    { return "Rigbench"; }
     const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
     bool moreThanOneInstanceAllowed() override          { return false; }
 
@@ -27,12 +27,12 @@ public:
                 setApplicationReturnValue (0);
                 quit();
             };
-            mainWindow.reset (new MainWindow ("Tonebench", *this, std::move (opts)));
+            mainWindow.reset (new MainWindow ("Rigbench", *this, std::move (opts)));
             smokeTimeout = std::make_unique<SmokeTimeout> (*this);
             return;
         }
 
-        mainWindow.reset (new MainWindow ("Tonebench", *this));
+        mainWindow.reset (new MainWindow ("Rigbench", *this));
 
        #if JUCE_MAC
         juce::PopupMenu appleExtras;
@@ -106,7 +106,7 @@ public:
 private:
     struct SmokeTimeout final : juce::Timer
     {
-        explicit SmokeTimeout (TonebenchApplication& a) : app (a) { startTimer (30000); }
+        explicit SmokeTimeout (RigbenchApplication& a) : app (a) { startTimer (30000); }
         void timerCallback() override
         {
             stopTimer();
@@ -114,7 +114,7 @@ private:
             app.setApplicationReturnValue (1);
             app.quit();
         }
-        TonebenchApplication& app;
+        RigbenchApplication& app;
     };
 
     std::unique_ptr<MainWindow> mainWindow;
@@ -122,4 +122,4 @@ private:
 };
 
 //==============================================================================
-START_JUCE_APPLICATION (TonebenchApplication)
+START_JUCE_APPLICATION (RigbenchApplication)
