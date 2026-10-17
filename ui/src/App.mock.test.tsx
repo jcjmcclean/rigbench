@@ -162,6 +162,31 @@ describe("App + mock engine: monitoring", () => {
   });
 });
 
+describe("App + mock engine: tuner", () => {
+  it("plays a pretend low E, or what the website's microphone hears instead", async () => {
+    const { container } = await renderApp();
+    const { setMockTunerInput } = await import("./bridge");
+    const note = () => container.querySelector(".tuner__note")?.textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Tuner" }));
+
+    tick(50);
+    expect(note()).toBe("E2");
+
+    act(() => setMockTunerInput({ note: "A", octave: 2, cents: -20, hz: 108.7 }));
+    tick(50);
+    expect(note()).toBe("A2");
+    expect(container.querySelector(".tuner__lamp.is-on")).toHaveTextContent("♭");
+
+    act(() => setMockTunerInput(null));   // the microphone hears nothing
+    tick(50);
+    expect(note()).toBe("–");
+
+    act(() => setMockTunerInput(undefined));   // microphone off: back to the pretend E
+    tick(50);
+    expect(note()).toBe("E2");
+  });
+});
+
 describe("App + mock engine: presets", () => {
   it("loading another preset clears the edited marker", async () => {
     await renderApp();

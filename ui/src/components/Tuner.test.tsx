@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { fake } from "../test/fakeBridge";
+import { LEDS, litLed } from "../tunerScale";
 import { Tuner } from "./Tuner";
 
 vi.mock("../bridge", () => import("../test/bridgeModuleMock"));
@@ -44,16 +45,50 @@ describe("Tuner", () => {
     expect(advice()).toHaveTextContent("In tune.");
   });
 
-  it("moves the needle with the cents, pinned to the ends of the scale", () => {
+  it("lights the LED for how far off you are, 5 cents each, pinned to the ends", () => {
     const { container } = render(<Tuner onClose={() => {}} />);
-    const needle = () => container.querySelector<HTMLElement>(".tuner__needle")!;
+    const leds = () => [...container.querySelectorAll(".tuner__led")];
+    const lit = () => leds().flatMap((el, i) => (el.classList.contains("is-on") ? [i] : []));
+
+    expect(leds()).toHaveLength(LEDS);
+    expect(lit()).toEqual([]);
 
     act(() => fake.emitTuner(reading("E", 2, -25)));
-    expect(needle().style.left).toBe("25%");
+    expect(lit()).toEqual([5]);
     act(() => fake.emitTuner(reading("E", 2, 80)));
-    expect(needle().style.left).toBe("100%");
+    expect(lit()).toEqual([20]);
     act(() => fake.emitTuner(reading("E", 2, -80)));
-    expect(needle().style.left).toBe("0%");
+    expect(lit()).toEqual([0]);
+  });
+
+  it("the middle LED means in tune: just outside, its neighbour lights instead", () => {
+    expect(litLed(0)).toBe(10);
+    expect(litLed(3)).toBe(10);
+    expect(litLed(-3)).toBe(10);
+    expect(litLed(3.4)).toBe(11);
+    expect(litLed(-3.4)).toBe(9);
+    expect(litLed(-12)).toBe(8);
+    expect(litLed(28)).toBe(16);
+  });
+
+  it("lights the ♭ or ♯ lamp for the side you're on, and neither in tune", () => {
+    const { container } = render(<Tuner onClose={() => {}} />);
+    const lamps = () => [...container.querySelectorAll(".tuner__lamp")].map((el) => el.classList.contains("is-on"));
+
+    expect(lamps()).toEqual([false, false]);
+    act(() => fake.emitTuner(reading("E", 2, -12)));
+    expect(lamps()).toEqual([true, false]);
+    act(() => fake.emitTuner(reading("E", 2, 12)));
+    expect(lamps()).toEqual([false, true]);
+    act(() => fake.emitTuner(reading("E", 2, 1)));
+    expect(lamps()).toEqual([false, false]);
+    expect(container.querySelector(".tuner__led.is-near")).toBeNull();
+  });
+
+  it("writes sharps as ♯", () => {
+    const { container } = render(<Tuner onClose={() => {}} />);
+    act(() => fake.emitTuner(reading("F#", 3, 0)));
+    expect(container.querySelector(".tuner__note")).toHaveTextContent(/^F♯3$/);
   });
 
   it("goes back to waiting when the note stops", () => {
@@ -98,8 +133,10 @@ describe("Tuner", () => {
     // A new note that's already in tune says both at once.
     emit(reading("D", 3, 0));
     emit(reading("D", 3, 1));
+    // Sharps are said as words.
+    emit(reading("F#", 3, -10));
 
-    expect(heard).toEqual(["E 2", "In tune", "A 2", "D 3, in tune"]);
+    expect(heard).toEqual(["E 2", "In tune", "A 2", "D 3, in tune", "F sharp 3"]);
   });
 
   it("Done and Escape close it", () => {
