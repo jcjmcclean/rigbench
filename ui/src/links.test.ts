@@ -41,3 +41,15 @@ describe("moreSoundsUrl", () => {
     expect(new URL(moreSoundsUrl).protocol).toBe("https:");
   });
 });
+
+describe("findLink", () => {
+  it("has one https link per slot type, with a short label", async () => {
+    const { findLink } = await import("./links");
+    expect(Object.keys(findLink).sort()).toEqual([...SLOT_TYPES].sort());
+    for (const { label, url } of Object.values(findLink)) {
+      expect(new URL(url).protocol).toBe("https:");
+      expect(label).toMatch(/^Find free /);
+      expect(label.length).toBeLessThan(26);   // one line in a slot
+    }
+  });
+});

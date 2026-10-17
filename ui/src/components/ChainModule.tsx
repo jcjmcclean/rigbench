@@ -1,7 +1,7 @@
 import { Knob } from "./Knob";
 import type { SlotState, SlotType } from "../types";
 import { percent, dbFromUnit } from "../format";
-import { soundLinks } from "../links";
+import { findLink } from "../links";
 import "./ChainModule.css";
 
 // short: the slot's name in the bypass button's accessible name ("Amp ON"), so
@@ -93,20 +93,20 @@ export function ChainModule({ slot, index, onLoad, onClear, onBypass, onMix, onG
             </button>
           </>
         ) : (
-          <>
+          // The dashed area is the empty slot: load fills it, and a quiet
+          // "find free ones" line sits at its foot.
+          <div className="module__empty">
             <button className="module__load" onClick={onLoad}>
               <span className="module__plus" aria-hidden>+</span>
               <span className="module__load-text">{m.empty}</span>
             </button>
             {onOpenUrl && (
-              <div className="module__links">
-                <span className="module__links-label">Don’t have one?</span>
-                {soundLinks[slot.type].map((l) => (
-                  <button key={l.url} className="module__link" onClick={() => onOpenUrl(l.url)}>{l.label}</button>
-                ))}
-              </div>
+              <button className="module__find" onClick={() => onOpenUrl(findLink[slot.type].url)}>
+                {findLink[slot.type].label}
+                <span className="module__find-arrow" aria-hidden> ↗</span>
+              </button>
             )}
-          </>
+          </div>
         )}
       </div>
       </div>

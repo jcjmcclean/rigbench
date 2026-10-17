@@ -24,3 +24,11 @@ export const soundLinks: Record<SlotType, SoundLink[]> = {
 
 // The website's list of all of the above, for "more".
 export const moreSoundsUrl = "https://jcjmcclean.github.io/tonebench/#sounds";
+
+// The one link an empty slot shows. Amp models and cab IRs go straight to
+// TONE3000; plugins go to the site, which lists a few to choose from.
+export const findLink: Record<SlotType, SoundLink> = {
+  nam: { label: "Find free amp models", url: "https://www.tone3000.com/search?format=nam" },
+  ir: { label: "Find free cab IRs", url: "https://www.tone3000.com/search?format=ir" },
+  vst3: { label: "Find free plugins", url: moreSoundsUrl },
+};

@@ -141,11 +141,10 @@ test.describe("empty-slot download links", () => {
     });
     await openApp(page);
     const nam = slot(page, "NAM");
-    await expect(nam.getByText("Don’t have one?")).toHaveCount(0);
+    await expect(nam.getByRole("button", { name: "Find free amp models" })).toHaveCount(0);
     await nam.hover();
     await nam.getByRole("button", { name: "Remove amp model" }).click();
-    await expect(nam.getByText("Don’t have one?")).toBeVisible();
-    const link = nam.getByRole("button", { name: "Free amp models on TONE3000" });
+    const link = nam.getByRole("button", { name: "Find free amp models" });
     await expect(link).toBeVisible();
     await link.click();
     await expect

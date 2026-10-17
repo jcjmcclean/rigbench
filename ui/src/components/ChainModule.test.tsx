@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ChainModule } from "./ChainModule";
-import { soundLinks } from "../links";
+import { findLink } from "../links";
 import type { SlotState } from "../types";
 
 function renderModule(slot: SlotState, extra: { onOpenUrl?: (url: string) => void } = {}) {
@@ -158,39 +158,34 @@ describe("ChainModule empty state", () => {
   });
 });
 
-describe("ChainModule empty state: \"Don't have one?\" links", () => {
+describe("ChainModule empty state: the \"find free\" link", () => {
   const empty = { vst3: vst3({ loaded: false, name: "" }), nam: nam({ loaded: false, name: "" }), ir: ir({ loaded: false, name: "" }) };
 
-  it.each(["vst3", "nam", "ir"] as const)("%s lists every sound link for its type, each opening its URL", (type) => {
+  it.each(["vst3", "nam", "ir"] as const)("%s shows one link, inside the empty slot, opening its URL", (type) => {
     const onOpenUrl = vi.fn();
-    const { onLoad } = renderModule(empty[type], { onOpenUrl });
-    expect(screen.getByText("Don’t have one?")).toBeInTheDocument();
-    for (const { label, url } of soundLinks[type]) {
-      onOpenUrl.mockClear();
-      fireEvent.click(screen.getByRole("button", { name: label }));
-      expect(onOpenUrl).toHaveBeenCalledExactlyOnceWith(url);
-    }
+    const { onLoad, container } = renderModule(empty[type], { onOpenUrl });
+    const link = screen.getByRole("button", { name: findLink[type].label });
+    expect(container.querySelector(".module__empty")).toContainElement(link);
+    fireEvent.click(link);
+    expect(onOpenUrl).toHaveBeenCalledExactlyOnceWith(findLink[type].url);
     expect(onLoad).not.toHaveBeenCalled();
-    // The load button plus one per link.
-    expect(screen.getAllByRole("button")).toHaveLength(1 + soundLinks[type].length);
+    expect(screen.getAllByRole("button")).toHaveLength(2);   // load + the link
   });
 
-  it("the NAM slot links to free amp models on TONE3000", () => {
-    const onOpenUrl = vi.fn();
-    renderModule(empty.nam, { onOpenUrl });
-    fireEvent.click(screen.getByRole("button", { name: "Free amp models on TONE3000" }));
-    expect(onOpenUrl).toHaveBeenCalledExactlyOnceWith("https://www.tone3000.com/search?format=nam");
+  it("amp models and cab IRs go to TONE3000; plugins go to the site's list", () => {
+    expect(findLink.nam).toEqual({ label: "Find free amp models", url: "https://www.tone3000.com/search?format=nam" });
+    expect(findLink.ir).toEqual({ label: "Find free cab IRs", url: "https://www.tone3000.com/search?format=ir" });
+    expect(findLink.vst3.url).toBe("https://jcjmcclean.github.io/tonebench/#sounds");
   });
 
-  it("no links without an onOpenUrl handler", () => {
+  it("no link without an onOpenUrl handler", () => {
     renderModule(empty.nam);
-    expect(screen.queryByText("Don’t have one?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Find free/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
-  it("no links on a loaded slot", () => {
+  it("no link on a loaded slot", () => {
     renderModule(nam(), { onOpenUrl: vi.fn() });
-    expect(screen.queryByText("Don’t have one?")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /TONE3000/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Find free/ })).not.toBeInTheDocument();
   });
 });

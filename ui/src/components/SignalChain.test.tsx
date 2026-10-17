@@ -155,15 +155,15 @@ describe("SignalChain -> bridge wiring", () => {
     const s = fullRig();
     s.slots.ir = { ...s.slots.ir, loaded: false, name: "" };
     render(<SignalChain state={s} />);
-    fireEvent.click(slot("ir").getByRole("button", { name: "Free cab IRs on TONE3000" }));
+    fireEvent.click(slot("ir").getByRole("button", { name: "Find free cab IRs" }));
     expect(fake.bridge.openUrl).toHaveBeenCalledExactlyOnceWith("https://www.tone3000.com/search?format=ir");
     expect(fake.bridge.loadSlot).not.toHaveBeenCalled();
   });
 
   it("only empty slots show download links", () => {
     render(<SignalChain state={makeState()} />); // vst3 empty, nam + ir loaded
-    expect(screen.getAllByText("Don’t have one?")).toHaveLength(1);
-    expect(slot("vst3").getByText("Don’t have one?")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Find free/ })).toHaveLength(1);
+    expect(slot("vst3").getByRole("button", { name: "Find free plugins" })).toBeInTheDocument();
   });
 
   it("Open editor calls openEditor", () => {
