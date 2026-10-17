@@ -10,7 +10,7 @@ play. That's the whole idea.
 </picture>
 
 <!-- x-release-please-start-version -->
-Early days: this is v0.1.0. It runs on macOS (Apple Silicon and Intel), Windows, and Linux.
+Early days: this is v0.2.0. It runs on macOS (Apple Silicon and Intel), Windows, and Linux.
 <!-- x-release-please-end -->
 
 ## Why I built this
