@@ -62,8 +62,9 @@ export function Setup({ onDone, monitoring = false }: { onDone: () => void; moni
   const start = () => { bridge.finishSetup(true); onDone(); };
 
   const skip = async () => {
-    // Don't leave every input open: settle on the input it found or was given.
-    if (step === "input" && setup && setup.inputs.length > 0) await apply({ input: chosen ?? 0 });
+    // Don't leave every input open (from this step, or Back from it): settle on
+    // the input it found or was given.
+    if (setup?.listeningToAll && setup.inputs.length > 0) await apply({ input: chosen ?? 0 });
     bridge.finishSetup(false);
     if (wasMonitoring.current) bridge.setMonitor(true);
     onDone();

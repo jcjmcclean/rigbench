@@ -20,6 +20,7 @@ export function TopBar({
   onPresetRenamed,
   onOpenSettings,
   onOpenTuner,
+  inert,
 }: {
   state: EngineState;
   dirty: boolean;
@@ -27,6 +28,7 @@ export function TopBar({
   onPresetRenamed?: (name: string) => void;
   onOpenSettings?: () => void;
   onOpenTuner?: () => void;
+  inert?: boolean;   // while something covers the app (first-run setup)
 }) {
   const latTone = state.roundTripMs < 12 ? "good" : state.roundTripMs < 20 ? "warn" : "bad";
   // Pair the colour with a word so the status isn't colour-only.
@@ -34,7 +36,7 @@ export function TopBar({
   const running = state.sampleRate > 0;
 
   return (
-    <header className="topbar">
+    <header className="topbar" inert={inert}>
       <div className="topbar__brand">
         <span className="topbar__mark" aria-hidden />
         <span className="topbar__word">Tone<em>bench</em></span>

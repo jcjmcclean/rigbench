@@ -217,7 +217,9 @@ function createMockBridge(): Bridge {
       if (c.outputDevice !== undefined) audio.outputDevice = c.outputDevice;
       if (c.sampleRate !== undefined) audio.sampleRate = c.sampleRate;
       if (c.bufferSize !== undefined) audio.bufferSize = c.bufferSize;
-      audio.listeningToAll = !!c.listenToAllInputs;
+      // Like the engine: every input stays open until a change picks one.
+      if (c.listenToAllInputs) audio.listeningToAll = true;
+      else if (c.input !== undefined || c.inputDevice !== undefined || c.driver !== undefined) audio.listeningToAll = false;
       if (c.input !== undefined) audio.input = c.input;
       if (audio.listeningToAll) audio.input = -1;
       syncAudio();

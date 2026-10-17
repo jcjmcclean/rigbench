@@ -61,7 +61,6 @@ export default function App({ wheel = true }: { wheel?: boolean } = {}) {
   const showSetup = !!state && (!state.setupComplete || setupAgain);
   useEffect(() => bridge.subscribeShowSettings(() => openDialog("settings")), [openDialog]);
 
-
   useEffect(() => {
     if (state) return;
     const t = setTimeout(
@@ -155,9 +154,13 @@ export default function App({ wheel = true }: { wheel?: boolean } = {}) {
     );
   }
 
+  // While setup is up, the app behind it can't be clicked or tabbed into.
+  const behindSetup = showSetup ? true : undefined;
+
   return (
     <div className="app">
       <TopBar
+        inert={behindSetup}
         state={state}
         dirty={dirty}
         onPresetSaved={onPresetSaved}
@@ -166,11 +169,11 @@ export default function App({ wheel = true }: { wheel?: boolean } = {}) {
         onOpenTuner={() => openDialog("tuner")}
       />
 
-      <main className="stage">
+      <main className="stage" inert={behindSetup}>
         <SignalChain state={state} onPickPlugin={() => openDialog("picker")} />
       </main>
 
-      <footer className="statusbar">
+      <footer className="statusbar" inert={behindSetup}>
         <span className="statusbar__hint mono">
           {knobHint(wheel)}
         </span>

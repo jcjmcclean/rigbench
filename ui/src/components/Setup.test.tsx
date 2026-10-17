@@ -505,3 +505,21 @@ describe("Setup: run again with monitoring on", () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Setup: skipping after going back from the input step", () => {
+  it("still settles on one input instead of leaving them all open", async () => {
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+    render(<Setup onDone={onDone} />);
+    await screen.findByRole("heading", { name: "What’s your guitar plugged into?" });
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { name: "Play a few notes" });
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    await screen.findByRole("heading", { name: "What’s your guitar plugged into?" });
+    fake.bridge.setAudioSetup.mockClear();
+    await user.click(screen.getByRole("button", { name: "Skip setup" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(fake.bridge.setAudioSetup).toHaveBeenCalledWith({ input: 0 });
+    expect(fake.bridge.finishSetup).toHaveBeenCalledWith(false);
+  });
+});

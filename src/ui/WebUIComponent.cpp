@@ -41,7 +41,7 @@ juce::ZipFile* getWebZip()
 
 // SEC-5: lock navigation. The WebView must only ever load our own embedded
 // resource origin — any other URL (an injected <a>/redirect, a future remote
-// asset) is refused so the 13 native bridge functions can't be driven from
+// asset) is refused so the native bridge functions can't be driven from
 // off-origin content. (about:/empty is allowed for JUCE's own bootstrapping.)
 class LockedWebBrowser final : public juce::WebBrowserComponent
 {
@@ -156,8 +156,15 @@ WebUIComponent::WebUIComponent (Options componentOptions)
             {
                 const auto changes = arg (a, 0);
                 const auto err = AudioSetup::apply (deviceManager, changes);
+                // Every input stays open until a change picks one (or another
+                // interface or driver); a buffer or rate change doesn't.
                 if (err.isEmpty())
-                    listeningToAllInputs = (bool) changes.getProperty ("listenToAllInputs", false);
+                {
+                    if ((bool) changes.getProperty ("listenToAllInputs", false))
+                        listeningToAllInputs = true;
+                    else if (changes.hasProperty ("input") || changes.hasProperty ("inputDevice") || changes.hasProperty ("driver"))
+                        listeningToAllInputs = false;
+                }
                 auto setup = AudioSetup::describe (deviceManager, listeningToAllInputs);
                 if (err.isNotEmpty())
                     setup.getDynamicObject()->setProperty ("error", err);

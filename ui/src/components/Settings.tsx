@@ -10,10 +10,10 @@ import "./Settings.css";
 export function Settings({ onClose, onRunSetup }: { onClose: () => void; onRunSetup: () => void }) {
   const [setup, setSetup] = useState<AudioSetup | null>(null);
   const [inputLevel, setInputLevel] = useState(0);   // live level of the guitar's input
-
-  useEffect(() => bridge.subscribeInputPeaks((p) => setInputLevel(p[0] ?? 0)), []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => bridge.subscribeInputPeaks((p) => setInputLevel(p[0] ?? 0)), []);
 
   useEffect(() => {
     let live = true;

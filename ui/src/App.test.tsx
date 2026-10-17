@@ -583,3 +583,16 @@ describe("App: a preset whose plugin arrives late", () => {
     expect(edited()).toBeInTheDocument();
   });
 });
+
+describe("App: first-run setup covers the app", () => {
+  it("makes the app behind it inert, and not once setup is done", () => {
+    const { container } = render(<App />);
+    emit(makeState({ setupComplete: false }));
+    expect(container.querySelector("header.topbar")).toHaveAttribute("inert");
+    expect(container.querySelector("main")).toHaveAttribute("inert");
+    expect(container.querySelector("footer")).toHaveAttribute("inert");
+    emit(makeState({ setupComplete: true }));
+    expect(container.querySelector("header.topbar")).not.toHaveAttribute("inert");
+    expect(container.querySelector("main")).not.toHaveAttribute("inert");
+  });
+});
