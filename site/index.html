@@ -122,6 +122,7 @@
 
   .btns { position: relative; z-index: 1; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
   .btn {
+    font-family: inherit;
     display: inline-flex;
     align-items: center;
     gap: 9px;
@@ -167,6 +168,10 @@
   }
   .hero-shot { margin-top: 56px; }
   .shot--setup { max-width: 720px; margin: 32px auto 8px; }
+  .shot--tuner { max-width: 420px; margin: 48px auto 0; }
+  .tuner-try { display: flex; flex-direction: column; align-items: center; margin: 20px auto 40px; max-width: 520px; }
+  .tuner-try .live-hint { margin-top: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: default; transform: none; }
 
   /* Live app previews: the real UI (ui/src/showcase.tsx, built into app/) on a
      mock engine, laid out at its native 1440x805 window size, then scaled to fit
@@ -321,6 +326,16 @@
       <li>Shows your audio device, sample rate, buffer size, and round-trip latency along the top, and the signal on a scope as you play.</li>
     </ul>
 
+    <div class="shot shot--tuner">
+      <div class="live" data-crop="527 199 386 408">
+        <iframe src="app/showcase.html?view=tuner" title="Rigbench’s tuner, running in your browser" loading="lazy" allow="microphone"></iframe>
+      </div>
+    </div>
+    <div class="tuner-try">
+      <button class="btn btn-ghost" id="tune-mic" type="button" disabled>Use my microphone</button>
+      <p class="live-hint" id="tune-hint">This is the app’s tuner. Until you let it use your microphone, it pretends to hear a low E. The sound stays in your browser.</p>
+    </div>
+
     <p class="note">Under the hood it’s a C++ audio engine built on JUCE. The interface runs in a webview on its own thread, so moving knobs and drawing the scope don’t add latency. The source and build steps are on <a href="https://github.com/jcjmcclean/rigbench">GitHub</a>.</p>
   </div>
 </section>
@@ -389,6 +404,40 @@
   </div>
 </footer>
 
+<script>
+/* The tuner preview can listen to the visitor's microphone (ui/src/showcase.tsx,
+   ?view=tuner). The click starts it in the same breath, because browsers only
+   let audio start from one. */
+(function () {
+  var btn = document.getElementById("tune-mic");
+  var hint = document.getElementById("tune-hint");
+  var frame = document.querySelector('iframe[src*="view=tuner"]');
+  if (!btn || !frame) return;
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+    btn.hidden = true;
+    return;
+  }
+  var on = false;
+  function mic() { return frame.contentWindow && frame.contentWindow.rigbenchMic; }
+  function ready() { if (mic()) btn.disabled = false; }
+  function set(listening) {
+    on = listening;
+    btn.textContent = listening ? "Stop listening" : "Use my microphone";
+  }
+  frame.addEventListener("load", ready);
+  ready();
+  btn.addEventListener("click", function () {
+    var m = mic();
+    if (!m) return;
+    if (on) { m.stop(); set(false); return; }
+    set(true);
+    m.start().catch(function () {
+      set(false);
+      hint.textContent = "The microphone didn’t start. Check your browser lets this page use it, then try again.";
+    });
+  });
+})();
+</script>
 <script>
 /* Fit each live app preview: scale the 1440x805 app so its crop rect fills the
    frame. Below half size the controls are too small to use (and dragging would

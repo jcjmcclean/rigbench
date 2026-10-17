@@ -123,7 +123,7 @@ function createMockBridge(): Bridge {
     // Tuner: a low E string, settling into tune as it rings, then silence.
     if (tuning && tunerSubs.size) {
       const sounding = phase < 0.75;
-      const cents = Math.round(-18 * Math.exp(-phase * 4) * 10) / 10;
+      const cents = Math.round(-18 * Math.exp(-phase * 8) * 10) / 10;
       const pretend = sounding ? { note: "E", octave: 2, cents, hz: 82.41 * 2 ** (cents / 1200) } : null;
       const reading = mockTunerInput !== undefined ? mockTunerInput : pretend;
       tunerSubs.forEach((cb) => cb(reading));

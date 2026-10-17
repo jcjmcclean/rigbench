@@ -133,8 +133,10 @@ describe("Tuner", () => {
     // A new note that's already in tune says both at once.
     emit(reading("D", 3, 0));
     emit(reading("D", 3, 1));
+    // Sharps are said as words.
+    emit(reading("F#", 3, -10));
 
-    expect(heard).toEqual(["E 2", "In tune", "A 2", "D 3, in tune"]);
+    expect(heard).toEqual(["E 2", "In tune", "A 2", "D 3, in tune", "F sharp 3"]);
   });
 
   it("Done and Escape close it", () => {

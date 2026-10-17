@@ -22,7 +22,7 @@ export function Tuner({ onClose }: { onClose: () => void }) {
     const off = bridge.subscribeTuner((r) => {
       setReading(r);
       if (!r) return;   // silence between notes says nothing
-      const note = `${r.note} ${r.octave}`;
+      const note = `${r.note.replace("#", " sharp")} ${r.octave}`;
       const tuned = isInTune(r);
       const last = heard.current;
       if (note !== last.note) {
