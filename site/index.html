@@ -220,6 +220,10 @@
   code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; color: var(--head); }
   .note { max-width: 640px; margin: 18px 0 0; font-size: 15px; color: var(--muted); }
 
+  /* The text sits in one centred column, the width of a comfortable line; the
+     previews stay full width. Text inside the column stays left-aligned. */
+  section h2, .lead, .body, .list, .note { max-width: 680px; margin-left: auto; margin-right: auto; }
+
   /* ---- footer ---- */
   footer { border-top: 1px solid var(--line); padding: 44px 0 60px; }
   .foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
@@ -317,11 +321,6 @@
       <li>Shows your audio device, sample rate, buffer size, and round-trip latency along the top, and the signal on a scope as you play.</li>
     </ul>
 
-    <div class="shot" style="margin-top:48px">
-      <div class="live" data-crop="304 246 833 336">
-        <iframe src="app/showcase.html?view=chain" title="The Rigbench chain: a VST3 plugin, a NAM amp model, and a cab IR" loading="lazy"></iframe>
-      </div>
-    </div>
     <p class="note">Under the hood it’s a C++ audio engine built on JUCE. The interface runs in a webview on its own thread, so moving knobs and drawing the scope don’t add latency. The source and build steps are on <a href="https://github.com/jcjmcclean/rigbench">GitHub</a>.</p>
   </div>
 </section>

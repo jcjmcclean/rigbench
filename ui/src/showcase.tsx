@@ -27,18 +27,6 @@ bridge.loadSlot("vst3");
 // <App wheel={false}> below keeps the status-bar hint from mentioning the wheel.
 window.addEventListener("wheel", (e) => e.stopPropagation(), { capture: true });
 
-// ?view=chain: the site crops this embed to the three modules, so take the parts
-// outside the crop out of the tab order.
-if (new URLSearchParams(location.search).get("view") === "chain") {
-  const hide = () => {
-    const els = document.querySelectorAll(".topbar, .statusbar, .terminal");
-    els.forEach((el) => el.setAttribute("inert", ""));
-    return els.length > 0;
-  };
-  const mo = new MutationObserver(() => { if (hide()) mo.disconnect(); });
-  mo.observe(document.getElementById("root")!, { childList: true, subtree: true });
-}
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App wheel={false} />
