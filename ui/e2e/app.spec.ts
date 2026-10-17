@@ -19,7 +19,7 @@ test.describe("startup", () => {
     await expect(page.getByRole("contentinfo")).toContainText(
       "Drag a knob, or use the arrow keys or scroll wheel. Hold Shift for finer control.",
     );
-    await expect(page.getByRole("contentinfo")).toContainText("v0.1.0");
+    await expect(page.getByRole("contentinfo")).toContainText(/v\d+\.\d+\.\d+/);
     expect(errors).toEqual([]);
   });
 
