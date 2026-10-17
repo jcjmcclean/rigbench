@@ -287,5 +287,6 @@ if(TONEBENCH_BUILD_TESTS)
         target_compile_options(tonebench_test_warnings INTERFACE -Wno-float-equal)
     endif()
     target_link_libraries(tonebench_tests PRIVATE tonebench_test_warnings)
-    catch_discover_tests(tonebench_tests DISCOVERY_MODE PRE_TEST)
+    # A hung test fails after two minutes, with its name, instead of stalling CI.
+    catch_discover_tests(tonebench_tests DISCOVERY_MODE PRE_TEST PROPERTIES TIMEOUT 120)
 endif()

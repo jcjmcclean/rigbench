@@ -18,6 +18,7 @@ jobs:
   cpp-tests:
     name: C++ tests + app smoke (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -68,7 +69,7 @@ jobs:
       # Runs every Catch2 test case plus the self-test. selftest_strict turns a
       # skipped CORE suite into a failure, so green-but-skipped can't pass.
       - name: Run tests
-        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
+        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure --timeout 120
 
       # Build the real app and boot it: --smoke opens the window without an audio
       # device, waits for the React UI to reach the engine over the bridge, and
