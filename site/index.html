@@ -166,6 +166,7 @@
       0 40px 90px -30px rgba(0, 0, 0, 0.8);
   }
   .hero-shot { margin-top: 56px; }
+  .shot--setup { max-width: 720px; margin: 32px auto 8px; }
 
   /* Live app previews: the real UI (ui/src/showcase.tsx, built into app/) on a
      mock engine, laid out at its native 1440x805 window size, then scaled to fit
@@ -270,7 +271,7 @@
       <canvas class="scope" aria-hidden="true"></canvas>
       <h1 class="mark"><span class="rig">Rig</span><span class="bench">bench</span></h1>
     </div>
-    <p class="tagline">Load a VST3 plugin, a NAM amp model, and a cab IR, chain them up, and play. That’s the whole idea.</p>
+    <p class="tagline">Load a VST3 plugin, a NAM amp model, and a cab IR, chain them up, and play.</p>
     <div class="btns">
       <a class="btn btn-primary" href="https://github.com/jcjmcclean/rigbench/releases">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
@@ -333,6 +334,13 @@
       <li>A NAM amp model, a cab IR, or both. There are free ones under <a href="#sounds">Where to get sounds</a>.</li>
       <li>A VST3 plugin, if you have one you want to play through. You can leave that slot empty.</li>
     </ul>
+
+    <div class="shot shot--setup">
+      <div class="live" data-crop="380 120 680 570">
+        <iframe src="app/showcase.html?setup" title="Rigbench’s first-run setup, running in your browser without sound" loading="lazy"></iframe>
+      </div>
+    </div>
+    <p class="live-hint">This is the setup screen. In the browser it pretends you have a two-input interface with the guitar on input 2.</p>
     <p class="body">On a Mac, macOS won’t open Rigbench the first time, because it’s self-signed rather than notarised by Apple. Try to open it once, then go to System Settings &gt; Privacy &amp; Security, scroll down, and click Open Anyway. You only have to do that once. Then allow microphone access, which is how macOS lets it hear your guitar.</p>
     <p class="body">On Windows it needs the WebView2 runtime, which current versions of Windows 10 and 11 already have. The first time, SmartScreen may warn you because the app isn’t signed: click More info, then Run anyway.</p>
     <p class="body">Plugins, and presets other people share, run code inside the app, so only load ones you trust.</p>
