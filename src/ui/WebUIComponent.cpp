@@ -491,7 +491,7 @@ void WebUIComponent::startVstFromPreset (const Preset::VstSlot& v)
 
     const auto message = UserText::typeset ("This preset uses a VST3 plugin:\n\n"
                          + v.path.getFullPathName()
-                         + "\n\nA plugin is a program, and it runs inside Tonebench. Only load it if "
+                         + "\n\nA plugin is a program, and it runs inside Rigbench. Only load it if "
                            "you trust whoever made this preset. The rest of the preset has already loaded.");
     juce::AlertWindow::showOkCancelBox (
         juce::MessageBoxIconType::WarningIcon, "Load the plugin in this preset?", message,
@@ -516,7 +516,7 @@ void WebUIComponent::devAutoLoad()
     // executes) whatever paths the sentinel names, so it must NEVER exist in a
     // release build, and the sentinel lives in the app-private data dir — not
     // world-writable /tmp, where any local process could plant a malicious entry.
-    const auto sentinel = AppPaths::dataDir().getChildFile ("tonebench_autoload.txt");
+    const auto sentinel = AppPaths::dataDir().getChildFile ("rigbench_autoload.txt");
     if (! sentinel.existsAsFile())
         return;
 

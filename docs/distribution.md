@@ -1,6 +1,6 @@
 # Distribution & cross-platform builds
 
-How to build Tonebench for each OS and share it with people. Short version:
+How to build Rigbench for each OS and share it with people. Short version:
 **on macOS you can share a DMG today for free** (recipient approves it once in
 System Settings > Privacy & Security); a zero-warning install needs a paid Apple Developer account.
 Linux and Windows builds are feasible and wired into CI, but each OS must be
@@ -13,26 +13,26 @@ VST3, and compiler toolchains are all native-only).
 
 ```sh
 # Universal (arm64 + Intel) so any Mac can run it:
-cmake -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTONEBENCH_UNIVERSAL=ON
-cmake --build build-rel --target Tonebench
-./packaging/make-dmg.sh            # -> dist/Tonebench-<version>.dmg
+cmake -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRIGBENCH_UNIVERSAL=ON
+cmake --build build-rel --target Rigbench
+./packaging/make-dmg.sh            # -> dist/Rigbench-<version>.dmg
 ```
 
 Send the `.dmg`. Tell the recipient:
 
-1. Open the DMG, drag **Tonebench** to **Applications**.
+1. Open the DMG, drag **Rigbench** to **Applications**.
 2. First launch: macOS blocks it. Go to **System Settings → Privacy & Security**,
    scroll down, and click **Open Anyway** (one-time). On macOS 14 and earlier,
    **right-click → Open → Open** also works. Or run
-   `xattr -dr com.apple.quarantine /Applications/Tonebench.app`.
+   `xattr -dr com.apple.quarantine /Applications/Rigbench.app`.
 3. Approve the microphone prompt.
 
 Why the extra step: the app is signed with a local self-signed identity
-("Tonebench Dev"), which only exists in your keychain, so Gatekeeper treats it as
+("Rigbench Dev"), which only exists in your keychain, so Gatekeeper treats it as
 "unidentified developer" on any other Mac. This is expected, and Open Anyway is
 the standard override (since macOS 15 the right-click shortcut no longer works
 for apps that aren't notarised). (`arm64`-only builds simply won't launch on Intel
-Macs — hence `TONEBENCH_UNIVERSAL=ON` for anything you share.)
+Macs — hence `RIGBENCH_UNIVERSAL=ON` for anything you share.)
 
 ### Zero-warning installs (paid: Apple Developer Program, $99/yr)
 
@@ -40,17 +40,17 @@ For a clean double-click open with no `xattr` dance:
 
 1. Create a **Developer ID Application** certificate in your Apple Developer account.
 2. Store a notary credential once:
-   `xcrun notarytool store-credentials tonebench-notary --apple-id <you> --team-id <TEAM>`
+   `xcrun notarytool store-credentials rigbench-notary --apple-id <you> --team-id <TEAM>`
 3. Sign (hardened runtime + entitlements) and notarize:
    ```sh
-   DEV_ID="Developer ID Application: Your Name (TEAMID)" ./packaging/notarize.sh dist/Tonebench-<v>.dmg
+   DEV_ID="Developer ID Application: Your Name (TEAMID)" ./packaging/notarize.sh dist/Rigbench-<v>.dmg
    ./packaging/make-dmg.sh build-rel        # repackage from the signed app
-   xcrun notarytool submit dist/Tonebench-<v>.dmg --keychain-profile tonebench-notary --wait
-   xcrun stapler staple dist/Tonebench-<v>.dmg
+   xcrun notarytool submit dist/Rigbench-<v>.dmg --keychain-profile rigbench-notary --wait
+   xcrun stapler staple dist/Rigbench-<v>.dmg
    ```
 
 The hardened runtime is required for notarization and needs real entitlements —
-`packaging/Tonebench.entitlements` supplies microphone access plus the
+`packaging/Rigbench.entitlements` supplies microphone access plus the
 library-validation/JIT exemptions a VST3 host needs to load third-party plugins
 .
 
@@ -66,7 +66,7 @@ sudo apt-get install -y \
   libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
   libfreetype6-dev libfontconfig1-dev ninja-build
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build --target Tonebench
+cmake --build build --target Rigbench
 ```
 
 Package as a plain tarball (simplest), an **AppImage** (best double-click UX —
@@ -81,11 +81,11 @@ bootstrapper.
 
 ```bat
 cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build --config RelWithDebInfo --target Tonebench
+cmake --build build --config RelWithDebInfo --target Rigbench
 ```
 
 To avoid SmartScreen warnings, sign with Authenticode
-(`signtool sign /fd sha256 /tr <timestamp-url> /td sha256 /a Tonebench.exe`); an
+(`signtool sign /fd sha256 /tr <timestamp-url> /td sha256 /a Rigbench.exe`); an
 EV certificate buys instant reputation. Package as a `.zip` or an Inno Setup
 installer (bundle the WebView2 bootstrapper).
 

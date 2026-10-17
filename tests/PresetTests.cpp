@@ -13,7 +13,7 @@ namespace
 juce::var readJson (const juce::File& f) { return juce::JSON::parse (f); }
 
 juce::String presetJson (const juce::String& chain, const juce::String& io = R"({"masterGain": 0.5})",
-                         int schemaVersion = 1, const juce::String& format = "tonebench-preset")
+                         int schemaVersion = 1, const juce::String& format = "rigbench-preset")
 {
     return R"({"format": ")" + format + R"(", "schemaVersion": )" + juce::String (schemaVersion)
          + R"(, "name": "T", "io": )" + io + R"(, "chain": )" + chain + "}";
@@ -49,11 +49,11 @@ TEST_CASE ("Preset: save writes the documented format", "[preset]")
     info.sampleRateAtSave = 48000.0;
     info.name = "My Rig";
 
-    const auto file = tmp.file ("rig.tonebench");
+    const auto file = tmp.file ("rig.rigbench");
     REQUIRE (Preset::save (file, engine, info));
 
     const auto root = readJson (file);
-    REQUIRE (root["format"] == juce::var ("tonebench-preset"));
+    REQUIRE (root["format"] == juce::var ("rigbench-preset"));
     REQUIRE ((int) root["schemaVersion"] == 1);
     REQUIRE (root["name"] == juce::var ("My Rig"));
     REQUIRE_THAT ((double) root["io"]["inputGain"], WithinAbs (0.3, 1e-6));
@@ -96,7 +96,7 @@ TEST_CASE ("Preset: everything the UI counts as the rig survives a round trip", 
     Preset::RigInfo saved;
     saved.inputGain = 0.35f;
     saved.masterGain = 0.65f;
-    const auto file = tmp.file ("rt.tonebench");
+    const auto file = tmp.file ("rt.rigbench");
     REQUIRE (Preset::save (file, original, saved));
 
     AudioEngine restored;
@@ -127,7 +127,7 @@ TEST_CASE ("Preset: loading clears slots the preset doesn't use", "[preset]")
     engine.setNode (AudioEngine::irSlot, adds (1.0f));
     engine.setNode (AudioEngine::namSlot, adds (1.0f));
 
-    const auto file = tmp.file ("empty.tonebench");
+    const auto file = tmp.file ("empty.rigbench");
     file.replaceWithText (presetJson ("[]"));
 
     Preset::RigInfo info;
@@ -140,7 +140,7 @@ TEST_CASE ("Preset: older presets without the newer fields get defaults", "[pres
 {
     TempDir tmp;
     const auto nam = jsonPath (namFixture());
-    const auto file = tmp.file ("old.tonebench");
+    const auto file = tmp.file ("old.rigbench");
     // A v1 preset from before input gain and NAM level were saved.
     file.replaceWithText (presetJson (R"([{"slot": 1, "type": "nam", "enabled": true, "path": )" + nam + "}]"));
 
@@ -159,7 +159,7 @@ TEST_CASE ("Preset: older presets without the newer fields get defaults", "[pres
 TEST_CASE ("Preset: out-of-range values in a shared file are clamped", "[preset][security]")
 {
     TempDir tmp;
-    const auto file = tmp.file ("loud.tonebench");
+    const auto file = tmp.file ("loud.rigbench");
     const auto irPath = jsonPath (writeSyntheticIR (tmp));
     file.replaceWithText (presetJson (R"([{"slot": 2, "type": "ir", "path": )" + irPath + R"(, "mix": 7}])",
                                       R"({"masterGain": 50, "inputGain": -3})"));
@@ -182,26 +182,26 @@ TEST_CASE ("Preset: malformed files are refused without crashing", "[preset]")
 
     auto refuses = [&] (const juce::String& text)
     {
-        const auto f = tmp.file ("bad.tonebench");
+        const auto f = tmp.file ("bad.rigbench");
         f.replaceWithText (text);
         return ! Preset::load (f, engine, 48000.0, 256, info);
     };
 
     REQUIRE (refuses (""));
     REQUIRE (refuses ("garbage"));
-    REQUIRE (refuses (R"({"format": "tonebench-preset", "schemaVersion": 1, "chain": [)"));   // truncated
+    REQUIRE (refuses (R"({"format": "rigbench-preset", "schemaVersion": 1, "chain": [)"));   // truncated
     REQUIRE (refuses (presetJson ("[]", "{}", 2)));                       // future schema
     REQUIRE (refuses (presetJson ("[]", "{}", 0)));
     REQUIRE (refuses (presetJson ("[]", "{}", 1, "something-else")));      // wrong format
     REQUIRE (refuses ("[1, 2, 3]"));
-    REQUIRE_FALSE (Preset::load (tmp.file ("missing.tonebench"), engine, 48000.0, 256, info));
+    REQUIRE_FALSE (Preset::load (tmp.file ("missing.rigbench"), engine, 48000.0, 256, info));
 }
 
 TEST_CASE ("Preset: bad chain entries are skipped, good ones still load", "[preset]")
 {
     TempDir tmp;
     const auto irPath = jsonPath (writeSyntheticIR (tmp));
-    const auto file = tmp.file ("mixed.tonebench");
+    const auto file = tmp.file ("mixed.rigbench");
     file.replaceWithText (presetJson ("["
         R"({"slot": 9, "type": "ir", "path": )" + irPath + "},"     // slot out of range
         R"({"slot": 2, "type": "reverb", "path": )" + irPath + "},"  // unknown type
@@ -226,7 +226,7 @@ TEST_CASE ("Preset: content outside the user's own folders is refused (SEC-3)", 
     REQUIRE (outside.existsAsFile());
 
     TempDir tmp;
-    const auto file = tmp.file ("sneaky.tonebench");
+    const auto file = tmp.file ("sneaky.rigbench");
     file.replaceWithText (presetJson (R"([{"slot": 2, "type": "ir", "path": "/etc/hosts"},)"
                                       R"( {"slot": 1, "type": "nam", "path": "/etc/hosts"}])"));
 
@@ -244,7 +244,7 @@ TEST_CASE ("Preset: content outside the user's own folders is refused (SEC-3)", 
 TEST_CASE ("Preset: VST3 slots are handed to the caller, never loaded directly (SEC-3)", "[preset][security]")
 {
     TempDir tmp;
-    const auto file = tmp.file ("plugin.tonebench");
+    const auto file = tmp.file ("plugin.rigbench");
     file.replaceWithText (presetJson (R"([{"slot": 0, "type": "vst3", "enabled": false,
         "path": "/Library/Audio/Plug-Ins/VST3/Amp.vst3", "identifier": "VST3-Amp-1234", "state": "QUJD"}])"));
 
@@ -277,7 +277,7 @@ TEST_CASE ("Preset: presets live in the app's data folder", "[preset]")
     const auto dir = Preset::presetsDir();
     REQUIRE (dir.isDirectory());
     REQUIRE (dir.getFileName() == "Presets");
-    REQUIRE (dir.getParentDirectory().getFileName() == "Tonebench");
+    REQUIRE (dir.getParentDirectory().getFileName() == "Rigbench");
    #if JUCE_MAC
     REQUIRE (dir.getParentDirectory().getParentDirectory().getFileName() == "Application Support");
    #endif
@@ -286,7 +286,7 @@ TEST_CASE ("Preset: presets live in the app's data folder", "[preset]")
 TEST_CASE ("Preset: every slot that can't be restored is explained", "[preset]")
 {
     TempDir tmp;
-    const auto file = tmp.file ("broken.tonebench");
+    const auto file = tmp.file ("broken.rigbench");
     file.replaceWithText (presetJson ("["
         R"({"slot": 1, "type": "nam", "path": )" + jsonPath (tmp.file ("gone.nam")) + "},"
         R"({"slot": 2, "type": "ir", "path": )" + jsonPath (tmp.file ("gone.wav")) + "},"
@@ -306,7 +306,7 @@ TEST_CASE ("Preset: every slot that can't be restored is explained", "[preset]")
 TEST_CASE ("Preset: the type decides the slot, so an amp model can't land in the cab slot", "[preset]")
 {
     TempDir tmp;
-    const auto file = tmp.file ("mislabelled.tonebench");
+    const auto file = tmp.file ("mislabelled.rigbench");
     file.replaceWithText (presetJson (R"([{"slot": 2, "type": "nam", "path": )" + jsonPath (namFixture()) + "}]"));
 
     AudioEngine engine;
@@ -315,4 +315,38 @@ TEST_CASE ("Preset: the type decides the slot, so an amp model can't land in the
     REQUIRE (Preset::load (file, engine, 48000.0, 256, info));
     REQUIRE (dynamic_cast<NamNode*> (engine.getNode (AudioEngine::namSlot)) != nullptr);
     REQUIRE (engine.getNode (AudioEngine::irSlot) == nullptr);
+}
+
+TEST_CASE ("Preset: presets saved before the rename still load, and get the new extension", "[preset]")
+{
+    TempDir tmp;
+    // A preset from when the app was called Tonebench.
+    const auto old = tmp.file ("Old Lead.tonebench");
+    old.replaceWithText (R"({"format": "tonebench-preset", "schemaVersion": 1, "io": {"masterGain": 0.4}, "chain": []})");
+    tmp.file ("Both.tonebench").replaceWithText ("{}");
+    tmp.file ("Both.rigbench").replaceWithText ("{\"keep\": true}");
+
+    Preset::migrateOldPresets (tmp.dir);
+    REQUIRE_FALSE (old.exists());
+    const auto renamed = tmp.file ("Old Lead.rigbench");
+    REQUIRE (renamed.existsAsFile());
+    REQUIRE (tmp.file ("Both.tonebench").exists());                          // never overwrites
+    REQUIRE (tmp.file ("Both.rigbench").loadFileAsString().contains ("keep"));
+
+    AudioEngine engine;
+    engine.prepare (48000.0, 256);
+    Preset::RigInfo info;
+    REQUIRE (Preset::load (renamed, engine, 48000.0, 256, info));
+    REQUIRE_THAT (info.masterGain, WithinAbs (0.4, 1e-6));
+}
+
+TEST_CASE ("Preset: new presets are written in the Rigbench format", "[preset]")
+{
+    TempDir tmp;
+    AudioEngine engine;
+    engine.prepare (48000.0, 256);
+    const auto f = tmp.file ("New.rigbench");
+    REQUIRE (Preset::save (f, engine, {}));
+    REQUIRE (juce::JSON::parse (f)["format"] == juce::var ("rigbench-preset"));
+    REQUIRE (juce::String (Preset::fileExtension) == ".rigbench");
 }

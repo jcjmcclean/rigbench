@@ -322,7 +322,7 @@ describe("App connect timeout", () => {
     act(() => { vi.advanceTimersByTime(1); });
     expect(screen.getByRole("heading", { name: "Can’t reach the audio engine" })).toBeInTheDocument();
     expect(screen.getByText(
-      "The window opened, but the audio engine didn’t answer. Click Retry. If that doesn’t help, quit Tonebench and open it again.",
+      "The window opened, but the audio engine didn’t answer. Click Retry. If that doesn’t help, quit Rigbench and open it again.",
     )).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByText("Connecting to the audio engine…")).not.toBeInTheDocument();

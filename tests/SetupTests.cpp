@@ -150,7 +150,7 @@ TEST_CASE ("AudioSetup: describe has every key the UI expects, even with no devi
     juce::AudioDeviceManager dm;   // never initialised: no device
     const auto setup = AudioSetup::describe (dm, false);
 
-    const auto contract = juce::JSON::parse (juce::File (TONEBENCH_SOURCE_DIR).getChildFile ("tests/contract/bridge.json"));
+    const auto contract = juce::JSON::parse (juce::File (RIGBENCH_SOURCE_DIR).getChildFile ("tests/contract/bridge.json"));
     juce::StringArray expected, actual;
     for (auto& k : *contract["audioSetupKeys"].getArray()) expected.add (k.toString());
     for (auto& p : setup.getDynamicObject()->getProperties()) actual.add (p.name.toString());

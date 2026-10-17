@@ -148,7 +148,7 @@ export function Setup({ onDone, monitoring = false }: { onDone: () => void; moni
                 ? `Using ${inputs[handPick]}.`
                 : chosen !== null
                 ? `Found your guitar on ${inputs[chosen]}.`
-                : "Strum or pick a few notes and Tonebench will find which input your guitar is on."}
+                : "Strum or pick a few notes and Rigbench will find which input your guitar is on."}
             </p>
             <div className="inputs" role="radiogroup" aria-label="Input">
               {inputs.slice(0, 16).map((name, i) => (
@@ -184,7 +184,7 @@ export function Setup({ onDone, monitoring = false }: { onDone: () => void; moni
             <button className="btn setup__test" onClick={() => bridge.playTestSound()}>Play test sound</button>
             <p className="setup__note">
               If you can hear your plain, dry guitar, that’s direct monitoring on your interface. Turn it off, or
-              you’ll hear it under Tonebench.
+              you’ll hear it under Rigbench.
             </p>
           </>
         )}

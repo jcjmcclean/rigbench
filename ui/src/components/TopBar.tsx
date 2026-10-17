@@ -39,7 +39,7 @@ export function TopBar({
     <header className="topbar" inert={inert}>
       <div className="topbar__brand">
         <span className="topbar__mark" aria-hidden />
-        <span className="topbar__word">Tone<em>bench</em></span>
+        <span className="topbar__word">Rig<em>bench</em></span>
       </div>
 
       <div className="topbar__telemetry">

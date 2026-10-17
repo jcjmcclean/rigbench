@@ -139,7 +139,7 @@ juce::String RigController::renamePreset (const juce::String& from, const juce::
     if (src == juce::File() || dst == juce::File())
         return badNameMessage;
     if (! src.existsAsFile())
-        return "There's no preset called \"" + from + "\" any more. It may have been renamed or deleted outside Tonebench.";
+        return "There's no preset called \"" + from + "\" any more. It may have been renamed or deleted outside Rigbench.";
 
     // A different preset already has that name, ignoring case on every OS so
     // presets behave the same on Linux as on Mac and Windows. (Changing just the
@@ -170,7 +170,7 @@ juce::String RigController::deletePreset (const juce::String& name)
     if (file == juce::File())
         return badNameMessage;
     if (! file.existsAsFile())
-        return "There's no preset called \"" + name + "\" any more. It may have been renamed or deleted outside Tonebench.";
+        return "There's no preset called \"" + name + "\" any more. It may have been renamed or deleted outside Rigbench.";
     if (! file.deleteFile())
         return "Couldn't delete \"" + name + "\".";
 
@@ -190,7 +190,7 @@ juce::String RigController::loadPreset (const juce::String& name,
     Preset::RigInfo info;
     if (! Preset::load (file, engine, engine.getSampleRate(), engine.getMaxBlockSize(), info,
                         std::move (installVstSlot)))
-        return "Couldn't load the preset \"" + name + "\". The file may be damaged, or saved by a newer version of Tonebench.";
+        return "Couldn't load the preset \"" + name + "\". The file may be damaged, or saved by a newer version of Rigbench.";
 
     audio.setInputGain (info.inputGain);
     audio.setMasterGain (info.masterGain);

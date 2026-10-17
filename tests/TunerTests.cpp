@@ -144,7 +144,7 @@ TEST_CASE ("Tuner: the controller reports readings in the contract's shape", "[t
     REQUIRE (r["note"] == juce::var ("E"));
     REQUIRE ((int) r["octave"] == 4);
 
-    const auto contract = juce::JSON::parse (juce::File (TONEBENCH_SOURCE_DIR).getChildFile ("tests/contract/bridge.json"));
+    const auto contract = juce::JSON::parse (juce::File (RIGBENCH_SOURCE_DIR).getChildFile ("tests/contract/bridge.json"));
     juce::StringArray expected, actual;
     for (auto& k : *contract["tunerKeys"].getArray()) expected.add (k.toString());
     for (auto& p : r.getDynamicObject()->getProperties()) actual.add (p.name.toString());

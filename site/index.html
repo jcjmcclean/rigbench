@@ -2,9 +2,9 @@
 <html lang="en-GB">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tonebench: play guitar through NAM, IRs, and VST3</title>
+<title>Rigbench: play guitar through NAM, IRs, and VST3</title>
 <meta name="description" content="Free, open-source desktop app for macOS, Windows, and Linux. Plug in your guitar and play through a VST3 plugin, a NAM amp model, and a cab IR." />
-<meta property="og:title" content="Tonebench" />
+<meta property="og:title" content="Rigbench" />
 <meta property="og:description" content="Load a VST3 plugin, a NAM amp model, and a cab IR, chain them up, and play. Free and open source, for macOS, Windows, and Linux." />
 <meta name="theme-color" content="#0a0b0d" />
 
@@ -80,7 +80,7 @@
     letter-spacing: -0.02em;
     color: var(--head);
   }
-  .mark .tone { color: #f3f7fb; }
+  .mark .rig { color: #f3f7fb; }
   .mark .bench { color: var(--accent); }
 
   /* ---- hero ---- */
@@ -253,12 +253,12 @@
 
 <nav class="nav">
   <div class="wrap">
-    <span class="mark"><span class="tone">Tone</span><span class="bench">bench</span></span>
+    <span class="mark"><span class="rig">Rig</span><span class="bench">bench</span></span>
     <span class="links">
       <a href="#what" class="hide-sm">What it does</a>
       <a href="#need" class="hide-sm">What you need</a>
       <a href="#sounds" class="hide-sm">Sounds</a>
-      <a href="https://github.com/jcjmcclean/tonebench">GitHub</a>
+      <a href="https://github.com/jcjmcclean/rigbench">GitHub</a>
     </span>
   </div>
 </nav>
@@ -268,15 +268,15 @@
   <div class="wrap">
     <div class="scope-stage">
       <canvas class="scope" aria-hidden="true"></canvas>
-      <h1 class="mark"><span class="tone">Tone</span><span class="bench">bench</span></h1>
+      <h1 class="mark"><span class="rig">Rig</span><span class="bench">bench</span></h1>
     </div>
     <p class="tagline">Load a VST3 plugin, a NAM amp model, and a cab IR, chain them up, and play. That’s the whole idea.</p>
     <div class="btns">
-      <a class="btn btn-primary" href="https://github.com/jcjmcclean/tonebench/releases">
+      <a class="btn btn-primary" href="https://github.com/jcjmcclean/rigbench/releases">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
         Download
       </a>
-      <a class="btn btn-ghost" href="https://github.com/jcjmcclean/tonebench">
+      <a class="btn btn-ghost" href="https://github.com/jcjmcclean/rigbench">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.55v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.3-1.7-1.3-1.7-1.06-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.79 2.74 1.27 3.4.97.11-.76.41-1.27.74-1.56-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.2-3.1-.12-.3-.52-1.47.11-3.06 0 0 .98-.31 3.2 1.18a11 11 0 0 1 5.82 0c2.22-1.5 3.2-1.18 3.2-1.18.63 1.59.23 2.76.11 3.06.75.81 1.2 1.84 1.2 3.1 0 4.43-2.69 5.41-5.25 5.69.42.37.8 1.1.8 2.22v3.29c0 .31.21.66.8.55A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/></svg>
         View on GitHub
       </a>
@@ -285,7 +285,7 @@
 
     <div class="shot hero-shot">
       <div class="live" data-crop="0 0 1440 805">
-        <iframe src="app/showcase.html" title="Tonebench running in your browser, without sound: a VST3 plugin, a NAM amp model, and a cab IR"></iframe>
+        <iframe src="app/showcase.html" title="Rigbench running in your browser, without sound: a VST3 plugin, a NAM amp model, and a cab IR"></iframe>
       </div>
     </div>
     <p class="live-hint">This is the real interface running in your browser, just without the sound. Have a go with the knobs and presets.</p>
@@ -297,7 +297,7 @@
   <div class="wrap">
     <h2>Why I built this</h2>
     <p class="lead">A friend of mine built a guitar amp and sent it over as a VST3 plugin. I wanted to play through it properly, alongside the NAM models and cab IRs I was already using, and I didn’t want to buy a whole amp-sim app just to try one amp.</p>
-    <p class="lead">I’ve paid for a few of those apps before. The cheap ones run out of features fast, and the expensive ones are fiddly and stuffed with things I’m never going to touch. So Tonebench is small: a plugin, an amp, and a cab, each with an on/off switch.</p>
+    <p class="lead">I’ve paid for a few of those apps before. The cheap ones run out of features fast, and the expensive ones are fiddly and stuffed with things I’m never going to touch. So Rigbench is small: a plugin, an amp, and a cab, each with an on/off switch.</p>
   </div>
 </section>
 
@@ -306,7 +306,7 @@
     <h2>What it does</h2>
     <ul class="list">
       <li>Loads a VST3 plugin, such as an amp, a drive, or an effect, and opens the plugin’s own window when you need it.</li>
-      <li>Loads NAM amp models (<code>.nam</code> files). If your interface runs at a different sample rate, Tonebench resamples as you play, so you don’t have to care.</li>
+      <li>Loads NAM amp models (<code>.nam</code> files). If your interface runs at a different sample rate, Rigbench resamples as you play, so you don’t have to care.</li>
       <li>Loads a cab IR (WAV, AIFF, or FLAC) with no added latency.</li>
       <li>Runs them in that order: plugin, then amp, then cab. You can switch any slot off. The amp has a level knob and the cab has a mix knob.</li>
       <li>Has a tuner, and a noise gate on the input to cut the hiss between notes with high-gain models. The gate is off until you turn it up.</li>
@@ -316,10 +316,10 @@
 
     <div class="shot" style="margin-top:48px">
       <div class="live" data-crop="304 246 833 336">
-        <iframe src="app/showcase.html?view=chain" title="The Tonebench chain: a VST3 plugin, a NAM amp model, and a cab IR" loading="lazy"></iframe>
+        <iframe src="app/showcase.html?view=chain" title="The Rigbench chain: a VST3 plugin, a NAM amp model, and a cab IR" loading="lazy"></iframe>
       </div>
     </div>
-    <p class="note">Under the hood it’s a C++ audio engine built on JUCE. The interface runs in a webview on its own thread, so moving knobs and drawing the scope don’t add latency. The source and build steps are on <a href="https://github.com/jcjmcclean/tonebench">GitHub</a>.</p>
+    <p class="note">Under the hood it’s a C++ audio engine built on JUCE. The interface runs in a webview on its own thread, so moving knobs and drawing the scope don’t add latency. The source and build steps are on <a href="https://github.com/jcjmcclean/rigbench">GitHub</a>.</p>
   </div>
 </section>
 
@@ -327,14 +327,14 @@
   <div class="wrap">
     <h2>What you need</h2>
     <ul class="list">
-      <li>A guitar and an audio interface. The first time you open Tonebench, it asks you to play a few notes and finds which input your guitar is on.</li>
+      <li>A guitar and an audio interface. The first time you open Rigbench, it asks you to play a few notes and finds which input your guitar is on.</li>
       <li>A NAM amp model, a cab IR, or both. There are free ones under <a href="#sounds">Where to get sounds</a>.</li>
       <li>A VST3 plugin, if you have one you want to play through. You can leave that slot empty.</li>
     </ul>
-    <p class="body">On a Mac, macOS won’t open Tonebench the first time, because it’s self-signed rather than notarised by Apple. Try to open it once, then go to System Settings &gt; Privacy &amp; Security, scroll down, and click Open Anyway. You only have to do that once. Then allow microphone access, which is how macOS lets it hear your guitar.</p>
+    <p class="body">On a Mac, macOS won’t open Rigbench the first time, because it’s self-signed rather than notarised by Apple. Try to open it once, then go to System Settings &gt; Privacy &amp; Security, scroll down, and click Open Anyway. You only have to do that once. Then allow microphone access, which is how macOS lets it hear your guitar.</p>
     <p class="body">On Windows it needs the WebView2 runtime, which current versions of Windows 10 and 11 already have. The first time, SmartScreen may warn you because the app isn’t signed: click More info, then Run anyway.</p>
     <p class="body">Plugins, and presets other people share, run code inside the app, so only load ones you trust.</p>
-    <p class="body">It’s early days: this is v0.1.0. If something doesn’t work, or there’s something you’d like it to do, <a href="https://github.com/jcjmcclean/tonebench/issues">open an issue on GitHub</a>.</p>
+    <p class="body">It’s early days: this is v0.1.0. If something doesn’t work, or there’s something you’d like it to do, <a href="https://github.com/jcjmcclean/rigbench/issues">open an issue on GitHub</a>.</p>
   </div>
 </section>
 
@@ -355,14 +355,14 @@
   <div class="wrap">
     <div class="foot">
       <div>
-        <span class="mark"><span class="tone">Tone</span><span class="bench">bench</span></span>
+        <span class="mark"><span class="rig">Rig</span><span class="bench">bench</span></span>
       </div>
       <div class="cols">
         <div class="col">
           <div class="h">Project</div>
-          <a href="https://github.com/jcjmcclean/tonebench">Source on GitHub</a>
-          <a href="https://github.com/jcjmcclean/tonebench/releases">Download</a>
-          <a href="https://github.com/jcjmcclean/tonebench/issues">Report an issue</a>
+          <a href="https://github.com/jcjmcclean/rigbench">Source on GitHub</a>
+          <a href="https://github.com/jcjmcclean/rigbench/releases">Download</a>
+          <a href="https://github.com/jcjmcclean/rigbench/issues">Report an issue</a>
         </div>
         <div class="col">
           <div class="h">Built with</div>
@@ -373,7 +373,7 @@
     </div>
     <div class="license">
       <span>Free and open source under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPLv3</a> licence.</span>
-      <span>&copy; 2026 Tonebench</span>
+      <span>&copy; 2026 Rigbench</span>
     </div>
   </div>
 </footer>

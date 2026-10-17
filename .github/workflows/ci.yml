@@ -1,4 +1,4 @@
-# Tonebench test CI. This workflow is the TEST gate only — on all three OSes it
+# Rigbench test CI. This workflow is the TEST gate only — on all three OSes it
 # builds and runs the C++ unit tests + offline bench, then builds the app and
 # boots it (--smoke); and it lints/builds/tests the React UI (unit + e2e). The cross-platform RELEASE build matrix lives in a separate
 # build.yml (owned elsewhere); do not duplicate packaging here.
@@ -64,7 +64,7 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
       - name: Build tests
-        run: cmake --build build --config RelWithDebInfo --parallel --target tonebench_cli tonebench_tests
+        run: cmake --build build --config RelWithDebInfo --parallel --target rigbench_cli rigbench_tests
 
       # Runs every Catch2 test case plus the self-test. selftest_strict turns a
       # skipped CORE suite into a failure, so green-but-skipped can't pass.
@@ -76,11 +76,11 @@ jobs:
       # exits 0 (or 1 after 30 s). The only check that the WebView actually works
       # on each OS (WKWebView / WebView2 / WebKitGTK).
       - name: Build app
-        run: cmake --build build --config RelWithDebInfo --parallel --target Tonebench
+        run: cmake --build build --config RelWithDebInfo --parallel --target Rigbench
 
       - name: Smoke test (macOS)
         if: runner.os == 'macOS'
-        run: ./build/Tonebench_artefacts/RelWithDebInfo/Tonebench.app/Contents/MacOS/Tonebench --smoke
+        run: ./build/Rigbench_artefacts/RelWithDebInfo/Rigbench.app/Contents/MacOS/Rigbench --smoke
 
       - name: Smoke test (Linux)
         if: runner.os == 'Linux'
@@ -88,13 +88,13 @@ jobs:
         # namespaces are restricted), so the CI box runs it without one.
         env:
           WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
-        run: xvfb-run -a ./build/Tonebench_artefacts/RelWithDebInfo/Tonebench --smoke
+        run: xvfb-run -a ./build/Rigbench_artefacts/RelWithDebInfo/Rigbench --smoke
 
       - name: Smoke test (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath "build\Tonebench_artefacts\RelWithDebInfo\Tonebench.exe" -ArgumentList "--smoke" -PassThru -Wait
+          $p = Start-Process -FilePath "build\Rigbench_artefacts\RelWithDebInfo\Rigbench.exe" -ArgumentList "--smoke" -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw "Smoke test failed with exit code $($p.ExitCode)" }
 
   ui-tests:

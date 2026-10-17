@@ -222,7 +222,7 @@ TEST_CASE ("Controller: bad preset names are refused and touch nothing on disk (
         REQUIRE (r.rig.loadPreset (bad) == badName);
     }
     REQUIRE (r.rig.listPresets().isEmpty());
-    REQUIRE_FALSE (r.tmp.file ("escape.tonebench").exists());
+    REQUIRE_FALSE (r.tmp.file ("escape.rigbench").exists());
 }
 
 TEST_CASE ("Controller: loading a preset that doesn't exist reports it and keeps the rig", "[controller][preset]")
@@ -253,7 +253,7 @@ TEST_CASE ("Controller: a preset's VST3 slot is passed out for consent", "[contr
 {
     Rig r;
     const auto f = PresetNames::presetFileFor (r.rig.getPresetsDir(), "With Plugin");
-    f.replaceWithText (R"({"format": "tonebench-preset", "schemaVersion": 1, "io": {},
+    f.replaceWithText (R"({"format": "rigbench-preset", "schemaVersion": 1, "io": {},
         "chain": [{"slot": 0, "type": "vst3", "path": "/x/Amp.vst3", "identifier": "id", "state": ""}]})");
 
     int asked = 0;
@@ -332,7 +332,7 @@ TEST_CASE ("Controller: renaming refuses to clobber another preset or use a bad 
     REQUIRE (r.rig.savePreset ("B").isEmpty());
     REQUIRE (r.rig.renamePreset ("A", "b") == "There's already a preset called \"B\". Pick another name.");
     REQUIRE (r.rig.renamePreset ("A", "../x") == badName);
-    REQUIRE (r.rig.renamePreset ("Missing", "C") == "There's no preset called \"Missing\" any more. It may have been renamed or deleted outside Tonebench.");
+    REQUIRE (r.rig.renamePreset ("Missing", "C") == "There's no preset called \"Missing\" any more. It may have been renamed or deleted outside Rigbench.");
     REQUIRE (r.rig.listPresets() == juce::StringArray { "A", "B" });
 }
 
@@ -348,7 +348,7 @@ TEST_CASE ("Controller: deleting a preset removes the file but leaves the rig pl
     REQUIRE (r.state()["activePreset"].isVoid());
     REQUIRE ((bool) r.slot ("ir")["loaded"]);
 
-    REQUIRE (r.rig.deletePreset ("Gone") == "There's no preset called \"Gone\" any more. It may have been renamed or deleted outside Tonebench.");
+    REQUIRE (r.rig.deletePreset ("Gone") == "There's no preset called \"Gone\" any more. It may have been renamed or deleted outside Rigbench.");
     REQUIRE (r.rig.deletePreset ("..") == badName);
 }
 

@@ -12,7 +12,7 @@ function wizard(page: Page) {
 
 async function openFreshInstall(page: Page) {
   await page.goto("/?setup");
-  await expect(page, "is this Tonebench's dev server? (see E2E_PORT in playwright.config.ts)").toHaveTitle("Tonebench");
+  await expect(page, "is this Rigbench's dev server? (see E2E_PORT in playwright.config.ts)").toHaveTitle("Rigbench");
   await expect(page.getByRole("heading", { name: "What’s your guitar plugged into?" })).toBeVisible();
 }
 

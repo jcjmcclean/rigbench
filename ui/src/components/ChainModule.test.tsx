@@ -175,7 +175,7 @@ describe("ChainModule empty state: the \"find free\" link", () => {
   it("amp models and cab IRs go to TONE3000; plugins go to the site's list", () => {
     expect(findLink.nam).toEqual({ label: "Find free amp models", url: "https://www.tone3000.com/search?format=nam" });
     expect(findLink.ir).toEqual({ label: "Find free cab IRs", url: "https://www.tone3000.com/search?format=ir" });
-    expect(findLink.vst3.url).toBe("https://jcjmcclean.github.io/tonebench/#sounds");
+    expect(findLink.vst3.url).toBe("https://jcjmcclean.github.io/rigbench/#sounds");
   });
 
   it("no link without an onOpenUrl handler", () => {

@@ -1,4 +1,4 @@
-# Tonebench
+# Rigbench
 
 A small, fast desktop app for playing guitar through amp sims, on macOS, Windows, and Linux. Load a
 VST3 plugin, a Neural Amp Modeler (NAM) amp model, and a cab impulse response (IR), chain them up, and
@@ -6,7 +6,7 @@ play. That's the whole idea.
 
 <picture>
   <source srcset="site/assets/hero.webp" type="image/webp">
-  <img src="site/assets/hero.png" alt="The Tonebench signal chain: a VST3 plugin, a NAM amp model, and an IR cab, with the live signal threading through them">
+  <img src="site/assets/hero.png" alt="The Rigbench signal chain: a VST3 plugin, a NAM amp model, and an IR cab, with the live signal threading through them">
 </picture>
 
 Early days: this is v0.1.0. It runs on macOS (Apple Silicon and Intel), Windows, and Linux.
@@ -52,14 +52,14 @@ cd ui && npm install && cd ..
 
 # The first configure pulls in JUCE and the NAM core.
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build --target Tonebench
+cmake --build build --target Rigbench
 
-open build/Tonebench_artefacts/RelWithDebInfo/Tonebench.app   # macOS
+open build/Rigbench_artefacts/RelWithDebInfo/Rigbench.app   # macOS
 ```
 
-On Windows and Linux the app lands in the same `build/Tonebench_artefacts/` folder.
+On Windows and Linux the app lands in the same `build/Rigbench_artefacts/` folder.
 
-The `tonebench_ui` target runs `npm run build` and packs the UI into `assets/webui.zip` for you (it's
+The `rigbench_ui` target runs `npm run build` and packs the UI into `assets/webui.zip` for you (it's
 generated at build time, not committed), so the embedded UI can't drift out of date.
 
 ## Test
@@ -68,15 +68,15 @@ generated at build time, not committed), so the embedded UI can't drift out of d
 ctest --test-dir build --output-on-failure   # C++: unit tests (Catch2) + the offline self-test
 cd ui && npm test                             # UI unit tests (Vitest)
 cd ui && npm run test:e2e                     # UI end-to-end in Chromium, against the mock engine
-./build/Tonebench_artefacts/RelWithDebInfo/Tonebench.app/Contents/MacOS/Tonebench --smoke
+./build/Rigbench_artefacts/RelWithDebInfo/Rigbench.app/Contents/MacOS/Rigbench --smoke
                                               # boots the real app and checks the UI reaches the engine
 ```
 
-`tonebench_cli` also renders audio offline, through a simulated interface, so no device is needed:
+`rigbench_cli` also renders audio offline, through a simulated interface, so no device is needed:
 
 ```sh
-cmake --build build --target tonebench_cli
-./build/tonebench_cli_artefacts/RelWithDebInfo/tonebench_cli render \
+cmake --build build --target rigbench_cli
+./build/rigbench_cli_artefacts/RelWithDebInfo/rigbench_cli render \
     --gen pluck --nam model.nam --ir cab.wav --out out.wav
 ```
 
@@ -86,7 +86,7 @@ Windows on every push and pull request.
 ## Download
 
 Tagged releases publish ready-to-run builds on the
-[Releases](https://github.com/jcjmcclean/tonebench/releases) page:
+[Releases](https://github.com/jcjmcclean/rigbench/releases) page:
 
 - **macOS**: a Universal `.dmg` (Apple Silicon and Intel)
 - **Windows**: a `.zip` (needs the WebView2 runtime, which current Windows 10/11 already has)
@@ -99,9 +99,9 @@ microphone prompt so it can hear your guitar. On Windows, SmartScreen may warn y
 because the app isn't signed: click More info, then Run anyway. To build a Universal DMG yourself (runs on both Intel and Apple Silicon):
 
 ```sh
-cmake -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTONEBENCH_UNIVERSAL=ON
-cmake --build build-rel --target Tonebench
-./packaging/make-dmg.sh      # writes dist/Tonebench-<version>.dmg
+cmake -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRIGBENCH_UNIVERSAL=ON
+cmake --build build-rel --target Rigbench
+./packaging/make-dmg.sh      # writes dist/Rigbench-<version>.dmg
 ```
 
 [`docs/distribution.md`](docs/distribution.md) covers signing, notarisation, and the Linux and
@@ -116,15 +116,15 @@ IR uses `juce::dsp::Convolution` and adds no latency. The UI is React and TypeSc
 inside a JUCE webview (WebKit on macOS, WebView2 on Windows, WebKitGTK on Linux), talking to the engine over a native JavaScript-to-C++ bridge, on a separate
 thread from audio.
 
-One thing worth knowing up front: loading a VST3, or opening a `.tonebench` preset someone shared with
-you, runs third-party code inside an app that has microphone access. Tonebench asks before it loads a
+One thing worth knowing up front: loading a VST3, or opening a `.rigbench` preset someone shared with
+you, runs third-party code inside an app that has microphone access. Rigbench asks before it loads a
 plugin named in a preset, but only load plugins and presets you trust, the same as you would with any
 amp sim.
 
 ## Licence
 
-Tonebench is under the GNU Affero General Public License v3.0 (see [`LICENSE`](LICENSE)). It has to be:
-it builds on JUCE, whose free licence is AGPLv3, so Tonebench's source is open and stays that way. You
+Rigbench is under the GNU Affero General Public License v3.0 (see [`LICENSE`](LICENSE)). It has to be:
+it builds on JUCE, whose free licence is AGPLv3, so Rigbench's source is open and stays that way. You
 can use it, read it, change it, and pass it on under those terms.
 
 Built with:

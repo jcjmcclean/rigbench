@@ -5,7 +5,7 @@ export type SlotKind = "VST3" | "NAM" | "IR";
 /** Open the app (mock engine) and wait until it is past the splash. */
 export async function openApp(page: Page) {
   await page.goto("/");
-  await expect(page, "is this Tonebench's dev server? (see E2E_PORT in playwright.config.ts)").toHaveTitle("Tonebench");
+  await expect(page, "is this Rigbench's dev server? (see E2E_PORT in playwright.config.ts)").toHaveTitle("Rigbench");
   await expect(page.getByRole("main")).toBeVisible();
   await expect(page.getByText("Connecting to the audio engine…")).toHaveCount(0);
 }

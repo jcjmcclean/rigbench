@@ -36,7 +36,11 @@ namespace Preset
         juce::String stateBase64;
     };
 
-    static constexpr const char* fileExtension = ".tonebench";
+    static constexpr const char* fileExtension = ".rigbench";
+    static constexpr const char* oldFileExtension = ".tonebench";   // before the rename
+
+    // Gives any presets in `dir` saved before the rename the new extension.
+    void migrateOldPresets (const juce::File& dir);
 
     juce::File presetsDir();
 
