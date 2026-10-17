@@ -11,6 +11,14 @@ import type { AudioSetup, AudioSetupChanges, Bridge, EngineState, PluginInfo, Sl
 // ---------------------------------------------------------------------------
 
 // ---- Mock engine ----------------------------------------------------------
+
+// The website's tuner can listen to a microphone (micTuner.ts). While it does, its
+// readings replace the mock's pretend low E; undefined goes back to the pretend one.
+let mockTunerInput: TunerReading | null | undefined;
+export function setMockTunerInput(reading: TunerReading | null | undefined) {
+  mockTunerInput = reading;
+}
+
 function createMockBridge(): Bridge {
   const names: Record<SlotType, string[]> = {
     vst3: ["SICO High Gain"],
@@ -116,7 +124,9 @@ function createMockBridge(): Bridge {
     if (tuning && tunerSubs.size) {
       const sounding = phase < 0.75;
       const cents = Math.round(-18 * Math.exp(-phase * 4) * 10) / 10;
-      tunerSubs.forEach((cb) => cb(sounding ? { note: "E", octave: 2, cents, hz: 82.41 * 2 ** (cents / 1200) } : null));
+      const pretend = sounding ? { note: "E", octave: 2, cents, hz: 82.41 * 2 ** (cents / 1200) } : null;
+      const reading = mockTunerInput !== undefined ? mockTunerInput : pretend;
+      tunerSubs.forEach((cb) => cb(reading));
     }
 
     // Raw input levels: the guitar strums on its input, the others just hiss.

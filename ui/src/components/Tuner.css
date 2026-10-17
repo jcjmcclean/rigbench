@@ -1,46 +1,79 @@
-.tuner { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); min-width: 300px; }
+/* Like a tuner pedal: a recessed screen with the note, ♭ and ♯ lamps, and a row
+   of LEDs in the same style as the level meters (Meter.css). */
+.tuner { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-3); width: 312px; max-width: 100%; }
+
+.tuner__screen {
+  padding: 18px 16px 14px;
+  border-radius: 10px;
+  background: linear-gradient(#08090b, #0c0e12);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: box-shadow 0.2s var(--ease);
+}
+.tuner.is-in-tune .tuner__screen {
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(var(--signal-rgb), 0.35), 0 0 24px rgba(var(--signal-rgb), 0.18);
+}
+
+.tuner__top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
 
 .tuner__note {
   font-family: var(--font-display);
-  font-size: 72px;
+  font-size: 92px;
   font-weight: 600;
   line-height: 1;
   color: var(--ink-0);
-  transition: color 0.15s var(--ease);
+  text-align: center;
+  transition: color 0.15s var(--ease), text-shadow 0.15s var(--ease);
 }
-.tuner__octave { font-size: 28px; color: var(--ink-muted); margin-left: 2px; }
+.tuner__octave { font-size: 34px; color: var(--ink-muted); margin-left: 2px; }
 .tuner.is-idle .tuner__note { color: var(--ink-faint); }
-.tuner.is-in-tune .tuner__note { color: var(--signal); }
+.tuner.is-in-tune .tuner__note { color: var(--signal); text-shadow: 0 0 18px rgba(var(--signal-rgb), 0.55); }
+
+.tuner__lamp {
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 18px;
+  color: var(--ink-faint);
+  background: radial-gradient(circle at 40% 35%, #1a1d22, #0b0c0f);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: background 0.1s, box-shadow 0.1s, color 0.1s;
+}
+.tuner__lamp.is-on {
+  color: #2a1a05;
+  background: radial-gradient(circle at 40% 35%, #ffe2a8, var(--warn) 60%, #8a5f1f);
+  box-shadow: 0 0 14px rgba(var(--warn-rgb), 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+.tuner__leds { display: flex; gap: 4px; margin-top: 14px; align-items: flex-end; }
+.tuner__led {
+  flex: 1;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(#131115, #070609);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.tuner__led--middle { height: 22px; }
+.tuner__led.is-on {
+  background: linear-gradient(#f3dca3, var(--warn) 55%);
+  box-shadow: 0 0 7px rgba(var(--warn-rgb), 0.85), inset 0 0 2px rgba(255, 255, 255, 0.5);
+}
+.tuner__led.is-near { background: linear-gradient(#5b4a2c, #3a2e1a 55%); box-shadow: 0 0 3px rgba(var(--warn-rgb), 0.3); }
+.tuner__led--middle.is-on {
+  background: linear-gradient(#bff7ef, var(--signal) 55%);
+  box-shadow: 0 0 10px rgba(var(--signal-rgb), 0.9), inset 0 0 2px rgba(255, 255, 255, 0.5);
+}
 
 .tuner__scale {
-  position: relative;
-  width: 100%;
-  height: 18px;
-  border-radius: 9px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--hairline-soft);
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-faint);
 }
-.tuner__centre {
-  position: absolute;
-  left: 50%;
-  top: 2px; bottom: 2px;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--ink-faint);
-}
-.tuner__needle {
-  position: absolute;
-  top: -4px;
-  width: 4px;
-  height: 24px;
-  margin-left: -2px;
-  border-radius: 2px;
-  background: var(--warn);
-  transition: left 0.12s linear, background 0.15s var(--ease);
-}
-.tuner.is-in-tune .tuner__needle { background: var(--signal); box-shadow: 0 0 10px rgba(var(--signal-rgb), 0.6); }
-.tuner.is-idle .tuner__needle { opacity: 0; }
 
-.tuner__marks { display: flex; justify-content: space-between; width: 100%; color: var(--ink-muted); font-size: var(--t-md); margin-top: -6px; }
-.tuner__advice { margin: 0; color: var(--ink-1); font-size: var(--t-md); }
-.tuner__muted { margin: 0; color: var(--ink-muted); font-size: var(--t-sm); }
+.tuner__advice { margin: var(--sp-2) 0 0; color: var(--ink-1); font-size: var(--t-md); text-align: center; }
+.tuner__muted { margin: 0; color: var(--ink-muted); font-size: var(--t-sm); text-align: center; }
