@@ -50,8 +50,9 @@ describe("App startup", () => {
     emit(makeState());
     const footer = screen.getByRole("contentinfo");
     expect(footer).toHaveTextContent("Preview: no sound");
-    expect(VERSION).toBe("0.1.0");
-    expect(footer).toHaveTextContent(/v0\.1\.0$/);
+    // The number itself is bumped by release-please, so only its shape is checked.
+    expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(footer).toHaveTextContent(new RegExp(`v${VERSION.replaceAll(".", "\\.")}$`));
     expect(within(footer).getByText(/^Drag a knob/)).toHaveTextContent(
       /^Drag a knob, or use the arrow keys or scroll wheel\. Hold Shift for finer control\.$/,
     );
