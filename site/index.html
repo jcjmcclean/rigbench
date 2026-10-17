@@ -1,9 +1,11 @@
+<!doctype html>
+<html lang="en-GB">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tonebench: guitar tone for macOS, Windows &amp; Linux</title>
-<meta name="description" content="A lightweight, fast, free guitar-tone app for macOS, Windows, and Linux. Host a VST3 plugin, load a NAM amp model and an IR cab, chain them, and play with low latency." />
+<title>Tonebench: play guitar through NAM, IRs, and VST3</title>
+<meta name="description" content="Free, open-source desktop app for macOS, Windows, and Linux. Plug in your guitar and play through a VST3 plugin, a NAM amp model, and a cab IR." />
 <meta property="og:title" content="Tonebench" />
-<meta property="og:description" content="Load a VST3 plugin, a NAM amp model, and an IR cab. Chain them. Play. A fast, free tone app for macOS, Windows, and Linux." />
+<meta property="og:description" content="Load a VST3 plugin, a NAM amp model, and a cab IR, chain them up, and play. Free and open source, for macOS, Windows, and Linux." />
 <meta name="theme-color" content="#0a0b0d" />
 
 <style>
@@ -19,7 +21,6 @@
     --silver: #cdd6df;
     --muted: #8a94a0;
     --head: #e9f3ff;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", Inter, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 
@@ -38,32 +39,6 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow-x: hidden;
-  }
-
-  /* faint diamond/grid texture + a cool blue bloom behind the hero */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -2;
-    background:
-      radial-gradient(900px 520px at 50% -8%, rgba(63, 155, 240, 0.12), transparent 70%),
-      radial-gradient(700px 500px at 85% 8%, rgba(79, 210, 194, 0.05), transparent 70%);
-    pointer-events: none;
-  }
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -2;
-    background-image:
-      linear-gradient(rgba(205, 214, 223, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(205, 214, 223, 0.025) 1px, transparent 1px);
-    background-size: 44px 44px;
-    background-position: center;
-    mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 72%);
-    -webkit-mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 72%);
-    pointer-events: none;
   }
 
   a { color: var(--accent); text-decoration: none; }
@@ -109,7 +84,7 @@
   .mark .bench { color: var(--accent); }
 
   /* ---- hero ---- */
-  .hero { padding: 86px 0 36px; text-align: center; }
+  .hero { padding: 86px 0 36px; text-align: center; overflow-x: clip; }
 
   /* the signature: a live oscilloscope threading through the wordmark */
   .scope-stage {
@@ -136,30 +111,6 @@
     letter-spacing: -0.035em;
   }
 
-  .eyebrow {
-    position: relative;
-    z-index: 1;
-    display: inline-block;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--muted);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 6px 14px;
-    margin-bottom: 30px;
-    background: rgba(10, 11, 13, 0.4);
-  }
-  .eyebrow .dot {
-    display: inline-block;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--teal);
-    box-shadow: 0 0 8px var(--teal);
-    margin-right: 8px;
-    vertical-align: middle;
-  }
   .tagline {
     position: relative;
     z-index: 1;
@@ -186,7 +137,6 @@
   .btn-primary {
     background: var(--accent);
     color: #04121f;
-    box-shadow: 0 0 0 1px rgba(109, 184, 255, 0.35), 0 10px 30px -10px rgba(63, 155, 240, 0.7);
   }
   .btn-primary:hover { background: var(--accent-hi); color: #04121f; transform: translateY(-1px); }
   .btn-ghost {
@@ -200,9 +150,7 @@
     position: relative;
     z-index: 1;
     margin-top: 18px;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.12em;
+    font-size: 14px;
     color: var(--muted);
   }
 
@@ -217,35 +165,41 @@
       0 1px 0 rgba(205, 214, 223, 0.06) inset,
       0 40px 90px -30px rgba(0, 0, 0, 0.8);
   }
-  .shot::before {
-    /* thin teal signal line along the top edge */
-    content: "";
-    position: absolute;
-    left: 16px; right: 16px; top: -1px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--teal), transparent);
-    opacity: 0.55;
-  }
-  .shot img {
-    display: block;
-    width: 100%;
-    height: auto;
-    border-radius: 9px;
-    background: repeating-linear-gradient(135deg, #15181e, #15181e 12px, #171b22 12px, #171b22 24px);
-    object-fit: cover;
-  }
   .hero-shot { margin-top: 56px; }
+
+  /* Live app previews: the real UI (ui/src/showcase.tsx, built into app/) on a
+     mock engine, laid out at its native 1440x805 window size, then scaled to fit
+     and cropped to data-crop="x y w h" by the script below. Interactive, except
+     when scaled too small to use (phones), where it's inert. */
+  .live {
+    position: relative;
+    overflow: hidden;
+    border-radius: 9px;
+    aspect-ratio: var(--crop-w, 1440) / var(--crop-h, 805);
+    background: #0a0b0d;
+  }
+  .live.is-inert { pointer-events: none; }
+  .live iframe {
+    position: absolute;
+    left: 0; top: 0;
+    width: 1440px;
+    height: 805px;
+    border: 0;
+    transform-origin: 0 0;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .live iframe.ready { opacity: 1; }
+  .live-hint {
+    margin: 14px 0 0;
+    text-align: center;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .live-hint.is-hidden { display: none; }
 
   /* ---- sections ---- */
   section { padding: 66px 0; }
-  .kicker {
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin: 0 0 16px;
-  }
   h2 {
     font-size: clamp(26px, 4vw, 36px);
     line-height: 1.12;
@@ -255,64 +209,15 @@
     font-weight: 650;
   }
   .lead { max-width: 640px; font-size: 19px; color: var(--silver); }
-  .lead strong { color: var(--head); font-weight: 600; }
 
-  .divider { height: 1px; background: var(--line); border: 0; margin: 0; }
 
-  /* ---- feature grid ---- */
-  .features {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    overflow: hidden;
-    margin-top: 10px;
-  }
-  .feat { background: var(--panel); padding: 26px 24px 28px; min-height: 150px; }
-  .feat .n { font-family: var(--mono); font-size: 12px; color: var(--teal); letter-spacing: 0.1em; }
-  .feat h3 { margin: 12px 0 8px; font-size: 17px; color: var(--head); font-weight: 600; letter-spacing: -0.01em; }
-  .feat p { margin: 0; font-size: 15px; color: var(--muted); line-height: 1.55; }
-  @media (max-width: 820px) { .features { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 520px) { .features { grid-template-columns: 1fr; } }
-
-  /* ---- how it works chain ---- */
-  .how { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
-  .chain {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 22px;
-  }
-  .chain .row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 11px;
-    padding: 13px 15px;
-  }
-  .chain .row .tag {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    color: var(--accent);
-    background: rgba(63, 155, 240, 0.1);
-    border: 1px solid rgba(63, 155, 240, 0.25);
-    border-radius: 6px;
-    padding: 4px 8px;
-    white-space: nowrap;
-  }
-  .chain .row .lbl { color: var(--head); font-size: 15px; font-weight: 500; }
-  .chain .row .sub { color: var(--muted); font-size: 13px; }
-  .chain .arrow { text-align: center; line-height: 0.6; }
-  .chain .arrow span { color: #39424d; font-size: 14px; }
-  @media (max-width: 760px) { .how { grid-template-columns: 1fr; gap: 30px; } }
+  /* ---- lists + small print ---- */
+  .body { max-width: 640px; }
+  .list { max-width: 640px; margin: 0 0 8px; padding-left: 1.2em; font-size: 18px; color: var(--silver); }
+  .list li { margin-bottom: 10px; padding-left: 4px; }
+  .list li::marker { color: var(--muted); }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; color: var(--head); }
+  .note { max-width: 640px; margin: 18px 0 0; font-size: 15px; color: var(--muted); }
 
   /* ---- footer ---- */
   footer { border-top: 1px solid var(--line); padding: 44px 0 60px; }
@@ -323,11 +228,9 @@
   .foot .col a { display: block; color: var(--silver); font-size: 14px; margin-bottom: 9px; }
   .foot .col a:hover { color: var(--head); }
   .foot .col .h {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--head);
     margin-bottom: 14px;
   }
   .license {
@@ -341,7 +244,6 @@
     gap: 16px;
     flex-wrap: wrap;
   }
-  .license .mono { font-family: var(--mono); letter-spacing: 0.05em; }
 
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -353,9 +255,9 @@
   <div class="wrap">
     <span class="mark"><span class="tone">Tone</span><span class="bench">bench</span></span>
     <span class="links">
-      <a href="#what" class="hide-sm">What it is</a>
-      <a href="#features" class="hide-sm">Features</a>
-      <a href="#how" class="hide-sm">How it works</a>
+      <a href="#what" class="hide-sm">What it does</a>
+      <a href="#need" class="hide-sm">What you need</a>
+      <a href="#sounds" class="hide-sm">Sounds</a>
       <a href="https://github.com/jcjmcclean/tonebench">GitHub</a>
     </span>
   </div>
@@ -364,12 +266,11 @@
 <main>
 <header class="hero">
   <div class="wrap">
-    <span class="eyebrow"><span class="dot"></span>Native desktop tone app</span>
     <div class="scope-stage">
       <canvas class="scope" aria-hidden="true"></canvas>
       <h1 class="mark"><span class="tone">Tone</span><span class="bench">bench</span></h1>
     </div>
-    <p class="tagline">Load a plugin, an amp model, and a cab. Chain them. Play. The simple tone rig that sits in the middle, free and fast.</p>
+    <p class="tagline">Load a VST3 plugin, a NAM amp model, and a cab IR, chain them up, and play. That’s the whole idea.</p>
     <div class="btns">
       <a class="btn btn-primary" href="https://github.com/jcjmcclean/tonebench/releases">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
@@ -380,95 +281,72 @@
         View on GitHub
       </a>
     </div>
-    <p class="platform">macOS · Windows · Linux · AGPLv3</p>
+    <p class="platform">Free and open source · macOS, Windows, Linux · v0.1.0</p>
 
     <div class="shot hero-shot">
-      <picture>
-        <source srcset="assets/hero.webp" type="image/webp" />
-        <img src="assets/hero.png" width="1440" height="805" fetchpriority="high" decoding="async"
-             alt="Tonebench main window showing a VST3 plugin, a NAM amp model, and an IR cab chained together with a live signal scope." />
-      </picture>
+      <div class="live" data-crop="0 0 1440 805">
+        <iframe src="app/showcase.html" title="Tonebench running in your browser, without sound: a VST3 plugin, a NAM amp model, and a cab IR"></iframe>
+      </div>
     </div>
+    <p class="live-hint">This is the real interface running in your browser, just without the sound. Have a go with the knobs and presets.</p>
   </div>
 </header>
 
-<hr class="divider" />
+
+<section id="why">
+  <div class="wrap">
+    <h2>Why I built this</h2>
+    <p class="lead">A friend of mine built a guitar amp and sent it over as a VST3 plugin. I wanted to play through it properly, alongside the NAM models and cab IRs I was already using, and I didn’t want to buy a whole amp-sim app just to try one amp.</p>
+    <p class="lead">I’ve paid for a few of those apps before. The cheap ones run out of features fast, and the expensive ones are fiddly and stuffed with things I’m never going to touch. So Tonebench is small: a plugin, an amp, and a cab, each with an on/off switch.</p>
+  </div>
+</section>
 
 <section id="what">
   <div class="wrap">
-    <p class="kicker">What it is</p>
-    <h2>A tone rig that does one thing well</h2>
-    <p class="lead">Tonebench is a lightweight, free guitar-tone app for macOS, Windows, and Linux. You host a VST3 plugin, load a <strong>Neural Amp Modeler</strong> amp and an impulse-response cab, then play guitar through the chain with low latency. It started when a friend built an amp as a VST3 plugin and sent it over, and buying a whole app just to try one plugin (next to the NAM models and IR cabs I already used) made no sense.</p>
-  </div>
-</section>
-
-<section id="features">
-  <div class="wrap">
-    <p class="kicker">What it does</p>
-    <h2>Everything you need in the signal path, nothing you don't</h2>
-    <div class="features">
-      <div class="feat">
-        <div class="n">01</div>
-        <h3>Host VST3 plugins</h3>
-        <p>Drop in any VST3 instrument or effect and run it live in the chain.</p>
-      </div>
-      <div class="feat">
-        <div class="n">02</div>
-        <h3>NAM amp models</h3>
-        <p>Load Neural Amp Modeler captures with real-time resampling to your session rate.</p>
-      </div>
-      <div class="feat">
-        <div class="n">03</div>
-        <h3>IR cab sims</h3>
-        <p>Load impulse-response cabinets with zero added latency through the convolver.</p>
-      </div>
-      <div class="feat">
-        <div class="n">04</div>
-        <h3>Per-slot bypass</h3>
-        <p>Chain plugin, amp, and cab in order, and bypass any slot without breaking the flow.</p>
-      </div>
-      <div class="feat">
-        <div class="n">05</div>
-        <h3>Presets</h3>
-        <p>Save a full chain and recall it the next time you pick up the guitar.</p>
-      </div>
-      <div class="feat">
-        <div class="n">06</div>
-        <h3>Live signal scope</h3>
-        <p>Watch the waveform move as you play, so you can see what the chain is doing.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="how">
-  <div class="wrap">
-    <div class="how">
-      <div>
-        <p class="kicker">How it works</p>
-        <h2>Built like a studio instrument</h2>
-        <p class="lead">Audio runs through an ordered chain on the realtime thread: plugin, then amp, then cab, with each slot resampled and convolved in place. The interface is a React app living in a webview on its own thread, so drawing the scope and moving knobs never costs you latency. Native C++ and JUCE underneath keep it fast and small.</p>
-      </div>
-      <div class="chain" aria-hidden="true">
-        <div class="row"><span class="tag">IN</span><span><span class="lbl">Guitar</span></span></div>
-        <div class="arrow"><span>&#9662;</span></div>
-        <div class="row"><span class="tag">VST3</span><span><span class="lbl">Plugin</span> <span class="sub">your friend's amp</span></span></div>
-        <div class="arrow"><span>&#9662;</span></div>
-        <div class="row"><span class="tag">NAM</span><span><span class="lbl">Amp model</span> <span class="sub">real-time resampled</span></span></div>
-        <div class="arrow"><span>&#9662;</span></div>
-        <div class="row"><span class="tag">IR</span><span><span class="lbl">Cab sim</span> <span class="sub">zero added latency</span></span></div>
-        <div class="arrow"><span>&#9662;</span></div>
-        <div class="row"><span class="tag">OUT</span><span><span class="lbl">Speakers</span></span></div>
-      </div>
-    </div>
+    <h2>What it does</h2>
+    <ul class="list">
+      <li>Loads a VST3 plugin, such as an amp, a drive, or an effect, and opens the plugin’s own window when you need it.</li>
+      <li>Loads NAM amp models (<code>.nam</code> files). If your interface runs at a different sample rate, Tonebench resamples as you play, so you don’t have to care.</li>
+      <li>Loads a cab IR (WAV, AIFF, or FLAC) with no added latency.</li>
+      <li>Runs them in that order: plugin, then amp, then cab. You can switch any slot off. The amp has a level knob and the cab has a mix knob.</li>
+      <li>Has a tuner, and a noise gate on the input to cut the hiss between notes with high-gain models. The gate is off until you turn it up.</li>
+      <li>Saves the whole rig as a preset: what’s in each slot, every knob, and the plugin’s own settings.</li>
+      <li>Shows your audio device, sample rate, buffer size, and round-trip latency along the top, and the signal on a scope as you play.</li>
+    </ul>
 
     <div class="shot" style="margin-top:48px">
-      <picture>
-        <source srcset="assets/detail.webp" type="image/webp" />
-        <img src="assets/detail.png" width="1440" height="565" loading="lazy" decoding="async"
-             alt="The three Tonebench slots: a VST3 plugin, a NAM amp model, and an IR cab, with the live signal threading between them." />
-      </picture>
+      <div class="live" data-crop="304 246 833 336">
+        <iframe src="app/showcase.html?view=chain" title="The Tonebench chain: a VST3 plugin, a NAM amp model, and a cab IR" loading="lazy"></iframe>
+      </div>
     </div>
+    <p class="note">Under the hood it’s a C++ audio engine built on JUCE. The interface runs in a webview on its own thread, so moving knobs and drawing the scope don’t add latency. The source and build steps are on <a href="https://github.com/jcjmcclean/tonebench">GitHub</a>.</p>
+  </div>
+</section>
+
+<section id="need">
+  <div class="wrap">
+    <h2>What you need</h2>
+    <ul class="list">
+      <li>A guitar and an audio interface. The first time you open Tonebench, it asks you to play a few notes and finds which input your guitar is on.</li>
+      <li>A NAM amp model, a cab IR, or both. There are free ones under <a href="#sounds">Where to get sounds</a>.</li>
+      <li>A VST3 plugin, if you have one you want to play through. You can leave that slot empty.</li>
+    </ul>
+    <p class="body">On a Mac, macOS won’t open Tonebench the first time, because it’s self-signed rather than notarised by Apple. Try to open it once, then go to System Settings &gt; Privacy &amp; Security, scroll down, and click Open Anyway. You only have to do that once. Then allow microphone access, which is how macOS lets it hear your guitar.</p>
+    <p class="body">On Windows it needs the WebView2 runtime, which current versions of Windows 10 and 11 already have. The first time, SmartScreen may warn you because the app isn’t signed: click More info, then Run anyway.</p>
+    <p class="body">Plugins, and presets other people share, run code inside the app, so only load ones you trust.</p>
+    <p class="body">It’s early days: this is v0.1.0. If something doesn’t work, or there’s something you’d like it to do, <a href="https://github.com/jcjmcclean/tonebench/issues">open an issue on GitHub</a>.</p>
+  </div>
+</section>
+
+<section id="sounds">
+  <div class="wrap">
+    <h2>Where to get sounds</h2>
+    <p class="body">Plenty of amp models and cab IRs are free. The plugin slot is optional.</p>
+    <ul class="list">
+      <li>For amp models, <a href="https://www.tone3000.com/search?format=nam">TONE3000</a> is where most people share their NAM captures. Downloads are free; you need an account. The <a href="https://www.reddit.com/r/NeuralAmpModeler/">NAM subreddit</a> is good for recommendations.</li>
+      <li>TONE3000 has <a href="https://www.tone3000.com/search?format=ir">cab IRs</a> too. If you just want one to start with, Jester Dyne’s <a href="https://www.jester-dyne-productions.com/emerald-ir-pack/">Emerald pack</a> is a Marshall 4x12 with Greenbacks, free with no sign-up.</li>
+      <li>For the plugin slot, these are free, open source, and run on macOS, Windows, and Linux: <a href="https://chowdsp.com/products.html">ChowDSP</a>’s BYOD for drives and pedals, <a href="https://www.airwindows.com/consolidated/">Airwindows Consolidated</a>, and <a href="https://michaelwillis.github.io/dragonfly-reverb/">Dragonfly Reverb</a>. The <a href="https://github.com/webprofusion/openaudio">openaudio</a> list has plenty more.</li>
+    </ul>
   </div>
 </section>
 </main>
@@ -478,7 +356,6 @@
     <div class="foot">
       <div>
         <span class="mark"><span class="tone">Tone</span><span class="bench">bench</span></span>
-        <p>A fast, free guitar-tone app for macOS, Windows, and Linux. The simple middle ground between amp sims that run out of room and the ones that get in your way.</p>
       </div>
       <div class="cols">
         <div class="col">
@@ -488,20 +365,48 @@
           <a href="https://github.com/jcjmcclean/tonebench/issues">Report an issue</a>
         </div>
         <div class="col">
-          <div class="h">Built on</div>
+          <div class="h">Built with</div>
           <a href="https://juce.com/">JUCE</a>
           <a href="https://www.neuralampmodeler.com/">Neural Amp Modeler</a>
-          <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPLv3 license</a>
         </div>
       </div>
     </div>
     <div class="license">
-      <span>Released under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPLv3</a>. Built on JUCE and NAM.</span>
-      <span class="mono">&copy; 2026 Tonebench</span>
+      <span>Free and open source under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPLv3</a> licence.</span>
+      <span>&copy; 2026 Tonebench</span>
     </div>
   </div>
 </footer>
 
+<script>
+/* Fit each live app preview: scale the 1440x805 app so its crop rect fills the
+   frame. Below half size the controls are too small to use (and dragging would
+   fight page scrolling on touch), so it becomes a look-only picture there. */
+(function () {
+  document.querySelectorAll(".live").forEach(function (box) {
+    var c = box.dataset.crop.split(" ").map(Number);
+    var frame = box.querySelector("iframe");
+    box.style.setProperty("--crop-w", c[2]);
+    box.style.setProperty("--crop-h", c[3]);
+    function fit() {
+      var s = box.clientWidth / c[2];
+      frame.style.transform = "scale(" + s + ") translate(" + -c[0] + "px," + -c[1] + "px)";
+      var small = s < 0.5;
+      box.classList.toggle("is-inert", small);
+      frame.toggleAttribute("inert", small);
+      frame.tabIndex = small ? -1 : 0;
+      var hint = box.parentElement.nextElementSibling;
+      if (hint && hint.classList.contains("live-hint")) hint.classList.toggle("is-hidden", small);
+    }
+    fit();
+    new ResizeObserver(fit).observe(box);
+    frame.addEventListener("load", function () {
+      // Let React mount past the "Connecting…" splash before revealing.
+      setTimeout(function () { frame.classList.add("ready"); }, 150);
+    });
+  });
+})();
+</script>
 <script>
 /* Live oscilloscope signature: an electric-blue guitar signal threading
    through the wordmark. Tiny, vanilla, GPU-light. It pauses when offscreen
@@ -633,3 +538,4 @@
   if (reduce.matches) draw(0); else start();
 })();
 </script>
+</html>

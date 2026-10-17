@@ -50,7 +50,8 @@ private:
     juce::File   sourceFile;
     double sampleRate  = 48000.0;
     int    maxBlock    = 0;
-    int    pluginChans = 1;
+    int    pluginChans = 1;   // every channel the plugin has (all buses)
+    int    mainIns = 1, mainOuts = 1;   // its main input/output bus (no side-chains)
     std::atomic<bool> ready { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Vst3Node)

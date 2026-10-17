@@ -1,0 +1,122 @@
+{
+  "_comment": "The JS <-> C++ bridge contract. ui/src/contract.test.ts and tests/MiscTests.cpp both check their side against this file, so the two can't drift apart silently. Change it deliberately, together with both sides.",
+  "nativeFunctions": [
+    "getState",
+    "loadSlot",
+    "clearSlot",
+    "setBypass",
+    "setMix",
+    "setGain",
+    "setInput",
+    "setMaster",
+    "setMonitor",
+    "openEditor",
+    "savePreset",
+    "loadPreset",
+    "getAudioSetup",
+    "setAudioSetup",
+    "playTestSound",
+    "finishSetup",
+    "openUrl",
+    "setTuner",
+    "setGate",
+    "renamePreset",
+    "deletePreset",
+    "listPlugins",
+    "loadPlugin"
+  ],
+  "events": [
+    "state",
+    "meters",
+    "scope",
+    "error",
+    "showSettings"
+  ],
+  "stateKeys": [
+    "device",
+    "sampleRate",
+    "bufferSize",
+    "roundTripMs",
+    "setupComplete",
+    "monitoring",
+    "inputGain",
+    "masterGain",
+    "gate",
+    "playing",
+    "inputLevel",
+    "outputLevel",
+    "slots",
+    "presets",
+    "activePreset",
+    "loadingPreset"
+  ],
+  "slotIds": [
+    "vst3",
+    "nam",
+    "ir"
+  ],
+  "slotKeys": {
+    "common": [
+      "type",
+      "loaded",
+      "name",
+      "bypassed"
+    ],
+    "vst3": [
+      "hasEditor"
+    ],
+    "nam": [
+      "gain"
+    ],
+    "ir": [
+      "mix"
+    ]
+  },
+  "meterKeys": [
+    "inputLevel",
+    "outputLevel",
+    "playing",
+    "inputPeaks",
+    "tuner"
+  ],
+  "errorKeys": [
+    "message"
+  ],
+  "audioSetupKeys": [
+    "driver",
+    "drivers",
+    "inputDevice",
+    "inputDevices",
+    "outputDevice",
+    "outputDevices",
+    "inputs",
+    "input",
+    "listeningToAll",
+    "sampleRate",
+    "sampleRates",
+    "bufferSize",
+    "bufferSizes",
+    "latencyMs",
+    "builtInInput",
+    "error"
+  ],
+  "audioSetupChanges": [
+    "driver",
+    "inputDevice",
+    "outputDevice",
+    "input",
+    "listenToAllInputs",
+    "sampleRate",
+    "bufferSize"
+  ],
+  "tunerKeys": [
+    "note",
+    "octave",
+    "cents",
+    "hz"
+  ],
+  "pluginKeys": [
+    "name",
+    "path"
+  ]
+}

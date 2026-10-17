@@ -6,7 +6,7 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
 {
     if (! file.existsAsFile())
     {
-        error = "File not found: " + file.getFullPathName();
+        error = "The file isn't there any more.";
         return false;
     }
 
@@ -16,7 +16,7 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
     constexpr juce::int64 maxBytes = 64ll * 1024 * 1024; // 64 MB
     if (file.getSize() > maxBytes)
     {
-        error = "Model file too large (over 64 MB): " + file.getFileName();
+        error = "It's over 64 MB, far bigger than a NAM model should be.";
         return false;
     }
 
@@ -28,7 +28,7 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
         auto fresh = nam::get_dsp (path, opt);
         if (fresh == nullptr)
         {
-            error = "Failed to load model";
+            error = "It may be damaged, or not a NAM model.";
             return false;
         }
 
@@ -46,7 +46,7 @@ bool NamNode::loadFile (const juce::File& file, juce::String& error)
     }
     catch (const std::exception& e)
     {
-        error = e.what();
+        error = "It may be damaged, or made with a newer version of NAM. (Details: " + juce::String (e.what()) + ")";
         model.reset();
         return false;
     }
@@ -85,6 +85,7 @@ void NamNode::prepare (double sampleRate, int maxBlockSize)
         model->Reset (sampleRate, maxBlockSize);
     }
 
+    appliedOutGain = outGain.load (std::memory_order_relaxed);
     ready.store (true, std::memory_order_release);
 }
 
@@ -101,13 +102,27 @@ void NamNode::process (juce::AudioBuffer<float>& mono) noexcept
     const float ig = inGain.load (std::memory_order_relaxed);
     const float og = outGain.load (std::memory_order_relaxed);
 
+    // The Level knob ramps across the block from the last value (no zipper).
+    auto applyOut = [this, og] (float* d, int count)
+    {
+        if (juce::exactlyEqual (appliedOutGain, og))
+        {
+            if (! juce::exactlyEqual (og, 1.0f)) juce::FloatVectorOperations::multiply (d, og, count);
+            return;
+        }
+        const float step = (og - appliedOutGain) / (float) juce::jmax (1, count);
+        float gain = appliedOutGain;
+        for (int i = 0; i < count; ++i) { gain += step; d[i] *= gain; }
+        appliedOutGain = og;
+    };
+
     if (! resampling)
     {
         if (ig != 1.0f) juce::FloatVectorOperations::multiply (data, ig, n);
         float* in[1]  { data };
         float* out[1] { data };
         model->process (in, out, n); // in-place, allocation-free when n <= maxBlock
-        if (og != 1.0f) juce::FloatVectorOperations::multiply (data, og, n);
+        applyOut (data, n);
         return;
     }
 
@@ -118,7 +133,7 @@ void NamNode::process (juce::AudioBuffer<float>& mono) noexcept
     float* in[1]  { upBuf.data() };
     float* out[1] { modelBuf.data() };
     model->process (in, out, nUp);
-    if (og != 1.0f) juce::FloatVectorOperations::multiply (modelBuf.data(), og, nUp);
+    applyOut (modelBuf.data(), nUp);
 
     const int nDown = down.process (modelBuf.data(), nUp, downBuf.data(), (int) downBuf.size());
 
@@ -137,6 +152,7 @@ void NamNode::process (juce::AudioBuffer<float>& mono) noexcept
 
 void NamNode::reset()
 {
+    appliedOutGain = outGain.load (std::memory_order_relaxed);
     if (resampling)
     {
         up.reset();

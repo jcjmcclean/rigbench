@@ -5,13 +5,22 @@ export function Modal({
   title,
   children,
   onClose,
+  wide = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  wide?: boolean;   // for content with labelled rows (Settings)
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Callers pass an inline onClose, so its identity changes on every parent
+  // render (30 Hz while meters stream). Read it through a ref so the mount-only
+  // effect below doesn't re-run — re-running would yank focus back to the first
+  // input on every tick.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
 
   useEffect(() => {
     // Remember the trigger so focus can be restored when the dialog closes.
@@ -31,7 +40,7 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key === "Tab") {
@@ -59,13 +68,13 @@ export function Modal({
       document.removeEventListener("keydown", onKey);
       previouslyFocused?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="modal__scrim" onMouseDown={onClose}>
       <div
         ref={dialogRef}
-        className="modal"
+        className={`modal${wide ? " modal--wide" : ""}`}
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

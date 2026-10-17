@@ -256,6 +256,9 @@
   color: var(--ink-faint);
   opacity: 0;
   transition: opacity 0.2s, color 0.2s;
+  /* above .module__name (z-index 5), which overlaps this corner and would
+     otherwise swallow the click */
+  z-index: 6;
 }
 /* reveal on hover, and on keyboard focus anywhere in the module (otherwise the
    ✕ is invisible-but-focusable) */
@@ -283,13 +286,11 @@
   align-items: center;
   justify-content: center;
   gap: var(--sp-3);
-  border: 1.5px dashed var(--hairline);
   border-radius: var(--r-md);
   color: var(--ink-faint);
   transition: all 0.25s var(--ease);
 }
 .module__load:hover {
-  border-color: var(--ember-dim);
   color: var(--ember-bright);
   background: rgba(var(--ember-rgb),0.04);
 }
@@ -335,3 +336,31 @@
      aside with scale + desaturate instead */
   .is-bypassed .module__panel { transform: scale(0.97); }
 }
+
+/* The empty slot: one dashed area holding the load button and, at its foot,
+   a quiet link to free downloads. */
+.module__empty {
+  position: relative;
+  z-index: 5;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1.5px dashed var(--hairline);
+  border-radius: var(--r-md);
+  transition: border-color 0.25s var(--ease);
+}
+.module__empty:has(.module__load:hover) { border-color: var(--ember-dim); }
+.module__find {
+  align-self: center;
+  margin: 0 0 var(--sp-3);
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  color: var(--ink-muted);
+  font-size: var(--t-sm);
+  white-space: nowrap;
+  transition: color 0.15s var(--ease);
+}
+.module__find:hover,
+.module__find:focus-visible { color: var(--ember-bright); }
+.module__find-arrow { font-size: 0.9em; }

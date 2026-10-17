@@ -5,7 +5,7 @@ import { Knob } from "./Knob";
 import { ScopeWaveform } from "./ScopeWaveform";
 import { bridge } from "../bridge";
 import type { EngineState, SlotType } from "../types";
-import { pct01 } from "../format";
+import { gateLabel, pct01 } from "../format";
 import "./SignalChain.css";
 
 const ORDER: SlotType[] = ["vst3", "nam", "ir"];
@@ -39,13 +39,22 @@ function Terminal({
       </div>
       <span className="terminal__label eyebrow">{kind === "in" ? "Input" : "Output"}</span>
       {kind === "in" && (
-        <Knob
-          value={state.inputGain}
-          onChange={(v) => bridge.setInput(v)}
-          label="Gain"
-          size={52}
-          format={pct01}
-        />
+        <>
+          <Knob
+            value={state.inputGain}
+            onChange={(v) => bridge.setInput(v)}
+            label="Gain"
+            size={52}
+            format={pct01}
+          />
+          <Knob
+            value={state.gate}
+            onChange={(v) => bridge.setGate(v)}
+            label="Gate"
+            size={40}
+            format={gateLabel}
+          />
+        </>
       )}
       {kind === "out" && (
         <Knob
@@ -61,7 +70,9 @@ function Terminal({
   );
 }
 
-export function SignalChain({ state }: { state: EngineState }) {
+// onPickPlugin: the plugin slot's load/change opens a picker of installed
+// plugins instead of a file chooser.
+export function SignalChain({ state, onPickPlugin }: { state: EngineState; onPickPlugin?: () => void }) {
   // No idle floor: when there's no signal, nothing flows.
   const flow = state.playing ? state.outputLevel : 0;
   const live = state.playing;
@@ -78,12 +89,13 @@ export function SignalChain({ state }: { state: EngineState }) {
           <ChainModule
             slot={state.slots[type]}
             index={i}
-            onLoad={() => bridge.loadSlot(type)}
+            onLoad={() => (type === "vst3" && onPickPlugin ? onPickPlugin() : bridge.loadSlot(type))}
             onClear={() => bridge.clearSlot(type)}
             onBypass={(b) => bridge.setBypass(type, b)}
             onMix={(v) => bridge.setMix(type, v)}
             onGain={(v) => bridge.setGain(type, v)}
             onEditor={() => bridge.openEditor()}
+            onOpenUrl={(url) => bridge.openUrl(url)}
           />
           <Connector live={live} />
         </Fragment>

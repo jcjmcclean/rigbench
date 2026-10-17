@@ -1,12 +1,13 @@
 #include "WebUIComponent.h"
 #include "PluginEditorWindow.h"
-#include "engine/IRNode.h"
-#include "engine/NamNode.h"
-#include "engine/Preset.h"
+#include "app/AudioSetup.h"
+#include "app/ExternalLinks.h"
+#include "app/PluginScanner.h"
+#include "app/UserText.h"
+#include "engine/AppPaths.h"
 #include "engine/SlotTypes.h"
 #include "BinaryData.h"
 
-#include <cmath>
 #include <unordered_map>
 
 using Resource = juce::WebBrowserComponent::Resource;
@@ -14,14 +15,6 @@ using Completion = juce::WebBrowserComponent::NativeFunctionCompletion;
 
 namespace
 {
-// SEC-6: the bridge setters trust 0..1 doubles from JS. Clamp into range and
-// reject non-finite (NaN/Inf) values before they reach the live audio path.
-float clampUnit (const juce::var& v)
-{
-    const double d = (double) v;
-    return std::isfinite (d) ? (float) juce::jlimit (0.0, 1.0, d) : 0.0f;
-}
-
 const char* mimeForExt (const juce::String& ext)
 {
     static const std::unordered_map<std::string, const char*> m {
@@ -48,7 +41,7 @@ juce::ZipFile* getWebZip()
 
 // SEC-5: lock navigation. The WebView must only ever load our own embedded
 // resource origin — any other URL (an injected <a>/redirect, a future remote
-// asset) is refused so the 13 native bridge functions can't be driven from
+// asset) is refused so the native bridge functions can't be driven from
 // off-origin content. (about:/empty is allowed for JUCE's own bootstrapping.)
 class LockedWebBrowser final : public juce::WebBrowserComponent
 {
@@ -63,66 +56,137 @@ public:
     }
 };
 
-// SEC-2: `name` arrives straight from the JS bridge and File::getChildFile resolves
-// ".." segments, so an unsanitized name is a path-traversal read/write primitive.
-// Legalize it, reject separators / empty / dot names, and confirm the result stays
-// inside presetsDir before any disk access. Returns an invalid File on rejection.
-juce::File presetFileFor (const juce::String& name)
-{
-    if (name.isEmpty() || name == "." || name == ".."
-        || name.containsAnyOf ("/\\:"))
-        return {};
-
-    const auto leaf = juce::File::createLegalFileName (name);
-    if (leaf.isEmpty() || leaf == "." || leaf == "..")
-        return {};
-
-    const auto file = Preset::presetsDir().getChildFile (leaf + Preset::fileExtension);
-    if (! file.isAChildOf (Preset::presetsDir()))
-        return {};
-    return file;
-}
 } // namespace
 
 //==============================================================================
-WebUIComponent::WebUIComponent()
+WebUIComponent::WebUIComponent (Options componentOptions)
+    : onUiReady (std::move (componentOptions.onUiReady))
 {
-    using Options = juce::WebBrowserComponent::Options;
+    using BrowserOptions = juce::WebBrowserComponent::Options;
 
-    Options options = Options{}
+    // Each native function forwards to the rig (or a GUI action), marks the
+    // state dirty so the next timer tick pushes it, and completes immediately.
+    auto op = [this] (std::function<void (const juce::Array<juce::var>&)> fn)
+    {
+        return [this, f = std::move (fn)] (const juce::Array<juce::var>& args, Completion done)
+        {
+            f (args);
+            markDirty();
+            done (juce::var());
+        };
+    };
+    auto arg = [] (const juce::Array<juce::var>& a, int i) { return i < a.size() ? a[i] : juce::var(); };
+
+    // JUCE's default backend on Windows is Internet Explorer, which has neither the
+    // resource provider nor the native bridge, so ask for WebView2 explicitly. Its
+    // default user-data folder sits next to the exe (unwritable under Program
+    // Files), so keep it in the app's data folder. Both are ignored elsewhere.
+    const auto webViewData = AppPaths::dataDir().getChildFile ("WebView2");
+
+    BrowserOptions options = BrowserOptions{}
+        .withBackend (BrowserOptions::Backend::webview2)
+        .withWinWebView2Options (BrowserOptions::WinWebView2{}
+                                     .withUserDataFolder (webViewData)
+                                     .withBackgroundColour (juce::Colour (0xff0a0b0d))
+                                     .withStatusBarDisabled())
         .withNativeIntegrationEnabled()
         .withResourceProvider ([this] (const auto& p) { return provideResource (p); })
         .withNativeFunction ("getState", [this] (const juce::Array<juce::var>&, Completion done)
-            { done (buildStateVar()); })
-        .withNativeFunction ("loadSlot", [this] (const juce::Array<juce::var>& a, Completion done)
-            { if (! a.isEmpty()) loadSlotChooser (a[0].toString()); done (juce::var()); })
-        .withNativeFunction ("clearSlot", [this] (const juce::Array<juce::var>& a, Completion done)
-            { const int s = SlotTypes::indexForId (a.isEmpty() ? juce::String() : a[0].toString());
-              if (s == AudioEngine::vst3Slot) editorWindow = nullptr; // close editor before destroying plugin
-              if (s >= 0) { engine.setNode (s, nullptr); markDirty(); } done (juce::var()); })
-        .withNativeFunction ("setBypass", [this] (const juce::Array<juce::var>& a, Completion done)
-            { if (a.size() >= 2) { const int s = SlotTypes::indexForId (a[0].toString());
-                  if (auto* n = engine.getNode (s)) n->setBypassed ((bool) a[1]); markDirty(); } done (juce::var()); })
-        .withNativeFunction ("setMix", [this] (const juce::Array<juce::var>& a, Completion done)
-            { if (a.size() >= 2) { if (auto* ir = dynamic_cast<IRNode*> (engine.getNode (SlotTypes::indexForId (a[0].toString()))))
-                  ir->setMix (clampUnit (a[1])); } markDirty(); done (juce::var()); })
-        .withNativeFunction ("setGain", [this] (const juce::Array<juce::var>& a, Completion done)
-            { if (a.size() >= 2) { if (auto* nam = dynamic_cast<NamNode*> (engine.getNode (SlotTypes::indexForId (a[0].toString()))))
-                  nam->setUiGain (clampUnit (a[1])); } markDirty(); done (juce::var()); })
-        .withNativeFunction ("setInput", [this] (const juce::Array<juce::var>& a, Completion done)
-            { if (! a.isEmpty()) inputGain.store (clampUnit (a[0])); markDirty(); done (juce::var()); })
-        .withNativeFunction ("setMaster", [this] (const juce::Array<juce::var>& a, Completion done)
-            { if (! a.isEmpty()) masterGain.store (clampUnit (a[0])); markDirty(); done (juce::var()); })
-        .withNativeFunction ("setMonitor", [this] (const juce::Array<juce::var>& a, Completion done)
-            { monitorOn.store ((bool) a[0]); markDirty(); done (juce::var()); })
-        .withNativeFunction ("openEditor", [this] (const juce::Array<juce::var>&, Completion done)
-            { openVstEditorWindow(); done (juce::var()); })
-        .withNativeFunction ("openAudioSettings", [this] (const juce::Array<juce::var>&, Completion done)
-            { openAudioSettings(); done (juce::var()); })
-        .withNativeFunction ("savePreset", [this] (const juce::Array<juce::var>& a, Completion done)
-            { if (! a.isEmpty()) savePreset (a[0].toString()); done (juce::var()); })
-        .withNativeFunction ("loadPreset", [this] (const juce::Array<juce::var>& a, Completion done)
-            { if (! a.isEmpty()) loadPreset (a[0].toString()); done (juce::var()); });
+            {
+                // A (re)loaded page starts with no tuner open, so don't leave the
+                // output muted by one from before.
+                rig.setTuner (false);
+                done (buildStateVar());
+                if (auto ready = std::exchange (onUiReady, nullptr))
+                    ready();   // the page loaded and reached the engine
+            })
+        .withNativeFunction ("loadSlot",  op ([this, arg] (auto& a) { loadSlotChooser (arg (a, 0).toString()); }))
+        // The plugins installed in the standard VST3 folders, as [{ name, path }].
+        // loadPlugin only accepts a path from the latest list (the UI can't
+        // name an arbitrary file to load and run).
+        .withNativeFunction ("listPlugins", [this] (const juce::Array<juce::var>&, Completion done)
+            {
+                scannedPlugins = PluginScanner::scan (SlotTypes::vst3Folders());
+                juce::Array<juce::var> list;
+                for (auto& p : scannedPlugins)
+                {
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("name", p.name);
+                    o->setProperty ("path", p.file.getFullPathName());
+                    list.add (juce::var (o));
+                }
+                done (list);
+            })
+        .withNativeFunction ("loadPlugin", op ([this, arg] (auto& a)
+            {
+                const juce::File chosen (arg (a, 0).toString());
+                for (auto& p : scannedPlugins)
+                    if (p.file == chosen)
+                        return loadFile (AudioEngine::vst3Slot, chosen);
+                reportError ("That plugin isn't in the list any more. Try opening the list again.");
+            }))
+        .withNativeFunction ("clearSlot", op ([this, arg] (auto& a)
+            {
+                const auto id = arg (a, 0).toString();
+                if (SlotTypes::indexForId (id) == AudioEngine::vst3Slot)
+                {
+                    editorWindow = nullptr;   // close the editor before destroying the plugin
+                    ++vstGeneration;          // and don't let a plugin still loading appear later
+                }
+                rig.clearSlot (id);
+            }))
+        .withNativeFunction ("setBypass", op ([this, arg] (auto& a) { rig.setBypass (arg (a, 0).toString(), (bool) arg (a, 1)); }))
+        .withNativeFunction ("setMix",    op ([this, arg] (auto& a) { rig.setMix  (arg (a, 0).toString(), arg (a, 1)); }))
+        .withNativeFunction ("setGain",   op ([this, arg] (auto& a) { rig.setGain (arg (a, 0).toString(), arg (a, 1)); }))
+        .withNativeFunction ("setInput",  op ([this, arg] (auto& a) { rig.setInput  (arg (a, 0)); }))
+        .withNativeFunction ("setMaster", op ([this, arg] (auto& a) { rig.setMaster (arg (a, 0)); }))
+        .withNativeFunction ("setMonitor", op ([this, arg] (auto& a) { rig.setMonitor ((bool) arg (a, 0)); }))
+        .withNativeFunction ("setGate",    op ([this, arg] (auto& a) { rig.setGate (arg (a, 0)); }))
+        .withNativeFunction ("openEditor", op ([this] (auto&) { openVstEditorWindow(); }))
+        // Audio device setup (Settings screen + first-run setup). setAudioSetup
+        // resolves with the new setup; its "error" says why a change failed.
+        .withNativeFunction ("getAudioSetup", [this] (const juce::Array<juce::var>&, Completion done)
+            {
+                auto setup = AudioSetup::describe (deviceManager, listeningToAllInputs);
+                if (auto* o = setup.getDynamicObject())
+                    o->setProperty ("error", UserText::typeset (o->getProperty ("error").toString()));
+                done (setup);
+            })
+        .withNativeFunction ("setAudioSetup", [this, arg] (const juce::Array<juce::var>& a, Completion done)
+            {
+                const auto changes = arg (a, 0);
+                const auto err = AudioSetup::apply (deviceManager, changes);
+                // Every input stays open until a change picks one (or another
+                // interface or driver); a buffer or rate change doesn't.
+                if (err.isEmpty())
+                {
+                    if ((bool) changes.getProperty ("listenToAllInputs", false))
+                        listeningToAllInputs = true;
+                    else if (changes.hasProperty ("input") || changes.hasProperty ("inputDevice") || changes.hasProperty ("driver"))
+                        listeningToAllInputs = false;
+                }
+                auto setup = AudioSetup::describe (deviceManager, listeningToAllInputs);
+                if (err.isNotEmpty())
+                    setup.getDynamicObject()->setProperty ("error", err);
+                if (auto* o = setup.getDynamicObject())
+                    o->setProperty ("error", UserText::typeset (o->getProperty ("error").toString()));
+                markDirty();
+                done (setup);
+            })
+        // Links (e.g. where to download models) open in the system browser; the
+        // WebView itself never navigates away (SEC-5). https only.
+        .withNativeFunction ("openUrl", op ([this, arg] (auto& a) { openExternalUrl (arg (a, 0).toString()); }))
+        .withNativeFunction ("playTestSound", op ([this] (auto&) { rig.playTestSound(); }))
+        .withNativeFunction ("finishSetup", op ([this, arg] (auto& a)
+            {
+                const auto start = arg (a, 0);
+                rig.finishSetup (start.isVoid() || (bool) start);   // "Skip setup" passes false
+            }))
+        .withNativeFunction ("setTuner", op ([this, arg] (auto& a) { rig.setTuner ((bool) arg (a, 0)); }))
+        .withNativeFunction ("savePreset", op ([this, arg] (auto& a) { reportError (rig.savePreset (arg (a, 0).toString())); }))
+        .withNativeFunction ("loadPreset", op ([this, arg] (auto& a) { loadPreset (arg (a, 0).toString()); }))
+        .withNativeFunction ("renamePreset", op ([this, arg] (auto& a) { reportError (rig.renamePreset (arg (a, 0).toString(), arg (a, 1).toString())); }))
+        .withNativeFunction ("deletePreset", op ([this, arg] (auto& a) { reportError (rig.deletePreset (arg (a, 0).toString())); }));
 
     web = std::make_unique<LockedWebBrowser> (options);
     addAndMakeVisible (*web);
@@ -133,8 +197,13 @@ WebUIComponent::WebUIComponent()
     setSize (1180, 760);
 
     // Restore the audio device from last session (device, rate, buffer).
-    std::unique_ptr<juce::XmlElement> savedAudio (juce::XmlDocument::parse (audioSettingsFile()));
-    setAudioChannels (2, 2, savedAudio.get());
+    if (componentOptions.openAudioDevice)
+    {
+        // One input: the guitar is mono. First-run setup listens to all of them
+        // while it finds the right one.
+        std::unique_ptr<juce::XmlElement> savedAudio (juce::XmlDocument::parse (audioSettingsFile()));
+        setAudioChannels (1, 2, savedAudio.get());
+    }
     deviceManager.addChangeListener (this);
 
     startTimerHz (30);
@@ -149,10 +218,7 @@ WebUIComponent::~WebUIComponent()
 
 juce::File WebUIComponent::audioSettingsFile() const
 {
-    auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("Tonebench");
-    dir.createDirectory();
-    return dir.getChildFile ("audio-settings.xml");
+    return AppPaths::dataDir().getChildFile ("audio-settings.xml");
 }
 
 void WebUIComponent::changeListenerCallback (juce::ChangeBroadcaster*)
@@ -166,71 +232,18 @@ void WebUIComponent::changeListenerCallback (juce::ChangeBroadcaster*)
 //==============================================================================
 void WebUIComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate)
 {
-    const int alloc = juce::jmax (samplesPerBlockExpected, kMinBlockAlloc);
-    monoBuffer.setSize (1, alloc, false, false, true);
-    engine.prepare (sampleRate, alloc);
+    rig.getAudio().prepare (samplesPerBlockExpected, sampleRate);
     markDirty();
 }
 
 void WebUIComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
 {
-    auto* buffer = bufferToFill.buffer;
-    const int start = bufferToFill.startSample;
-    const int num = bufferToFill.numSamples;
-    const int numOut = buffer->getNumChannels();
-
-    if (! monitorOn.load (std::memory_order_relaxed) || num > monoBuffer.getNumSamples())
-    {
-        bufferToFill.clearActiveBufferRegion();
-        inPeak.store (0.0f); outPeak.store (0.0f);
-        return;
-    }
-
-    monoBuffer.copyFrom (0, 0, *buffer, 0, start, num);
-    const float ig = inputGain.load (std::memory_order_relaxed);
-    if (ig != 1.0f)
-        monoBuffer.applyGain (0, 0, num, ig);
-    inPeak.store (monoBuffer.getMagnitude (0, 0, num), std::memory_order_relaxed);
-
-    float* chans[1] = { monoBuffer.getWritePointer (0) };
-    juce::AudioBuffer<float> work (chans, 1, num);
-    engine.processBlock (work);
-
-    const float g = masterGain.load (std::memory_order_relaxed);
-    for (int ch = 0; ch < numOut; ++ch)
-    {
-        buffer->copyFrom (ch, start, work, 0, 0, num);
-        buffer->applyGain (ch, start, num, g);
-    }
-    outPeak.store (work.getMagnitude (0, 0, num) * g, std::memory_order_relaxed);
-
-    // Push decimated signed peaks of the output to the scope, gated by input
-    // presence (no input -> flat, so nothing appears to flow downstream).
-    {
-        const bool gateOpen = inPeak.load (std::memory_order_relaxed) > 0.008f;
-        int start1, size1, start2, size2;
-        const int buckets = juce::jmax (1, num / 42);        // ~3 per 128-sample block
-        scopeFifo.prepareToWrite (buckets, start1, size1, start2, size2);
-        const int toWrite = juce::jmin (buckets, size1 + size2);
-        const int stride = juce::jmax (1, num / juce::jmax (1, buckets));
-        const auto* od = work.getReadPointer (0);
-        for (int b = 0; b < toWrite; ++b)
-        {
-            float peak = 0.0f;
-            const int s = b * stride, e = juce::jmin (num, s + stride);
-            for (int i = s; i < e; ++i)
-                if (std::abs (od[i]) > std::abs (peak)) peak = od[i];
-            const float v = gateOpen ? peak * g : 0.0f;
-            if (b < size1) scopeRing[(size_t) (start1 + b)] = v;
-            else           scopeRing[(size_t) (start2 + (b - size1))] = v;
-        }
-        scopeFifo.finishedWrite (toWrite);
-    }
+    rig.getAudio().process (*bufferToFill.buffer, bufferToFill.startSample, bufferToFill.numSamples);
 }
 
 void WebUIComponent::releaseResources()
 {
-    engine.releaseResources();
+    rig.getAudio().release();
 }
 
 void WebUIComponent::resized()
@@ -247,8 +260,9 @@ void WebUIComponent::timerCallback()
     {
         s = target > s ? target : s * 0.80f + target * 0.20f;
     };
-    smooth (smoothedIn, inPeak.load (std::memory_order_relaxed));
-    smooth (smoothedOut, outPeak.load (std::memory_order_relaxed));
+    auto& audio = rig.getAudio();
+    smooth (smoothedIn, audio.takeInputPeak());
+    smooth (smoothedOut, audio.takeOutputPeak());
 
    #if JUCE_DEBUG
     if (! didAutoLoad && ++ticks >= 4)
@@ -264,19 +278,25 @@ void WebUIComponent::timerCallback()
     auto* mo = new juce::DynamicObject();
     mo->setProperty ("inputLevel", smoothedIn);
     mo->setProperty ("outputLevel", smoothedOut);
-    mo->setProperty ("playing", monitorOn.load());
+    mo->setProperty ("playing", audio.isMonitoring());
+
+    // Raw level of each input the device has open, for first-run setup.
+    juce::Array<juce::var> inputPeaks;
+    if (auto* dev = deviceManager.getCurrentAudioDevice())
+        for (int ch = 0; ch < juce::jmin (dev->getActiveInputChannels().countNumberOfSetBits(), AudioPath::maxChannelMeters); ++ch)
+            inputPeaks.add (audio.takeChannelPeak (ch));
+    mo->setProperty ("inputPeaks", inputPeaks);
+    mo->setProperty ("tuner", audio.getTuner().isActive() ? rig.readTuner() : juce::var());
     web->emitEventIfBrowserIsVisible ("meters", juce::var (mo));
 
-    // Drain the scope ring and push the live waveform to the UI.
-    if (const int ready = scopeFifo.getNumReady(); ready > 0)
+    // Drain the scope feed and push the live waveform to the UI.
+    scopeScratch.clear();
+    audio.drainScope (scopeScratch);
+    if (! scopeScratch.empty())
     {
-        int start1, size1, start2, size2;
-        scopeFifo.prepareToRead (ready, start1, size1, start2, size2);
         juce::Array<juce::var> pts;
-        pts.ensureStorageAllocated (ready);
-        for (int i = 0; i < size1; ++i) pts.add (scopeRing[(size_t) (start1 + i)]);
-        for (int i = 0; i < size2; ++i) pts.add (scopeRing[(size_t) (start2 + i)]);
-        scopeFifo.finishedRead (ready);
+        pts.ensureStorageAllocated ((int) scopeScratch.size());
+        for (float v : scopeScratch) pts.add (v);
         web->emitEventIfBrowserIsVisible ("scope", juce::var (pts));
     }
 
@@ -288,61 +308,22 @@ void WebUIComponent::timerCallback()
 }
 
 //==============================================================================
-static juce::var slotVar (AudioEngine& engine, int idx, const char* type)
+RigController::DeviceInfo WebUIComponent::currentDeviceInfo() const
 {
-    auto* o = new juce::DynamicObject();
-    auto* node = engine.getNode (idx);
-    const bool loaded = node != nullptr;
-    o->setProperty ("type", type);
-    o->setProperty ("loaded", loaded);
-    o->setProperty ("name", loaded ? node->getSourceName() : juce::String());
-    o->setProperty ("bypassed", loaded && node->isBypassed());
-    if (auto* ir = dynamic_cast<IRNode*> (node))   o->setProperty ("mix", (double) ir->getMix());
-    if (auto* nam = dynamic_cast<NamNode*> (node))  o->setProperty ("gain", (double) nam->getUiGain());
-    if (juce::String (type) == "vst3")             o->setProperty ("hasEditor", loaded);
-    return juce::var (o);
-}
-
-juce::var WebUIComponent::buildStateVar()
-{
-    auto* o = new juce::DynamicObject();
-
+    RigController::DeviceInfo info;
     if (auto* dev = deviceManager.getCurrentAudioDevice())
     {
-        const double sr = dev->getCurrentSampleRate();
-        o->setProperty ("device", dev->getName());
-        o->setProperty ("sampleRate", sr);
-        o->setProperty ("bufferSize", dev->getCurrentBufferSizeSamples());
-        o->setProperty ("roundTripMs", sr > 0 ? (dev->getInputLatencyInSamples() + dev->getOutputLatencyInSamples()) / sr * 1000.0 : 0.0);
+        info.name = dev->getName();
+        info.sampleRate = dev->getCurrentSampleRate();
+        info.bufferSize = dev->getCurrentBufferSizeSamples();
+        info.roundTripMs = AudioSetup::roundTripMs (*dev);   // the same figure Settings shows
     }
-    else
-    {
-        o->setProperty ("device", "No device");
-        o->setProperty ("sampleRate", 0);
-        o->setProperty ("bufferSize", 0);
-        o->setProperty ("roundTripMs", 0);
-    }
+    return info;
+}
 
-    o->setProperty ("monitoring", monitorOn.load());
-    o->setProperty ("inputGain", (double) inputGain.load());
-    o->setProperty ("masterGain", (double) masterGain.load());
-    o->setProperty ("playing", monitorOn.load());
-    o->setProperty ("inputLevel", smoothedIn);
-    o->setProperty ("outputLevel", smoothedOut);
-
-    auto* slots = new juce::DynamicObject();
-    slots->setProperty ("vst3", slotVar (engine, AudioEngine::vst3Slot, "vst3"));
-    slots->setProperty ("nam",  slotVar (engine, AudioEngine::namSlot,  "nam"));
-    slots->setProperty ("ir",   slotVar (engine, AudioEngine::irSlot,   "ir"));
-    o->setProperty ("slots", juce::var (slots));
-
-    juce::Array<juce::var> presets;
-    for (auto& f : Preset::presetsDir().findChildFiles (juce::File::findFiles, false, "*.tonebench"))
-        presets.add (f.getFileNameWithoutExtension());
-    o->setProperty ("presets", presets);
-    o->setProperty ("activePreset", activePreset.isEmpty() ? juce::var() : juce::var (activePreset));
-
-    return juce::var (o);
+juce::var WebUIComponent::buildStateVar() const
+{
+    return rig.buildState (currentDeviceInfo(), smoothedIn, smoothedOut);
 }
 
 //==============================================================================
@@ -360,12 +341,16 @@ void WebUIComponent::loadSlotChooser (const juce::String& type)
     {
         const auto file = fc.getResult();
         if (idx == AudioEngine::vst3Slot ? file.exists() : file.existsAsFile())
-        {
-            if      (idx == AudioEngine::vst3Slot) doLoadVst (file);
-            else if (idx == AudioEngine::namSlot)  doLoadNam (file);
-            else                                   doLoadIR  (file);
-        }
+            loadFile (idx, file);
     });
+}
+
+void WebUIComponent::loadFile (int slot, const juce::File& file)
+{
+    if (slot == AudioEngine::vst3Slot) doLoadVst (file);
+    else if (slot == AudioEngine::namSlot) reportError (rig.loadNam (file));
+    else reportError (rig.loadIR (file));
+    markDirty();
 }
 
 void WebUIComponent::doLoadVst (const juce::File& file)
@@ -374,60 +359,30 @@ void WebUIComponent::doLoadVst (const juce::File& file)
     auto node = std::make_unique<Vst3Node>();
     auto* raw = node.get();
     pendingVst = std::move (node);
+    const int gen = ++vstGeneration;
 
+    auto& engine = rig.getEngine();
     const double sr = engine.isPrepared() ? engine.getSampleRate() : 48000.0;
     const int block = engine.isPrepared() ? engine.getMaxBlockSize() : 512;
 
-    raw->loadAsync (file, sr, block, [this, raw] (bool ok, juce::String err)
+    raw->loadAsync (file, sr, block, [this, raw, gen] (bool ok, juce::String err)
     {
-        if (ok)
-            engine.setNode (AudioEngine::vst3Slot, std::move (pendingVst));
-        else
-        {
-            pendingVst.reset();
-            emitError ("Could not load plugin: " + (err.isNotEmpty() ? err : juce::String ("unknown error")));
-        }
-        juce::ignoreUnused (raw);
-        markDirty();
+        finishVstLoad (raw, gen, ok, err, {}, true);
     });
 }
 
-void WebUIComponent::doLoadNam (const juce::File& file)
+void WebUIComponent::reportError (const juce::String& message)
 {
-    auto nam = std::make_unique<NamNode>();
-    juce::String err;
-    if (nam->loadFile (file, err))
-        engine.setNode (AudioEngine::namSlot, std::move (nam));
-    else
-        emitError ("Could not load NAM model: " + (err.isNotEmpty() ? err : juce::String ("unknown error")));
-    markDirty();
-}
-
-void WebUIComponent::doLoadIR (const juce::File& file)
-{
-    auto ir = std::make_unique<IRNode>();
-    if (ir->loadFile (file))
-        engine.setNode (AudioEngine::irSlot, std::move (ir));
-    else
-        emitError ("Could not load impulse response: " + file.getFileName());
-    markDirty();
-}
-
-void WebUIComponent::emitError (const juce::String& message)
-{
-    // C++ -> JS failure channel. TODO(phase3): the React UI should subscribe to this
-    // "error" event and show a toast; for now we only emit it here so load failures
-    // are no longer silently dropped (code-review finding C).
-    if (web == nullptr)
+    if (web == nullptr || message.isEmpty())
         return;
     auto* o = new juce::DynamicObject();
-    o->setProperty ("message", message);
+    o->setProperty ("message", UserText::typeset (message));
     web->emitEventIfBrowserIsVisible ("error", juce::var (o));
 }
 
 void WebUIComponent::openVstEditorWindow()
 {
-    auto* vst = dynamic_cast<Vst3Node*> (engine.getNode (AudioEngine::vst3Slot));
+    auto* vst = dynamic_cast<Vst3Node*> (rig.getEngine().getNode (AudioEngine::vst3Slot));
     if (vst == nullptr || vst->getInstance() == nullptr)
         return;
 
@@ -437,32 +392,54 @@ void WebUIComponent::openVstEditorWindow()
                                                          [this] { editorWindow = nullptr; });
 }
 
-void WebUIComponent::openAudioSettings()
+void WebUIComponent::openExternalUrl (const juce::String& url)
 {
-    auto selector = std::make_unique<juce::AudioDeviceSelectorComponent> (
-        deviceManager, 1, 2, 1, 2, false, false, true, false);
-    selector->setSize (460, 360);
-
-    juce::DialogWindow::LaunchOptions o;
-    o.content.setOwned (selector.release());
-    o.dialogTitle = "Audio Settings";
-    o.dialogBackgroundColour = juce::Colour (0xff141210);
-    o.escapeKeyTriggersCloseButton = true;
-    o.useNativeTitleBar = true;
-    o.resizable = false;
-    o.launchAsync();
+    if (ExternalLinks::isOpenable (url))
+        juce::URL (url).launchInDefaultBrowser();
 }
 
-void WebUIComponent::savePreset (const juce::String& name)
+void WebUIComponent::openAudioSettings()
 {
-    const auto file = presetFileFor (name);   // SEC-2
-    if (file == juce::File())
+    // The Settings screen is part of the React UI; ask it to open.
+    if (web != nullptr)
+        web->emitEventIfBrowserIsVisible ("showSettings", juce::var());
+}
+
+void WebUIComponent::finishVstLoad (Vst3Node* node, int gen, bool ok, const juce::String& err,
+                                    const juce::String& state, bool enabled)
+{
+    // Only the plugin we're waiting for counts. (A replaced one is destroyed with
+    // its pending callback, but don't rely on that.)
+    if (node == nullptr || pendingVst.get() != node)
+        return;
+
+    // This runs inside the node's own completion callback, so don't destroy it
+    // here: hand it on, or drop it on a later message.
+    std::unique_ptr<Vst3Node> loaded (pendingVst.release());
+    auto dropLater = [&loaded]
     {
-        emitError ("Invalid preset name.");
+        juce::MessageManager::callAsync ([n = std::shared_ptr<Vst3Node> (loaded.release())] {});
+    };
+    if (gen != vstGeneration)
+    {
+        dropLater();   // superseded by a newer load
         return;
     }
-    if (Preset::save (file, engine, masterGain.load(), engine.getSampleRate(), name))
-        activePreset = name;
+    rig.setPresetPluginPending (false);
+
+    if (ok)
+    {
+        loaded->setStateBase64 (state);
+        loaded->setBypassed (! enabled);
+        editorWindow = nullptr;   // an editor reopened on the old plugin meanwhile
+        rig.installVst (std::move (loaded));
+    }
+    else
+    {
+        dropLater();
+        reportError ("Couldn't load the plugin \"" + node->getSourceFile().getFileName() + "\"."
+                     + (err.isNotEmpty() ? " " + err : juce::String()));
+    }
     markDirty();
 }
 
@@ -471,71 +448,64 @@ void WebUIComponent::loadPreset (const juce::String& name)
     // Close any open plugin editor BEFORE the preset load clears slots (which
     // destroys the current VST3 instance) — a live editor on a freed instance crashes.
     editorWindow = nullptr;
+    ++vstGeneration;   // any plugin still loading belongs to the old rig
+    rig.setPresetPluginPending (false);
+    reportError (rig.loadPreset (name, [this] (const Preset::VstSlot& v) { startVstFromPreset (v); }));
+}
 
-    const auto file = presetFileFor (name);   // SEC-2
-    if (file == juce::File())
+void WebUIComponent::startVstFromPreset (const Preset::VstSlot& v)
+{
+    // SEC-3: a shared preset can name an arbitrary .vst3 bundle; loading one is
+    // arbitrary code execution inside this mic-privileged process. Require the
+    // bundle to exist and get explicit, path-naming user consent before we
+    // dlopen/instantiate it. Decline => skip the slot.
+    if (! v.path.exists())
     {
-        emitError ("Invalid preset name.");
+        rig.setPresetPluginPending (false);
+        reportError ("This preset uses a plugin that isn't on this computer, so the plugin slot is empty: "
+                     + v.path.getFullPathName());
         return;
     }
 
-    Preset::RigInfo info;
-    const bool ok = Preset::load (file, engine, engine.getSampleRate(), engine.getMaxBlockSize(), info,
-        [this] (const Preset::VstSlot& v)
-        {
-            // SEC-3: a shared preset can name an arbitrary .vst3 bundle; loading one
-            // is arbitrary code execution inside this mic-privileged process. Require
-            // the bundle to exist and get explicit, path-naming user consent before we
-            // dlopen/instantiate it. Decline => skip the slot.
-            if (! v.path.exists())
-            {
-                emitError ("Preset references a missing plugin:\n" + v.path.getFullPathName());
-                return;
-            }
+    const int presetGen = vstGeneration;   // loadPreset bumped it just before this
+    rig.setPresetPluginPending (true);
 
-            auto startLoad = [this, v]
-            {
-                auto node = std::make_unique<Vst3Node>();
-                auto* raw = node.get();
-                pendingVst = std::move (node);
-                const juce::String state = v.stateBase64;
-                raw->loadAsync (v.path, engine.getSampleRate(), engine.getMaxBlockSize(),
-                    [this, raw, state, enabled = v.enabled] (bool loaded, juce::String err)
-                    {
-                        if (loaded)
-                        {
-                            raw->setStateBase64 (state);
-                            raw->setBypassed (! enabled);
-                            engine.setNode (AudioEngine::vst3Slot, std::move (pendingVst));
-                        }
-                        else
-                        {
-                            pendingVst.reset();
-                            emitError ("Could not load plugin: " + (err.isNotEmpty() ? err : juce::String ("unknown error")));
-                        }
-                        markDirty();
-                    });
-            };
-
-            const auto message = "This preset wants to load a VST3 plugin, which runs "
-                                 "third-party code inside Tonebench:\n\n"
-                                 + v.path.getFullPathName()
-                                 + "\n\nOnly continue if you trust the source of this preset.";
-            juce::AlertWindow::showOkCancelBox (
-                juce::MessageBoxIconType::WarningIcon, "Load plugin from preset?", message,
-                "Load plugin", "Cancel", nullptr,
-                juce::ModalCallbackFunction::create ([startLoad] (int result)
-                {
-                    if (result == 1) startLoad();   // 1 == first button ("Load plugin")
-                }));
-        });
-
-    if (ok)
+    auto startLoad = [this, v, presetGen]
     {
-        masterGain.store (info.masterGain);
-        activePreset = name;
-    }
-    markDirty();
+        if (presetGen != vstGeneration)
+            return;   // another preset or plugin was loaded while the prompt was open
+
+        auto node = std::make_unique<Vst3Node>();
+        auto* raw = node.get();
+        pendingVst = std::move (node);
+        const int gen = ++vstGeneration;
+        auto& engine = rig.getEngine();
+        const double sr = engine.isPrepared() ? engine.getSampleRate() : 48000.0;   // M3: never 0/0
+        const int block = engine.isPrepared() ? engine.getMaxBlockSize() : 512;
+        raw->loadAsync (v.path, sr, block,
+            [this, raw, gen, state = v.stateBase64, enabled = v.enabled] (bool loaded, juce::String err)
+            {
+                finishVstLoad (raw, gen, loaded, err, state, enabled);
+            });
+    };
+
+    const auto message = UserText::typeset ("This preset uses a VST3 plugin:\n\n"
+                         + v.path.getFullPathName()
+                         + "\n\nA plugin is a program, and it runs inside Tonebench. Only load it if "
+                           "you trust whoever made this preset. The rest of the preset has already loaded.");
+    juce::AlertWindow::showOkCancelBox (
+        juce::MessageBoxIconType::WarningIcon, "Load the plugin in this preset?", message,
+        "Load plugin", "Skip plugin", nullptr,
+        juce::ModalCallbackFunction::create ([startLoad, done = [this, presetGen]
+                                              {
+                                                  if (presetGen == vstGeneration)
+                                                      rig.setPresetPluginPending (false);
+                                                  markDirty();
+                                              }] (int result)
+        {
+            if (result == 1) startLoad();   // 1 == first button ("Load plugin")
+            else done();
+        }));
 }
 
 //==============================================================================
@@ -546,17 +516,16 @@ void WebUIComponent::devAutoLoad()
     // executes) whatever paths the sentinel names, so it must NEVER exist in a
     // release build, and the sentinel lives in the app-private data dir — not
     // world-writable /tmp, where any local process could plant a malicious entry.
-    const auto sentinel = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                              .getChildFile ("Tonebench").getChildFile ("tonebench_autoload.txt");
+    const auto sentinel = AppPaths::dataDir().getChildFile ("tonebench_autoload.txt");
     if (! sentinel.existsAsFile())
         return;
 
     for (auto& line : juce::StringArray::fromLines (sentinel.loadFileAsString()))
     {
         const auto t = line.trim();
-        if (t.startsWith ("vst=")) doLoadVst (juce::File (t.fromFirstOccurrenceOf ("vst=", false, false)));
-        else if (t.startsWith ("nam=")) doLoadNam (juce::File (t.fromFirstOccurrenceOf ("nam=", false, false)));
-        else if (t.startsWith ("ir="))  doLoadIR  (juce::File (t.fromFirstOccurrenceOf ("ir=", false, false)));
+        if (t.startsWith ("vst=")) loadFile (AudioEngine::vst3Slot, juce::File (t.fromFirstOccurrenceOf ("vst=", false, false)));
+        else if (t.startsWith ("nam=")) loadFile (AudioEngine::namSlot, juce::File (t.fromFirstOccurrenceOf ("nam=", false, false)));
+        else if (t.startsWith ("ir="))  loadFile (AudioEngine::irSlot, juce::File (t.fromFirstOccurrenceOf ("ir=", false, false)));
     }
 }
 #endif

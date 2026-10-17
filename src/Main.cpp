@@ -1,5 +1,6 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "ui/WebUIComponent.h"
+#include <iostream>
 
 //==============================================================================
 class TonebenchApplication : public juce::JUCEApplication,
@@ -7,22 +8,42 @@ class TonebenchApplication : public juce::JUCEApplication,
 {
 public:
     const juce::String getApplicationName() override    { return "Tonebench"; }
-    const juce::String getApplicationVersion() override { return "0.1.0"; }
+    const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
     bool moreThanOneInstanceAllowed() override          { return false; }
 
-    void initialise (const juce::String&) override
+    void initialise (const juce::String& commandLine) override
     {
+        // --smoke: open the window without an audio device, wait for the React UI
+        // to load and reach the engine over the bridge, then quit. Exit code 0 if
+        // it did within the timeout, 1 if not. CI runs this on every OS: it's the
+        // only test that boots the real WebView.
+        if (commandLine.contains ("--smoke"))
+        {
+            WebUIComponent::Options opts;
+            opts.openAudioDevice = false;
+            opts.onUiReady = [this]
+            {
+                std::cout << "SMOKE OK: UI loaded and reached the engine" << std::endl;
+                setApplicationReturnValue (0);
+                quit();
+            };
+            mainWindow.reset (new MainWindow ("Tonebench", *this, std::move (opts)));
+            smokeTimeout = std::make_unique<SmokeTimeout> (*this);
+            return;
+        }
+
         mainWindow.reset (new MainWindow ("Tonebench", *this));
 
        #if JUCE_MAC
         juce::PopupMenu appleExtras;
-        appleExtras.addItem (menuSettings, "Settings...");
+        appleExtras.addItem (menuSettings, juce::String::fromUTF8 ("Settings\xe2\x80\xa6"));
         setMacMainMenu (this, &appleExtras);
        #endif
     }
 
     void shutdown() override
     {
+        smokeTimeout = nullptr;
        #if JUCE_MAC
         setMacMainMenu (nullptr);
        #endif
@@ -32,21 +53,13 @@ public:
     void systemRequestedQuit() override { quit(); }
 
     //== MenuBarModel ==========================================================
-    enum MenuIDs { menuSettings = 1, menuSavePreset, menuQuit };
+    enum MenuIDs { menuSettings = 1 };
 
-    juce::StringArray getMenuBarNames() override { return { "File" }; }
+    // Settings and Quit live in the app menu (setMacMainMenu's extras), as on any
+    // Mac app, so there's no File menu.
+    juce::StringArray getMenuBarNames() override { return {}; }
 
-    juce::PopupMenu getMenuForIndex (int, const juce::String& name) override
-    {
-        juce::PopupMenu menu;
-        if (name == "File")
-        {
-            menu.addItem (menuSettings, "Audio Settings...");
-            menu.addSeparator();
-            menu.addItem (menuQuit, "Quit Tonebench");
-        }
-        return menu;
-    }
+    juce::PopupMenu getMenuForIndex (int, const juce::String&) override { return {}; }
 
     void menuItemSelected (int menuItemID, int) override
     {
@@ -57,9 +70,6 @@ public:
                     if (auto* ui = mainWindow->getWebUI())
                         ui->openAudioSettings();
                 break;
-            case menuQuit:
-                quit();
-                break;
             default: break;
         }
     }
@@ -68,11 +78,12 @@ public:
     class MainWindow : public juce::DocumentWindow
     {
     public:
-        MainWindow (const juce::String& name, JUCEApplication& appToUse)
+        MainWindow (const juce::String& name, JUCEApplication& appToUse,
+                    WebUIComponent::Options options = {})
             : DocumentWindow (name, juce::Colour (0xff141210), DocumentWindow::allButtons),
               app (appToUse)
         {
-            auto* content = new WebUIComponent();
+            auto* content = new WebUIComponent (std::move (options));
             webUI = content;
 
             setUsingNativeTitleBar (true);
@@ -93,7 +104,21 @@ public:
     };
 
 private:
+    struct SmokeTimeout final : juce::Timer
+    {
+        explicit SmokeTimeout (TonebenchApplication& a) : app (a) { startTimer (30000); }
+        void timerCallback() override
+        {
+            stopTimer();
+            std::cout << "SMOKE FAIL: the UI didn't reach the engine within 30 s" << std::endl;
+            app.setApplicationReturnValue (1);
+            app.quit();
+        }
+        TonebenchApplication& app;
+    };
+
     std::unique_ptr<MainWindow> mainWindow;
+    std::unique_ptr<SmokeTimeout> smokeTimeout;
 };
 
 //==============================================================================

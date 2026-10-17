@@ -61,6 +61,8 @@ void operator delete (void* p, const std::nothrow_t&) noexcept   { std::free (p)
 void operator delete[] (void* p, const std::nothrow_t&) noexcept { std::free (p); }
 
 //==============================================================================
+namespace
+{
 namespace sig
 {
 juce::AudioBuffer<float> impulse (double, int len)
@@ -159,14 +161,13 @@ bool saveMono (const juce::File& f, const juce::AudioBuffer<float>& b, double sr
 {
     f.deleteFile();
     juce::WavAudioFormat fmt;
-    if (auto out = std::unique_ptr<juce::FileOutputStream> (f.createOutputStream()))
-    {
-        std::unique_ptr<juce::AudioFormatWriter> w (fmt.createWriterFor (out.get(), sr, 1, 24, {}, 0));
-        if (w == nullptr) return false;
-        out.release();
-        return w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
-    }
-    return false;
+    std::unique_ptr<juce::OutputStream> out (f.createOutputStream().release());
+    if (out == nullptr)
+        return false;
+    auto w = fmt.createWriterFor (out, juce::AudioFormatWriterOptions{}.withSampleRate (sr)
+                                                                      .withNumChannels (1)
+                                                                      .withBitsPerSample (24));
+    return w != nullptr && w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
 }
 } // namespace io
 
@@ -248,8 +249,6 @@ juce::AudioBuffer<float> renderThroughEngine (AudioEngine& engine,
 }
 
 //==============================================================================
-namespace
-{
 std::map<juce::String, juce::String> parseArgs (int argc, char** argv, int from)
 {
     std::map<juce::String, juce::String> m;
@@ -287,10 +286,20 @@ juce::AudioBuffer<float> synthIRBuffer()
     return ir;
 }
 
+// Scratch files the self-test writes. Under the user's app-data folder, not the
+// temp dir: on Linux that's the shared /tmp, which presets may not load from (SEC-3).
+juce::File scratchDir()
+{
+    auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                 .getChildFile ("tonebench-selftest");
+    d.createDirectory();
+    return d;
+}
+
 juce::File makeSyntheticIR (double sr)
 {
     auto ir = synthIRBuffer();
-    auto f = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("tonebench_test_ir.wav");
+    auto f = scratchDir().getChildFile ("tonebench_test_ir.wav");
     io::saveMono (f, ir, sr);
     return f;
 }
@@ -540,7 +549,8 @@ int runSelfTest (bool strict)
 
         const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
                                           .getChildFile ("tonebench_test_ir_preset.tonebench");
-        const bool saved = Preset::save (presetFile, original, 0.65f, sr, "IR Only");
+        Preset::RigInfo saveInfo; saveInfo.masterGain = 0.65f; saveInfo.sampleRateAtSave = sr; saveInfo.name = "IR Only";
+        const bool saved = Preset::save (presetFile, original, saveInfo);
 
         AudioEngine restored; restored.prepare (sr, block);
         Preset::RigInfo info;
@@ -665,11 +675,10 @@ int runSelfTest (bool strict)
         }
         else
         {
-            // Copy the model under the per-user temp dir so Preset's SEC-3
-            // allow-list accepts the referenced path on any machine (incl. CI,
-            // where the checkout may live outside the user's home).
-            const juce::File namFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                           .getChildFile ("tonebench_test_model.nam");
+            // Copy the model into the scratch dir so Preset's SEC-3 allow-list
+            // accepts the referenced path on any machine (incl. CI, where the
+            // checkout may live outside the user's home).
+            const juce::File namFile = scratchDir().getChildFile ("tonebench_test_model.nam");
             model.copyFileTo (namFile);
             const juce::File irFile = makeSyntheticIR (sr);
 
@@ -689,7 +698,8 @@ int runSelfTest (bool strict)
 
             const juce::File presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
                                               .getChildFile ("tonebench_test_preset.tonebench");
-            const bool saved = Preset::save (presetFile, original, 0.7f, sr, "Test Rig");
+            Preset::RigInfo saveInfo; saveInfo.masterGain = 0.7f; saveInfo.sampleRateAtSave = sr; saveInfo.name = "Test Rig";
+            const bool saved = Preset::save (presetFile, original, saveInfo);
 
             AudioEngine restored;
             restored.prepare (sr, block);
@@ -919,7 +929,7 @@ int runRender (int argc, char** argv)
     if (args.count ("in"))
     {
         input = io::loadMono (juce::File (args["in"]), inSr);
-        if (inSr != sr) std::cout << "note: input file is " << inSr << " Hz, bench running at " << sr << " Hz\n";
+        if (! juce::approximatelyEqual (inSr, sr)) std::cout << "note: input file is " << inSr << " Hz, bench running at " << sr << " Hz\n";
     }
     else
     {

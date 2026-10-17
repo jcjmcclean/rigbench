@@ -1,8 +1,10 @@
 #include "Preset.h"
+#include "AppPaths.h"
 #include "IRNode.h"
 #include "NamNode.h"
 #include "Vst3Node.h"
 #include "SlotTypes.h"
+#include <cmath>
 
 namespace Preset
 {
@@ -14,39 +16,81 @@ namespace
 // information-disclosure vector (VST3 is full arbitrary-code-execution and is
 // gated separately with a consent prompt in the UI layer). Constrain preset-
 // referenced content files to locations the user actually controls — their home
-// directory, the app-data dir, and the PER-USER (private, mode-0700) temp dir —
-// which rejects world-writable /tmp, system dirs, and other users' homes.
+// directory, the app-data dir, a per-user temp dir, and external drives — which
+// rejects world-writable /tmp, system folders, and installed programs.
 bool isAllowedContentPath (const juce::File& f)
 {
     if (! f.existsAsFile())
         return false;
 
     const auto home    = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
-    const auto temp    = juce::File::getSpecialLocation (juce::File::tempDirectory);
     const auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
-    return f.isAChildOf (home) || f.isAChildOf (temp) || f.isAChildOf (appData);
+    if (f.isAChildOf (home) || f.isAChildOf (appData))
+        return true;
+
+    // The temp dir only when it's private to this user: on Linux JUCE falls back
+    // to the shared, world-writable /tmp.
+    const auto temp = juce::File::getSpecialLocation (juce::File::tempDirectory);
+    if (f.isAChildOf (temp) && temp != juce::File ("/tmp"))
+        return true;
+
+    // Sample libraries often live on another drive.
+   #if JUCE_MAC
+    // An external drive, but not the boot volume's "/Volumes/Macintosh HD" link,
+    // which would let a preset reach any file on the Mac.
+    const juce::File volumes ("/Volumes");
+    if (! f.isAChildOf (volumes))
+        return false;
+    auto vol = f;
+    while (vol.getParentDirectory() != volumes)
+        vol = vol.getParentDirectory();
+    return ! vol.isSymbolicLink();
+   #elif JUCE_LINUX
+    return f.isAChildOf (juce::File ("/media")) || f.isAChildOf (juce::File ("/mnt"))
+        || f.isAChildOf (juce::File ("/run/media"));
+   #elif JUCE_WINDOWS
+    // Any drive, but not Windows itself or installed programs.
+    const auto windows = juce::File::getSpecialLocation (juce::File::windowsSystemDirectory).getParentDirectory();
+    const auto programs = juce::File::getSpecialLocation (juce::File::globalApplicationsDirectory);
+    const auto programsX86 = juce::File::getSpecialLocation (juce::File::globalApplicationsDirectoryX86);
+    return ! f.isAChildOf (windows) && ! f.isAChildOf (programs) && ! f.isAChildOf (programsX86);
+   #else
+    return false;
+   #endif
+}
+
+// "the amp model", "the cab IR": how a slot is named in messages to the user.
+juce::String describeSlot (int index)
+{
+    switch (index)
+    {
+        case AudioEngine::vst3Slot: return "the plugin";
+        case AudioEngine::namSlot:  return "the amp model";
+        case AudioEngine::irSlot:   return "the cab IR";
+        default:                    return "a slot";
+    }
 }
 } // namespace
 
 juce::File presetsDir()
 {
-    auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                 .getChildFile ("Tonebench").getChildFile ("Presets");
+    auto d = AppPaths::dataDir().getChildFile ("Presets");
     d.createDirectory();
     return d;
 }
 
-bool save (const juce::File& file, const AudioEngine& engine,
-           float masterGain, double sampleRate, const juce::String& name)
+bool save (const juce::File& file, const AudioEngine& engine, const RigInfo& info)
 {
     auto root = std::make_unique<juce::DynamicObject>();
     root->setProperty ("format", "tonebench-preset");
     root->setProperty ("schemaVersion", 1);
-    root->setProperty ("name", name.isNotEmpty() ? name : file.getFileNameWithoutExtension());
+    root->setProperty ("name", info.name.isNotEmpty() ? info.name : file.getFileNameWithoutExtension());
 
     auto io = std::make_unique<juce::DynamicObject>();
-    io->setProperty ("masterGain", masterGain);
-    io->setProperty ("sampleRateAtSave", sampleRate);
+    io->setProperty ("inputGain", info.inputGain);
+    io->setProperty ("masterGain", info.masterGain);
+    io->setProperty ("gate", info.gate);
+    io->setProperty ("sampleRateAtSave", info.sampleRateAtSave);
     root->setProperty ("io", juce::var (io.release()));
 
     juce::Array<juce::var> chain;
@@ -69,6 +113,7 @@ bool save (const juce::File& file, const AudioEngine& engine,
         else if (auto* nam = dynamic_cast<NamNode*> (node))
         {
             s->setProperty ("path", nam->getSourceFile().getFullPathName());
+            s->setProperty ("level", (double) nam->getUiGain());
         }
         else if (auto* vst = dynamic_cast<Vst3Node*> (node))
         {
@@ -101,8 +146,18 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
     if (schemaVersion != 1)
         return false;
 
+    // Gains come from a shared file: clamp to the 0..1 the UI works in, and fall
+    // back to the default for anything non-finite.
+    auto unit = [] (const juce::var& v, double fallback)
+    {
+        const double d = v.isVoid() ? fallback : (double) v;
+        return (float) (std::isfinite (d) ? juce::jlimit (0.0, 1.0, d) : fallback);
+    };
+
     const auto ioVar = root.getProperty ("io", juce::var());
-    info.masterGain      = (float) (double) ioVar.getProperty ("masterGain", 0.8);
+    info.inputGain       = unit (ioVar.getProperty ("inputGain", {}), 0.8);
+    info.masterGain      = unit (ioVar.getProperty ("masterGain", {}), 0.8);
+    info.gate            = unit (ioVar.getProperty ("gate", {}), 0.0);
     info.sampleRateAtSave = (double) ioVar.getProperty ("sampleRateAtSave", sampleRate);
     info.name            = root.getProperty ("name", {}).toString();
 
@@ -117,44 +172,68 @@ bool load (const juce::File& file, AudioEngine& engine, double sampleRate, int m
 
     for (const auto& s : *arr)
     {
-        const int slot      = (int) s.getProperty ("slot", -1);
-        const auto type     = s.getProperty ("type", {}).toString();
-        const bool enabled  = (bool) s.getProperty ("enabled", true);
-        if (slot < 0 || slot >= AudioEngine::numSlots)
+        if (! s.isObject())
             continue;
 
-        // Resolve the type string against the single slot-type table (SlotTypes.h).
+        // The type decides the slot (SlotTypes.h is the single table); the "slot"
+        // field is only sanity-checked, so a preset can't put an amp model in the
+        // cab slot.
+        const auto type = s.getProperty ("type", {}).toString();
         const auto* desc = SlotTypes::byId (type);
         if (desc == nullptr)
+        {
+            info.problems.add ("Skipped a \"" + type + "\" slot, which this version of Tonebench doesn't know about.");
+            continue;
+        }
+        const int slot = desc->index;
+        const int savedSlot = (int) s.getProperty ("slot", slot);
+        if (savedSlot < 0 || savedSlot >= AudioEngine::numSlots)
             continue;
 
+        const bool enabled = (bool) s.getProperty ("enabled", true);
         const juce::File path (s.getProperty ("path", {}).toString());
+        const auto what = describeSlot (slot) + " \"" + path.getFileName() + "\"";
 
-        if (desc->index == AudioEngine::irSlot)
+        if (slot != AudioEngine::vst3Slot)
         {
-            if (! isAllowedContentPath (path))   // SEC-3
-                continue;
-            auto ir = std::make_unique<IRNode>();
-            if (ir->loadFile (path))
+            if (! path.existsAsFile())
             {
-                ir->setMix ((float) (double) s.getProperty ("mix", 1.0));
-                ir->setBypassed (! enabled);
-                engine.setNode (slot, std::move (ir));
+                info.problems.add (what.substring (0, 1).toUpperCase() + what.substring (1) + " wasn't found, so that slot is empty.");
+                continue;
+            }
+            if (! isAllowedContentPath (path))   // SEC-3
+            {
+                info.problems.add ("Skipped " + what + ": Tonebench only loads a preset's files from your home folder or an external drive.");
+                continue;
             }
         }
-        else if (desc->index == AudioEngine::namSlot)
+
+        if (slot == AudioEngine::irSlot)
         {
-            if (! isAllowedContentPath (path))   // SEC-3
+            auto ir = std::make_unique<IRNode>();
+            if (! ir->loadFile (path))
+            {
+                info.problems.add ("Couldn't load " + what + ".");
                 continue;
+            }
+            ir->setMix (unit (s.getProperty ("mix", {}), 1.0));
+            ir->setBypassed (! enabled);
+            engine.setNode (slot, std::move (ir));
+        }
+        else if (slot == AudioEngine::namSlot)
+        {
             auto nam = std::make_unique<NamNode>();
             juce::String err;
-            if (nam->loadFile (path, err))
+            if (! nam->loadFile (path, err))
             {
-                nam->setBypassed (! enabled);
-                engine.setNode (slot, std::move (nam));
+                info.problems.add ("Couldn't load " + what + "." + (err.isNotEmpty() ? " " + err : juce::String()));
+                continue;
             }
+            nam->setUiGain (unit (s.getProperty ("level", {}), 0.5));
+            nam->setBypassed (! enabled);
+            engine.setNode (slot, std::move (nam));
         }
-        else if (desc->index == AudioEngine::vst3Slot)
+        else
         {
             // SEC-3: VST3 = arbitrary code execution. Do NOT load here; hand the
             // slot to the UI, which requires explicit user consent (see

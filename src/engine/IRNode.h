@@ -34,6 +34,7 @@ private:
     double sampleRate  = 0.0;
     int    maxBlockSize = 0;
     std::atomic<float> mix { 1.0f };
+    float appliedMix = 1.0f;   // audio thread: ramps toward mix (no zipper)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IRNode)
 };

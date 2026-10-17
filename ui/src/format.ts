@@ -12,6 +12,11 @@ export const percent = (v: number) => `${Math.round(v * 100)}%`;
 
 // Unit [0..1] -> signed dB trim, centred at 0.5 (e.g. 0.5 -> "+0 dB").
 export const dbFromUnit = (v: number) => {
-  const d = (v - 0.5) * 48;
-  return `${d >= 0 ? "+" : ""}${d.toFixed(0)} dB`;
+  // Round first so a value just below centre (e.g. -0.48) reads "+0 dB", not "-0 dB".
+  const d = Number(((v - 0.5) * 48).toFixed(0));
+  return `${d >= 0 ? "+" : ""}${d} dB`;
 };
+
+// Noise gate amount [0..1] -> its threshold, "Off" at 0 (e.g. 0.5 -> "-50 dB").
+// MUST match C++ AudioPath::gateThresholdDb: -80 + 60 * amount.
+export const gateLabel = (v: number) => (v <= 0 ? "Off" : `${Math.round(-80 + 60 * v)} dB`);

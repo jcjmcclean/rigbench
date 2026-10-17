@@ -18,9 +18,11 @@ Vst3Node::~Vst3Node()
 void Vst3Node::loadAsync (const juce::File& file, double sr, int maxBlockSize,
                           std::function<void (bool, juce::String)> onDone)
 {
+    sourceFile = file;   // set first, so a failure can still name the file
+
     if (! file.exists())
     {
-        onDone (false, "File not found: " + file.getFullPathName());
+        onDone (false, "The file isn't there any more.");
         return;
     }
 
@@ -29,13 +31,12 @@ void Vst3Node::loadAsync (const juce::File& file, double sr, int maxBlockSize,
     fmt.findAllTypesForFile (found, file.getFullPathName());
     if (found.isEmpty())
     {
-        onDone (false, "No VST3 types found in " + file.getFileName());
+        onDone (false, "It may be damaged, or not built for this computer (an Intel-only plugin on an Apple Silicon Mac, for example).");
         return;
     }
 
     sampleRate = sr;
     maxBlock   = maxBlockSize;
-    sourceFile = file;
     identifier = found[0]->createIdentifierString();
 
     formatManager.createPluginInstanceAsync (*found[0], sr, maxBlockSize,
@@ -44,7 +45,7 @@ void Vst3Node::loadAsync (const juce::File& file, double sr, int maxBlockSize,
         {
             if (inst == nullptr)
             {
-                cb (false, err.isNotEmpty() ? err : juce::String ("Failed to create plugin"));
+                cb (false, err.isNotEmpty() ? "The plugin wouldn't start (" + err + ")." : juce::String ("The plugin wouldn't start."));
                 return;
             }
 
@@ -81,6 +82,8 @@ void Vst3Node::prepareInstance (juce::AudioPluginInstance& p)
     p.prepareToPlay (sampleRate, maxBlock);
 
     pluginChans = juce::jmax (ins, outs, 1);
+    mainIns  = juce::jlimit (0, pluginChans, p.getMainBusNumInputChannels());
+    mainOuts = juce::jlimit (1, pluginChans, p.getMainBusNumOutputChannels());
     scratch.setSize (pluginChans, juce::jmax (1, maxBlock), false, true, true);
 }
 
@@ -112,9 +115,14 @@ void Vst3Node::process (juce::AudioBuffer<float>& mono) noexcept
 
     const float* in = mono.getReadPointer (0);
 
-    // Feed the mono guitar signal into every plugin input channel.
+    // The guitar goes into the main input bus only (both sides if it's stereo);
+    // side-chain and aux inputs get silence, so a gate keyed from its side-chain
+    // doesn't key on the guitar.
     for (int ch = 0; ch < pluginChans; ++ch)
-        juce::FloatVectorOperations::copy (scratch.getWritePointer (ch), in, n);
+    {
+        if (ch < mainIns) juce::FloatVectorOperations::copy (scratch.getWritePointer (ch), in, n);
+        else              juce::FloatVectorOperations::clear (scratch.getWritePointer (ch), n);
+    }
 
     // Wrap scratch at the current block length (no allocation; n <= maxBlock).
     juce::AudioBuffer<float> view (scratch.getArrayOfWritePointers(), pluginChans, n);
@@ -122,8 +130,14 @@ void Vst3Node::process (juce::AudioBuffer<float>& mono) noexcept
     midi.clear();
     instance->processBlock (view, midi);
 
-    // Take the plugin's channel-0 output back out as mono.
-    juce::FloatVectorOperations::copy (mono.getWritePointer (0), view.getReadPointer (0), n);
+    // Back to mono: the average of the main outputs, so a stereo delay or reverb
+    // keeps both sides (a dual-mono amp sim comes out unchanged).
+    auto* out = mono.getWritePointer (0);
+    juce::FloatVectorOperations::copy (out, view.getReadPointer (0), n);
+    for (int ch = 1; ch < mainOuts; ++ch)
+        juce::FloatVectorOperations::add (out, view.getReadPointer (ch), n);
+    if (mainOuts > 1)
+        juce::FloatVectorOperations::multiply (out, 1.0f / (float) mainOuts, n);
 }
 
 void Vst3Node::reset()

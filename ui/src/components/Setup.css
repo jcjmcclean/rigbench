@@ -1,0 +1,100 @@
+/* First-run setup: a full-window step-by-step card over the app. */
+.setup {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-5);
+  background: rgba(6, 7, 9, 0.86);
+  backdrop-filter: blur(4px);
+}
+
+.setup__card {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: var(--sp-6);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.setup__progress { display: flex; gap: 6px; margin-bottom: var(--sp-5); }
+.setup__dot {
+  width: 22px; height: 4px; border-radius: 2px;
+  background: var(--bg-4);
+}
+.setup__dot.is-on { background: var(--ember); }
+
+.setup__title {
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--t-xl);
+  font-weight: 600;
+  color: var(--ink-0);
+  outline: none;
+}
+.setup__lead { margin: 0 0 var(--sp-5); color: var(--ink-1); font-size: var(--t-md); line-height: 1.5; }
+
+.setup__note { margin: var(--sp-4) 0 0; color: var(--ink-muted); font-size: var(--t-base); line-height: 1.5; }
+.setup__note--warn { color: var(--warn); }
+
+.setup__driver {
+  margin-top: var(--sp-4);
+  color: var(--ink-muted); font-size: var(--t-sm);
+}
+.setup__driver-row { display: flex; align-items: center; gap: var(--sp-3); }
+.setup__driver-note { margin-top: var(--sp-2); }
+.setup__driver .field { width: auto; font-size: var(--t-base); padding: 6px 10px; }
+
+.setup__test { margin-top: var(--sp-4); }
+
+.setup__actions {
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-top: var(--sp-6);
+}
+.setup__spacer { flex: 1; }
+.setup__skip {
+  color: var(--ink-muted);
+  font-size: var(--t-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.setup__skip:hover { color: var(--ink-0); }
+.btn:disabled { opacity: 0.45; cursor: default; filter: none; }
+
+/* A list of choices (devices) as big rows. */
+.choices { display: flex; flex-direction: column; gap: var(--sp-2); }
+.choices__item,
+.inputs__row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--ink-1);
+  font-size: var(--t-md);
+  text-align: left;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.choices__item:hover,
+.inputs__row:hover { border-color: var(--ink-muted); }
+.choices__item.is-chosen,
+.inputs__row.is-chosen {
+  border-color: var(--ember);
+  background: rgba(var(--ember-rgb), 0.08);
+  color: var(--ink-0);
+}
+
+/* "Play a few notes": one row per input with a live level bar. */
+.inputs { display: flex; flex-direction: column; gap: var(--sp-2); }
+.inputs__name { flex: none; width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inputs__bar {
+  flex: 1; height: 8px; border-radius: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.inputs__fill { display: block; height: 100%; background: var(--signal); transition: width 0.06s linear; }
